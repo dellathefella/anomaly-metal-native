@@ -31,6 +31,9 @@ public:
 	IC iterator end() { return array + count; }
 	IC const_iterator begin() const { return array; }
 	IC const_iterator end() const { return array + count; }
+	// p4: C++11-style const accessors (dev renderer code uses cbegin/cend)
+	IC const_iterator cbegin() const { return array; }
+	IC const_iterator cend() const { return array + count; }
 	IC u32 size() const { return count; }
 	IC void clear() { count = 0; }
 	IC void resize(int c)

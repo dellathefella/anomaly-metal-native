@@ -91,7 +91,7 @@ void CPortal::OnRender()
 //
 void CPortal::setup(const level_portal_data_t& data, const xr_vector<CSector*>& sectors)
 {
-    const auto* V = data.vertices.cbegin();
+    const auto* V = data.vertices.begin();
     const auto vcnt = data.vertices.size();
     CSector* face = sectors[data.sector_front];
     CSector* back = sectors[data.sector_back];

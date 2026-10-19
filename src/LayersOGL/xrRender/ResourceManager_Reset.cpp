@@ -100,7 +100,7 @@ void mdump(C c)
     if (0 == c.size())
         return;
     for (auto I = c.begin(); I != c.end(); ++I)
-        Msg("*        : %3d: %s", 0 , // p4: no refcount I->second->cName.c_str());
+        Msg("*        : %3d: %s", 0, I->second->cName.c_str()); // p4: no refcount
 }
 
 CResourceManager::~CResourceManager()

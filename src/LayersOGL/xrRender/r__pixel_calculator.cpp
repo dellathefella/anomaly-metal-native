@@ -23,12 +23,12 @@ void r_pixel_calculator::begin()
     RCache.set_ZB(zb->pRT);
 #endif
 
-    R_ASSERT(Device.RenderBegin());
+    // p4: dev's Device.RenderBegin/RenderEnd are the D3D device-loop markers;
+    // the GL path binds the RT/ZB directly above/below, so nothing to do here.
 }
 
 void r_pixel_calculator::end()
 {
-    Device.RenderEnd();
 
     RCache.set_RT(RImplementation.Target->get_base_rt());
     RCache.set_ZB(RImplementation.Target->get_base_zb());

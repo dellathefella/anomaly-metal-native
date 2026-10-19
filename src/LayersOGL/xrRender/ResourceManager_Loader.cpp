@@ -15,7 +15,7 @@ void CResourceManager::OnDeviceDestroy(BOOL)
     // Matrices
     for (map_Matrix::iterator m = m_matrices.begin(); m != m_matrices.end(); ++m)
     {
-        R_ASSERT(1 == m->second->ref_count);
+        // p4: monolith CMatrix/CConstant are not refcounted (resptr-core owns the only refs)
         xr_delete(m->second);
     }
     m_matrices.clear();
@@ -23,7 +23,7 @@ void CResourceManager::OnDeviceDestroy(BOOL)
     // Constants
     for (map_Constant::iterator c = m_constants.begin(); c != m_constants.end(); ++c)
     {
-        R_ASSERT(1 == c->second->ref_count);
+        // p4: monolith CMatrix/CConstant are not refcounted (resptr-core owns the only refs)
         xr_delete(c->second);
     }
     m_constants.clear();
@@ -167,7 +167,7 @@ void CResourceManager::StoreNecessaryTextures()
         LPCSTR texture_name = mtex.first;
         if (strstr(texture_name, DELIMITER "levels" DELIMITER))
             continue;
-        if (!strchr(texture_name, _DELIMITER))
+        if (!strchr(texture_name, DELIMITER))
             continue;
 
         ref_texture T;

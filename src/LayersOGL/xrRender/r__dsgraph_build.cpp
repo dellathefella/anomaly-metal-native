@@ -734,8 +734,7 @@ void R_dsgraph_structure::build_subspace()
 
     if (o.is_main_pass && (o.sector_id == IRender_Sector::INVALID_SECTOR_ID))
     {
-        if (g_pGameLevel)
-            // p4: xrGame drives pHUD itself through the set_HUD feed path
+        // p4: xrGame drives pHUD itself through the set_HUD feed path
         return;
     }
 
@@ -878,9 +877,9 @@ void R_dsgraph_structure::build_subspace()
 
                         // Occlusion
                         //	casting is faster then using getVis method
-                        vis_data& v_orig = ((dxRender_Visual*)renderable->GetRenderData().visual)->vis;
+                        vis_data& v_orig = ((dxRender_Visual*)renderable->renderable.visual)->vis;
                         vis_data v_copy = v_orig;
-                        v_copy.box.xform(renderable->GetRenderData().xform);
+                        v_copy.box.xform(renderable->renderable.xform);
                         BOOL bVisible = RImplementation.HOM.visible(v_copy);
                         v_orig.marker = v_copy.marker; // p4: monolith vis_data.marker is a single u32
                         v_orig.accept_frame = v_copy.accept_frame;
@@ -946,8 +945,7 @@ void R_dsgraph_structure::build_subspace()
             }
 #endif
 
-            if (o.is_main_pass)
-                // p4: xrGame drives pHUD itself through the set_HUD feed path
+            // p4: xrGame drives pHUD itself through the set_HUD feed path
         }
     }
 

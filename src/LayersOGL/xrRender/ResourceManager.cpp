@@ -445,7 +445,7 @@ void CResourceManager::_DumpMemoryUsage()
         {
             u32 m = I->second->flags.MemoryUsage;
             shared_str n = I->second->cName;
-            mtex.emplace(m, std::make_pair(I->second->ref_count.load(), n));
+            mtex.emplace(m, std::make_pair(0u, n) // p4: monolith CTexture has no refcount; stats show 0);
         }
     }
 

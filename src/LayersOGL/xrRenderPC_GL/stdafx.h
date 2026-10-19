@@ -110,7 +110,7 @@ ICF Fmatrix xr_inv_view()
 // call sites pass more string args than the monolith's strconcat overloads
 // (max 6) accept.
 inline pcstr xr_strcat_arg(pcstr s) { return s; }
-template <class T>
+template <class T, class = std::enable_if_t<!std::is_convertible_v<const T&, pcstr>>>
 inline pcstr xr_strcat_arg(const T& v) { return v.c_str(); }
 template <size_t Size, class... Args>
 inline LPSTR strconcat(char (&dest)[Size], const Args&... sources)

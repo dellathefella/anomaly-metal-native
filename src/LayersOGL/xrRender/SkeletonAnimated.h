@@ -192,7 +192,7 @@ public:
     CBlend* PlayFX(LPCSTR N, float power_scale);
     CBlend* PlayFX(MotionID M, float power_scale);
 
-    CBlend* PlayFX_Safe(cpcstr N, float power_scale) override;
+    CBlend* PlayFX_Safe(cpcstr N, float power_scale);
 
     const CPartition& partitions() const { return *m_Partition; };
     // General "Visual" stuff

@@ -169,7 +169,7 @@ void CROS_impl::update(IRenderable* O)
     dwFrame = Device.dwFrame;
     if (nullptr == O)
         return;
-    if (nullptr == O->GetRenderData().visual)
+    if (nullptr == O->renderable.visual)
         return;
     VERIFY(dynamic_cast<CROS_impl*>(O->renderable_ROS()));
     // float	dt			=	Device.fTimeDelta;
@@ -177,9 +177,9 @@ void CROS_impl::update(IRenderable* O)
     CObject* _object = dynamic_cast<CObject*>(O);
 
     // select sample, randomize position inside object
-    vis_data& vis = O->GetRenderData().visual->getVisData();
+    vis_data& vis = O->renderable.visual->getVisData();
     Fvector position;
-    O->GetRenderData().xform.transform_tiny(position, vis.sphere.P);
+    O->renderable.xform.transform_tiny(position, vis.sphere.P);
     position.y += .3f * vis.sphere.R;
     Fvector direction;
     direction.random_dir();
@@ -297,7 +297,7 @@ void CROS_impl::smart_update(IRenderable* O)
 {
     if (!O)
         return;
-    if (0 == O->GetRenderData().visual)
+    if (0 == O->renderable.visual)
         return;
 
     --ticks_to_update;
@@ -305,8 +305,8 @@ void CROS_impl::smart_update(IRenderable* O)
     //	Acquire current position
     Fvector position;
     VERIFY(dynamic_cast<CROS_impl*>(O->renderable_ROS()));
-    vis_data& vis = O->GetRenderData().visual->getVisData();
-    O->GetRenderData().xform.transform_tiny(position, vis.sphere.P);
+    vis_data& vis = O->renderable.visual->getVisData();
+    O->renderable.xform.transform_tiny(position, vis.sphere.P);
 
     if (ticks_to_update <= 0)
     {
@@ -443,7 +443,7 @@ void CROS_impl::prepare_lights(Fvector& position, IRenderable* O)
     CObject* _object = dynamic_cast<CObject*>(O);
     float dt = Device.fTimeDelta;
 
-    vis_data& vis = O->GetRenderData().visual->getVisData();
+    vis_data& vis = O->renderable.visual->getVisData();
     float radius;
     radius = vis.sphere.R;
     // light-tracing
@@ -457,9 +457,9 @@ void CROS_impl::prepare_lights(Fvector& position, IRenderable* O)
 
         static xr_vector<ISpatial*> lstSpatial;
 #if RENDER != R_R1
-        g_pGamePersistent->SpatialSpace.q_box(lstSpatial, 0, STYPE_LIGHTSOURCEHEMI, position, bb_size);
+        g_SpatialSpace->q_box(lstSpatial, 0, STYPE_LIGHTSOURCEHEMI, position, bb_size);
 #else
-        g_pGamePersistent->SpatialSpace.q_box(lstSpatial, 0, STYPE_LIGHTSOURCE, position, bb_size);
+        g_SpatialSpace->q_box(lstSpatial, 0, STYPE_LIGHTSOURCE, position, bb_size);
 #endif
         for (u32 o_it = 0; o_it < lstSpatial.size(); o_it++)
         {

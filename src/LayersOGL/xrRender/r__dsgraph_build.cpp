@@ -43,9 +43,9 @@ void R_dsgraph_structure::insert_dynamic(IRenderable* root, dxRender_Visual* pVi
 
     CRender& RI = RImplementation;
 
-    if (pVisual->vis.marker[context_id] == marker)
+    if (pVisual->vis.marker == marker)
         return;
-    pVisual->vis.marker[context_id] = marker;
+    pVisual->vis.marker = marker;
 
 #if RENDER == R_R1
     if (RI.o.vis_intersect && (pVisual->vis.accept_frame != Device.dwFrame))
@@ -160,9 +160,9 @@ void R_dsgraph_structure::insert_static(dxRender_Visual* pVisual)
 
     CRender& RI = RImplementation;
 
-    if (pVisual->vis.marker[context_id] == marker)
+    if (pVisual->vis.marker == marker)
         return;
-    pVisual->vis.marker[context_id] = marker;
+    pVisual->vis.marker = marker;
 
 #if RENDER == R_R1
     if (RI.o.vis_intersect && (pVisual->vis.accept_frame != Device.dwFrame))

@@ -29,7 +29,9 @@ void Touch::feel_touch_update(Fvector& C, float R)
 {
 	// Check if denied objects expire in time
 	DWORD dwT = Device.dwTimeGlobal;
-	for (u32 dit = 0; dit < feel_touch_disable.size(); dit++)
+	// dit reused by the loop below (old MSVC for-scope leak)
+	u32 dit;
+	for (dit = 0; dit < feel_touch_disable.size(); dit++)
 	{
 		if (feel_touch_disable[dit].Expire < dwT)
 		{

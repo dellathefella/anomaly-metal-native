@@ -526,6 +526,14 @@ void updateDiscordPresence()
 
 void Init_Discord()
 {
+#ifdef XR_PLATFORM_POSIX
+	// Rich presence requires the proprietary discord_game_sdk shared library,
+	// which Anomaly ships for Windows/Linux only — disabled on macOS.
+	Msg("[Discord RPC] Not available on this platform");
+	use_discord = false;
+	return;
+#endif
+
 	auto result = discord::Core::Create(477910171964801060, DiscordCreateFlags_NoRequireDiscord, &discord_core);
 	
 	if (result != discord::Result::Ok)
@@ -886,6 +894,8 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	Debug._initialize(false);
 #endif // DEDICATED_SERVER
 
+#ifndef XR_PLATFORM_POSIX
+	// Win32 low-fragmentation heap tuning (kernel32-specific)
 	if (!IsDebuggerPresent())
 	{
 		HMODULE const kernel32 = LoadLibrary("kernel32.dll");
@@ -907,10 +917,11 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 				sizeof(HeapFragValue)
 			);
 #ifdef DEBUG
-			VERIFY2(result, "can't set process heap low fragmentation");#
+			VERIFY2(result, "can't set process heap low fragmentation");
 #endif
 		}
 	}
+#endif // XR_PLATFORM_POSIX
 
 	// foo();
 #ifndef DEDICATED_SERVER
@@ -1141,6 +1152,7 @@ extern BOOL DllMainXrPhysics(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lp
 //extern BOOL DllMainXrRenderR3(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved);
 //extern BOOL DllMainXrRenderR4(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved);
 
+#ifdef _WIN32 // POSIX uses the xr_3da entry point (xray_main_sdl.cpp)
 int APIENTRY WinMain(HINSTANCE hInstance,
                      HINSTANCE hPrevInstance,
                      char* lpCmdLine,
@@ -1168,6 +1180,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 
 	return (0);
 }
+#endif // _WIN32
 
 LPCSTR _GetFontTexName(LPCSTR section)
 {

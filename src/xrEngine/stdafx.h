@@ -29,6 +29,11 @@
 //#include <dplay8.h>
 #pragma warning(pop)
 
+#ifdef XR_PLATFORM_POSIX
+// SDL-backed Win32 window/message shim (keeps Win32 call sites intact)
+#	include "xr_win32_shim_sdl.h"
+#endif
+
 // you must define ENGINE_BUILD then building the engine itself
 // and not define it if you are about to build DLL
 #ifndef NO_ENGINE_API

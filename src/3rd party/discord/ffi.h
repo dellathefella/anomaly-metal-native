@@ -216,18 +216,17 @@ typedef char DiscordMetadataValue[4096];
 typedef uint64_t DiscordNetworkPeerId;
 typedef uint8_t DiscordNetworkChannelId;
 #ifdef __APPLE__
-typedef void IDXGISwapChain
+typedef void IDXGISwapChain;
+// X-Ray's engine shim already defines a real MSG type (xr_win32_shim_sdl.h)
+#ifndef XR_HAVE_MSG_TYPEDEF
+typedef void MSG;
+#endif
 #endif
 #ifdef __linux__
-  typedef void IDXGISwapChain
+  typedef void IDXGISwapChain;
+  typedef void MSG;
 #endif
-#ifdef __APPLE__
-  typedef void MSG
-#endif
-#ifdef __linux__
-  typedef void MSG
-#endif
-  typedef char DiscordPath[4096];
+typedef char DiscordPath[4096];
 typedef char DiscordDateTime[64];
 
 struct DiscordUser {

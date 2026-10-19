@@ -1,6 +1,10 @@
 #ifndef pure_relcaseH
 #define pure_relcaseH
 
+// clang resolves non-dependent names (g_pGameLevel, CObjectList) in template
+// bodies at definition time — old MSVC deferred this to instantiation.
+#include "IGame_Level.h"
+
 class ENGINE_API pure_relcase
 {
 private:

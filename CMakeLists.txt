@@ -38,6 +38,12 @@ if(NOT MSVC)
     add_compile_options(-fms-extensions -fno-operator-names)
 endif()
 
+if(NOT WIN32)
+    # d3d9.h/d3d9types.h type+constant shims for engine-core modules
+    # (renderer layers are not built on POSIX).
+    include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src/Include/POSIXShims")
+endif()
+
 find_package(SDL2 REQUIRED)
 find_package(OpenGL)
 

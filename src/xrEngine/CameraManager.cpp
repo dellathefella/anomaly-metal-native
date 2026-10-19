@@ -234,7 +234,9 @@ CEffectorPP* CCameraManager::GetPPEffector(EEffectorPPType type)
 
 ECamEffectorType CCameraManager::RequestCamEffectorId()
 {
-	for (ECamEffectorType index = (ECamEffectorType)effCustomEffectorStartID;
+	// MSVC for-scope leak: `index` must outlive the loop for the return
+	ECamEffectorType index;
+	for (index = (ECamEffectorType)effCustomEffectorStartID;
 	     GetCamEffector(index);
 	     index = (ECamEffectorType)(index + 1))
 	{
@@ -245,7 +247,8 @@ ECamEffectorType CCameraManager::RequestCamEffectorId()
 
 EEffectorPPType CCameraManager::RequestPPEffectorId()
 {
-	for (EEffectorPPType index = (EEffectorPPType)effCustomEffectorStartID;
+	EEffectorPPType index;
+	for (index = (EEffectorPPType)effCustomEffectorStartID;
 	     GetPPEffector(index);
 	     index = (EEffectorPPType)(index + 1))
 	{
@@ -444,13 +447,13 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 	Device.fFOV = m_cam_info.fFov;
 	Device.fASPECT = m_cam_info.fAspect;
 	//--#SM+# Begin-- +SecondVP+
-	// Ia?an÷eouâaai FOV äëy âoî?îaî âü?iî?oa [Recalculate scene FOV for SecondVP frame]
+	// Ia?anï¿½eouï¿½aai FOV ï¿½ï¿½y ï¿½oï¿½?ï¿½aï¿½ ï¿½ï¿½?iï¿½?oa [Recalculate scene FOV for SecondVP frame]
 	if (Device.m_SecondViewport.IsSVPFrame())
 	{
-		// Äëy âoî?îaî âü?iî?oa FOV âunoaâëyai çäanü
+		// ï¿½ï¿½y ï¿½oï¿½?ï¿½aï¿½ ï¿½ï¿½?iï¿½?oa FOV ï¿½unoaï¿½ï¿½yai ï¿½ï¿½anï¿½
 		Device.fFOV = g_pGamePersistent->m_pGShaderConstants->hud_params.y;
 
-		// I?aäói?aaäaai ÷oî iu eçiaíeëe íano?îéee eaia?u
+		// I?aï¿½ï¿½i?aaï¿½aai ï¿½oï¿½ iu eï¿½iaï¿½eï¿½e ï¿½ano?ï¿½ï¿½ee eaia?u
 		Device.m_SecondViewport.isCamReady = true;
 	}
 	else

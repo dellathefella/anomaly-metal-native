@@ -340,7 +340,17 @@ inline int vsnprintf_s(char* buffer, size_t size, size_t, const char* format, va
     //TODO add bound check
     return vsnprintf(buffer, size, format, list);
 }
-#define vsprintf_s(dest, size, format, args) vsprintf(dest, format, args)
+// MSVC secure vsprintf_s has a 4-arg form and a 3-arg form (size inferred from
+// the buffer template); overloads cover both call shapes.
+inline int xr_vsprintf_s_impl(char* dest, size_t, const char* format, va_list args)
+{
+    return vsprintf(dest, format, args);
+}
+inline int xr_vsprintf_s_impl(char* dest, const char* format, va_list args)
+{
+    return vsprintf(dest, format, args);
+}
+#define vsprintf_s xr_vsprintf_s_impl
 #define _snprintf snprintf
 #define sprintf_s(buffer, buffer_size, stringbuffer, ...) sprintf(buffer, stringbuffer, ##__VA_ARGS__)
 #define sscanf_s sscanf

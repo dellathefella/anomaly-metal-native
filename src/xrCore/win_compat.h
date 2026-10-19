@@ -38,6 +38,104 @@ typedef int64_t LONGLONG;
 typedef void VOID;
 #endif
 
+#ifndef GUID_DEFINED
+#define GUID_DEFINED
+typedef struct _GUID
+{
+    uint32_t Data1;
+    uint16_t Data2;
+    uint16_t Data3;
+    unsigned char Data4[8];
+} GUID, *LPGUID;
+inline bool operator==(const GUID& a, const GUID& b)
+{
+    return a.Data1 == b.Data1 && a.Data2 == b.Data2 && a.Data3 == b.Data3 &&
+           memcmp(a.Data4, b.Data4, 8) == 0;
+}
+inline bool operator!=(const GUID& a, const GUID& b) { return !(a == b); }
+#endif
+
+// Wide-char helpers (ASCII-transliterating; used by the DirectPlay shim path)
+#ifndef XR_POSIX_WCHAR_DEFINED
+#define XR_POSIX_WCHAR_DEFINED
+typedef unsigned short WCHAR;
+typedef WCHAR* LPWSTR;
+typedef const WCHAR* LPCWSTR;
+#endif
+#ifndef CP_ACP
+#define CP_ACP 0
+#endif
+#ifndef WC_NO_BEST_FIT_CHARS
+#define WC_NO_BEST_FIT_CHARS 0
+#endif
+inline int MultiByteToWideChar(unsigned int, unsigned long, const char* mb, int cbMulti,
+                               LPWSTR wc, int cchWide)
+{
+    if (!mb)
+        return 0;
+    if (cbMulti < 0)
+        cbMulti = (int)strlen(mb) + 1;
+    if (!wc || cchWide == 0)
+        return cbMulti;
+    int n = cbMulti < cchWide ? cbMulti : cchWide;
+    for (int i = 0; i < n; ++i)
+        wc[i] = (WCHAR)(unsigned char)mb[i];
+    return n;
+}
+inline int WideCharToMultiByte(unsigned int, unsigned long, const LPCWSTR wc, int cchWide,
+                               char* mb, int cbMulti, const char*, BOOL*)
+{
+    if (!wc)
+        return 0;
+    if (cchWide < 0)
+    {
+        int n = 0;
+        while (wc[n])
+            ++n;
+        cchWide = n + 1;
+    }
+    if (!mb || cbMulti == 0)
+        return cchWide;
+    int n = cchWide < cbMulti ? cchWide : cbMulti;
+    for (int i = 0; i < n; ++i)
+        mb[i] = (char)(unsigned char)wc[i];
+    return n;
+}
+
+// DirectX trace macro (dxerr.h) — no-op on POSIX
+#ifndef DXTRACE_ERR
+#define DXTRACE_ERR(msg, hr) ((void)0)
+#endif
+#ifndef DXTRACE_ERR_MSGBOX
+#define DXTRACE_ERR_MSGBOX(msg, hr) ((void)0)
+#endif
+
+#ifndef INT
+typedef int INT;
+#endif
+#ifndef ULONG
+typedef unsigned long ULONG;
+#endif
+#ifndef SIZE_T
+typedef size_t SIZE_T;
+#endif
+
+// Minimal COM IUnknown (xrEngine ref-count helpers; no COM runtime on POSIX).
+#ifndef IUNKNOWN_DEFINED
+#define IUNKNOWN_DEFINED
+struct IUnknown
+{
+    virtual long QueryInterface(const GUID&, void**) = 0;
+    virtual unsigned long AddRef() = 0;
+    virtual unsigned long Release() = 0;
+    virtual ~IUnknown() {}
+};
+#endif
+
+#ifndef _unlink
+#define _unlink unlink
+#endif
+
 #ifndef INVALID_HANDLE_VALUE
 #define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
 #endif
@@ -101,6 +199,29 @@ inline HANDLE CreateEventA(void*, BOOL manual_reset, BOOL initial, void*)
 }
 #define CreateEventW CreateEventA
 #define CreateEvent CreateEventA
+
+// Single-instance mutex (NO_MULTI_INSTANCES). OpenMutex always reports "not
+// running"; CreateMutex returns a readable handle with an unknown magic so
+// xr_CloseHandle ignores it (leaked for process lifetime — intentional).
+#ifndef READ_CONTROL
+#define READ_CONTROL 0x000F0000L
+#endif
+inline HANDLE OpenMutexA(unsigned long, BOOL, LPCSTR) { return nullptr; }
+#define OpenMutexW OpenMutexA
+#define OpenMutex OpenMutexA
+struct xr_win_mutex_shim
+{
+    uint32_t magic; // 'XRx1' — unknown to xr_CloseHandle, so safely ignored
+};
+inline HANDLE CreateMutexA(void*, BOOL, LPCSTR)
+{
+    xr_win_mutex_shim* m = new xr_win_mutex_shim;
+    m->magic = 0x58527831;
+    return (HANDLE)m;
+}
+#define CreateMutexW CreateMutexA
+#define CreateMutex CreateMutexA
+inline BOOL ReleaseMutex(HANDLE) { return TRUE; }
 
 inline BOOL SetEvent(HANDLE h)
 {
@@ -263,9 +384,13 @@ inline LONG InterlockedIncrement(volatile LONG* p) { return __sync_add_and_fetch
 inline LONG InterlockedDecrement(volatile LONG* p) { return __sync_sub_and_fetch(p, 1); }
 inline LONG InterlockedExchange(volatile LONG* p, LONG v) { return __sync_lock_test_and_set(p, v); }
 inline LONG InterlockedExchangeAdd(volatile LONG* p, LONG v) { return __sync_fetch_and_add(p, v); }
-inline LONG InterlockedCompareExchange(volatile LONG* p, LONG xchg, LONG compar)
+// Win32 LONG is always 32-bit; the engine passes (long*) casts to 32-bit
+// storage (LP64 trap) — operate on the 32-bit object, not the pointer type.
+template <typename P, typename V>
+inline V InterlockedCompareExchange(P* p, V xchg, V compar)
 {
-    return __sync_val_compare_and_swap(p, compar, xchg);
+    volatile int32_t* q = (volatile int32_t*)p;
+    return (V)__sync_val_compare_and_swap(q, (int32_t)compar, (int32_t)xchg);
 }
 inline void* InterlockedExchangePointer(void* volatile* p, void* v) { return __sync_lock_test_and_set(p, v); }
 inline void* InterlockedCompareExchangePointer(void* volatile* p, void* xchg, void* compar)
@@ -677,6 +802,13 @@ BOOL xr_SetFileAttributesA(LPCSTR path, unsigned long attr);
 #ifndef _strlwr
 #define _strlwr strlwr
 #endif
+// locale-scoped variants (second argument ignored)
+#ifndef _strlwr_l
+#define _strlwr_l(s, l) strlwr(s)
+#endif
+#ifndef _strupr_l
+#define _strupr_l(s, l) strupr(s)
+#endif
 
 inline char* _i64toa_s_compat(long long v, char* buf, size_t sz, int radix)
 {
@@ -736,22 +868,163 @@ inline void _strtime_compat(char* buf)
 #ifndef GetModuleHandleW
 #define GetModuleHandleW GetModuleHandleA
 #endif
+// RTLD_GLOBAL: engine modules reference each other's globals (::Render, DU,
+// xrBind_*) which are resolved via -undefined dynamic_lookup at call time.
 #ifndef LoadLibraryA
-#define LoadLibraryA(p) dlopen(p, RTLD_LAZY)
+#define LoadLibraryA(p) dlopen(p, RTLD_LAZY | RTLD_GLOBAL)
 #endif
 #ifndef LoadLibrary
 #define LoadLibrary LoadLibraryA
 #endif
 #ifndef LoadLibraryExA
-#define LoadLibraryExA(p, h, f) dlopen(p, RTLD_LAZY)
+#define LoadLibraryExA(p, h, f) dlopen(p, RTLD_LAZY | RTLD_GLOBAL)
 #endif
 #ifndef FreeLibrary
 #define FreeLibrary(h) dlclose(h)
+#endif
+#ifndef HMODULE
+typedef void* HMODULE;
+#endif
+#ifndef HINSTANCE
+typedef void* HINSTANCE;
+#endif
+#ifndef GetProcAddress
+inline void* GetProcAddress(void* h, const char* name) { return h ? dlsym(h, name) : nullptr; }
 #endif
 #define DLL_PROCESS_ATTACH 1
 #define DLL_THREAD_ATTACH 2
 #define DLL_THREAD_DETACH 3
 #define DLL_PROCESS_DETACH 0
+
+// Win32 calling-convention markers — no-ops on POSIX ABIs.
+#ifndef PASCAL
+#define PASCAL
+#endif
+#ifndef CDECL
+#define CDECL
+#endif
+#ifndef APIENTRY
+#define APIENTRY
+#endif
+
+// SEH dispatch constants (the engine's stack-overflow filter returns these;
+// the __try/__except wrapper itself is Windows-only).
+#ifndef EXCEPTION_CONTINUE_EXECUTION
+#define EXCEPTION_CONTINUE_EXECUTION (-1)
+#define EXCEPTION_CONTINUE_SEARCH 0
+#define EXCEPTION_EXECUTE_HANDLER 1
+#define EXCEPTION_STACK_OVERFLOW ((int)0x40000025L)
+#define EXCEPTION_INT_DIVIDE_BY_ZERO ((int)0xC0000094L)
+#define EXCEPTION_ILLEGAL_INSTRUCTION ((int)0xC000001DL)
+#define EXCEPTION_ACCESS_VIOLATION ((int)0xC0000005L)
+#endif
+
+// ---------------------------------------------------------------------------
+// SystemParametersInfo (accessibility keys + screensaver) — no-ops on POSIX.
+// The engine probes/disables sticky/toggle/filter keys and suppresses the
+// screensaver; macOS power assertions are handled elsewhere (sdl port).
+// ---------------------------------------------------------------------------
+typedef struct tagSTICKYKEYS
+{
+    unsigned long cbSize;
+    unsigned long dwFlags;
+} STICKYKEYS, *LPSTICKYKEYS;
+typedef struct tagTOGGLEKEYS
+{
+    unsigned long cbSize;
+    unsigned long dwFlags;
+} TOGGLEKEYS, *LPTOGGLEKEYS;
+typedef struct tagFILTERKEYS
+{
+    unsigned long cbSize;
+    unsigned long dwFlags;
+    unsigned long WaitSecs;
+    unsigned long BounceSecs;
+    unsigned long TimeSecs;
+} FILTERKEYS, *LPFILTERKEYS;
+
+#define SKF_AVAILABLE 0x00000001
+#define SKF_HOTKEYACTIVE 0x00000004
+#define TKF_AVAILABLE 0x00000002
+#define TKF_HOTKEYACTIVE 0x00000008
+#define FKF_AVAILABLE 0x00000002
+#define FKF_HOTKEYACTIVE 0x00000004
+
+#define SPI_GETSTICKYKEYS 0x0009
+#define SPI_SETSTICKYKEYS 0x000B
+#define SPI_GETTOGGLEKEYS 0x0008
+#define SPI_SETTOGGLEKEYS 0x000A
+#define SPI_GETFILTERKEYS 0x0032
+#define SPI_SETFILTERKEYS 0x0033
+#define SPI_GETSCREENSAVEACTIVE 0x0010
+#define SPI_SETSCREENSAVEACTIVE 0x0011
+
+inline BOOL SystemParametersInfoA(unsigned int uiAction, unsigned int uiParam, void* pvParam,
+                                  unsigned int)
+{
+    if (pvParam)
+    {
+        switch (uiAction)
+        {
+        case SPI_GETSTICKYKEYS:
+            if (uiParam >= sizeof(STICKYKEYS))
+            {
+                STICKYKEYS* s = (STICKYKEYS*)pvParam;
+                s->cbSize = sizeof(STICKYKEYS);
+                s->dwFlags = 0; // none available
+            }
+            break;
+        case SPI_GETTOGGLEKEYS:
+            if (uiParam >= sizeof(TOGGLEKEYS))
+            {
+                TOGGLEKEYS* s = (TOGGLEKEYS*)pvParam;
+                s->cbSize = sizeof(TOGGLEKEYS);
+                s->dwFlags = 0;
+            }
+            break;
+        case SPI_GETFILTERKEYS:
+            if (uiParam >= sizeof(FILTERKEYS))
+            {
+                FILTERKEYS* s = (FILTERKEYS*)pvParam;
+                s->cbSize = sizeof(FILTERKEYS);
+                s->dwFlags = 0;
+            }
+            break;
+        case SPI_GETSCREENSAVEACTIVE: *(int*)pvParam = 0; break;
+        default: break;
+        }
+    }
+    return TRUE;
+}
+#define SystemParametersInfo SystemParametersInfoA
+
+// Process spawn (engine "launch on exit" restart) — not implemented on the
+// macOS port (relaunch via shell); stub keeps the Win32 call site intact.
+typedef struct tagSTARTUPINFOA
+{
+    unsigned long cb;
+    char* lpReserved;
+    char* lpTitle;
+    unsigned long dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars;
+    unsigned long dwFillAttribute, dwFlags;
+    unsigned short wShowWindow, cbReserved2;
+    unsigned char* lpReserved2;
+    void* hStdInput, *hStdOutput, *hStdError;
+} STARTUPINFOA, *LPSTARTUPINFOA;
+#define STARTUPINFO STARTUPINFOA
+typedef struct tagPROCESS_INFORMATION
+{
+    void* hProcess;
+    void* hThread;
+    unsigned long dwProcessId;
+    unsigned long dwThreadId;
+} PROCESS_INFORMATION, *LPPROCESS_INFORMATION;
+inline BOOL CreateProcessA(const char*, char*, void*, void*, BOOL, unsigned long, void*,
+                           const char*, void*, void*)
+{
+    return FALSE;
+}
+#define CreateProcess CreateProcessA
 
 // ---------------------------------------------------------------------------
 // Sockets (BSD)

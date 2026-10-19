@@ -9,6 +9,12 @@
 
 extern LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+#ifdef XR_PLATFORM_POSIX
+// Primary engine window (SDL_Window* stored as HWND elsewhere).
+static HWND g_xr_primary_window = nullptr;
+HWND xr_sdl_primary_window() { return g_xr_primary_window; }
+#endif
+
 #ifdef INGAME_EDITOR
 void CRenderDevice::initialize_editor()
 {
@@ -48,6 +54,25 @@ PROTECT_API void CRenderDevice::Initialize()
 	// Unless a substitute hWnd has been specified, create a window to render into
 	if (m_hWnd == NULL)
 	{
+#ifdef XR_PLATFORM_POSIX
+		// SDL window — the GL/Metal renderer attaches its surface to it.
+		SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+		if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
+			Msg("! SDL_InitSubSystem failed: %s", SDL_GetError());
+		SDL_Window* win = SDL_CreateWindow(
+			"S.T.A.L.K.E.R.: Anomaly",
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+			640, 480,
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+		if (!win)
+		{
+			Msg("! SDL_CreateWindow failed: %s", SDL_GetError());
+			R_ASSERT(win);
+		}
+		m_hWnd = (HWND)win;
+		g_xr_primary_window = m_hWnd;
+		m_dwWindowStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+#else
 		const char* wndclass = "_XRAY_1.5";
 
 		// Register the windows class
@@ -75,6 +100,7 @@ PROTECT_API void CRenderDevice::Initialize()
 		                        /*rc.left, rc.top, */CW_USEDEFAULT, CW_USEDEFAULT,
 		                        (rc.right - rc.left), (rc.bottom - rc.top), 0L,
 		                        0, hInstance, 0L);
+#endif
 	}
 
 	// Save window properties

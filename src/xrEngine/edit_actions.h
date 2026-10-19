@@ -10,9 +10,12 @@
 
 #include <boost/noncopyable.hpp>
 
+// key_state is defined in line_edit_control.h (clang needs the complete type
+// for the by-value fields below; old MSVC deferred to instantiation)
+#include "line_edit_control.h"
+
 namespace text_editor
 {
-	enum key_state;
 	class line_edit_control;
 
 	class base : private boost::noncopyable

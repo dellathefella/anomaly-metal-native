@@ -29,8 +29,8 @@ struct CDestroyer
 	template <typename T, int size>
 	IC static void delete_data(svector<T, size>& data)
 	{
-		svector<T, size>::iterator I = data.begin();
-		svector<T, size>::iterator E = data.end();
+		typename svector<T, size>::iterator I = data.begin();
+		typename svector<T, size>::iterator E = data.end();
 		for (; I != E; ++I)
 			delete_data(*I);
 		data.clear();
@@ -84,34 +84,43 @@ struct CDestroyer
 	template <typename T>
 	struct CHelper1
 	{
-		template <bool a>
-		IC static void delete_data(T&)
+		// tag-dispatch: nested explicit specialization is an MSVC extension
+		IC static void delete_data_impl(T&, std::false_type /*a*/)
 		{
 		}
 
-		template <>
-		IC static void delete_data<true>(T& data)
+		IC static void delete_data_impl(T& data, std::true_type /*a==true*/)
 		{
 			data.destroy();
+		}
+
+		template <bool a>
+		IC static void delete_data(T& data)
+		{
+			delete_data_impl(data, std::integral_constant<bool, a>());
 		}
 	};
 
 	template <typename T>
 	struct CHelper2
 	{
-		template <bool a>
-		IC static void delete_data(T& data)
+		IC static void delete_data_impl(T& data, std::false_type /*not pointer*/)
 		{
-			CHelper1<T>::delete_data < object_type_traits::is_base_and_derived<IPureDestroyableObject, T>::value > (data
+			CHelper1<T>::template delete_data < object_type_traits::is_base_and_derived<IPureDestroyableObject, T>::value > (data
 			);
 		}
 
-		template <>
-		IC static void delete_data<true>(T& data)
+		IC static void delete_data_impl(T& data, std::true_type /*is pointer*/)
 		{
 			if (data)
 				CDestroyer::delete_data(*data);
 			xr_delete(data);
+		}
+
+		template <bool a>
+		IC static void delete_data(T& data)
+		{
+			delete_data_impl(data, std::integral_constant<bool, a>());
 		}
 	};
 
@@ -120,8 +129,8 @@ struct CDestroyer
 		template <typename T>
 		IC static void delete_data(T& data)
 		{
-			T::iterator I = data.begin();
-			T::iterator E = data.end();
+			typename T::iterator I = data.begin();
+			typename T::iterator E = data.end();
 			for (; I != E; ++I)
 				CDestroyer::delete_data(*I);
 			data.clear();
@@ -131,23 +140,27 @@ struct CDestroyer
 	template <typename T>
 	struct CHelper4
 	{
+		IC static void delete_data_impl(T& data, std::false_type /*not stl container*/)
+		{
+			CHelper2<T>::template delete_data < object_type_traits::is_pointer<T>::value > (data);
+		}
+
+		IC static void delete_data_impl(T& data, std::true_type /*is stl container*/)
+		{
+			CHelper3::delete_data(data);
+		}
+
 		template <bool a>
 		IC static void delete_data(T& data)
 		{
-			CHelper2<T>::delete_data < object_type_traits::is_pointer<T>::value > (data);
-		}
-
-		template <>
-		IC static void delete_data<true>(T& data)
-		{
-			CHelper3::delete_data(data);
+			delete_data_impl(data, std::integral_constant<bool, a>());
 		}
 	};
 
 	template <typename T>
 	IC static void delete_data(T& data)
 	{
-		CHelper4<T>::delete_data < object_type_traits::is_stl_container<T>::value > (data);
+		CHelper4<T>::template delete_data < object_type_traits::is_stl_container<T>::value > (data);
 	}
 };
 

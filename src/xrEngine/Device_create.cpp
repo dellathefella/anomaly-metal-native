@@ -6,6 +6,7 @@
 #include "render.h"
 #include "dedicated_server_only.h"
 #include "../xrcdb/xrxrc.h"
+#include "../Layers/xrRender/dxRenderFactory.h" // complete type for RenderFactory->
 
 //#include "securom_api.h"
 

@@ -164,11 +164,15 @@ void CTextConsole::Initialize()
 	m_dwLastUpdateTime = Device.dwTimeGlobal;
 	m_last_time = Device.dwTimeGlobal;
 
+	// Win32 companion console/log windows: GDI-based, not created on POSIX
+	// (the renderer draws the in-game console there).
+#ifndef XR_PLATFORM_POSIX
 	CreateConsoleWnd();
 	CreateLogWnd();
 
 	ShowWindow(m_hConsoleWnd, SW_SHOW);
 	UpdateWindow(m_hConsoleWnd);
+#endif
 
 	m_server_info.ResetData();
 }
@@ -195,7 +199,7 @@ void CTextConsole::Destroy()
 
 void CTextConsole::OnRender()
 {
-} //disable ÑConsole::OnRender()
+} //disable ï¿½Console::OnRender()
 
 void CTextConsole::OnPaint()
 {

@@ -4,11 +4,9 @@
 
 #include "RenderFactory.h"
 #include "../../Include/xrAPI/xrAPI.h"
-#ifndef XR_PLATFORM_POSIX
-// Brings in RenderFactoryImpl + DX types; only needed by the instantiation
-// block below (Windows) — on POSIX the render factories are wired by xrEngine.
-#	include "../../Layers/xrRender/dxRenderFactory.h"
-#endif
+// dxRenderFactory.h is a pure interface (no DX runtime) — safe on POSIX; the
+// GL/Metal renderer modules provide RenderFactoryImpl.
+#include "../../Layers/xrRender/dxRenderFactory.h"
 
 #define FACTORY_PTR_INSTANCIATE(Class) \
 	template <> \

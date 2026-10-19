@@ -858,6 +858,18 @@ inline char* _itoa(int value, char* buf, int radix)
 #ifndef _localtime64
 #define _localtime64 localtime
 #endif
+// Win32 32-bit time: macOS time_t is 64-bit, so truncate for wire/format compat
+#ifndef __time32_t_defined
+#define __time32_t_defined
+typedef int __time32_t;
+inline int _time32(__time32_t* t)
+{
+	time_t now = time(0);
+	if (t)
+		*t = static_cast<__time32_t>(now);
+	return static_cast<int>(now);
+}
+#endif
 // wcslen for 16-bit WCHAR strings (MSVC wchar_t is 2 bytes; macOS wchar_t is 4)
 inline size_t wcslen(const WCHAR* s)
 {

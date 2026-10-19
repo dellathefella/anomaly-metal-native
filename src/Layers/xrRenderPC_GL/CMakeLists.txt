@@ -328,6 +328,11 @@ target_include_directories(xrRender_GL
     "${XRAY_SOURCE_DIR}/src/Layers/xrRenderGL"
     "${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_r2"
     "${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared"
+    # Alias dir: LayersOGL/xrRender -> staged OpenXRay xrRender, so the ported
+    # sources' "Layers/xrRender/..." includes resolve to OpenXRay headers while
+    # everything else (xrEngine, Include/xrRender) stays monolith. Must precede
+    # the src root.
+    "${XRAY_SOURCE_DIR}/src/LayersOGL"
     "${XRAY_SOURCE_DIR}/src"
     "${XRAY_SOURCE_DIR}/src/xrEngine"
     "${XRAY_SOURCE_DIR}/src/Include"
@@ -341,9 +346,15 @@ target_compile_definitions(xrRender_GL
     PRIVATE
     RENDERER_EXPORTS
     USE_OGL
+    _MT
+    _DLL
     RENDER_NAMESPACE=render_gl
     $<$<CONFIG:Debug>:_DEBUG>
 )
+
+# glad is C: keep it out of the C++ PCH (C-mode lookup cannot see libc++ headers)
+set_source_files_properties("${XRAY_SOURCE_DIR}/src/3rd party/glad/gl.c"
+    PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE)
 
 target_link_libraries(xrRender_GL
     PRIVATE

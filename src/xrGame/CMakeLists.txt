@@ -18,6 +18,8 @@ list(REMOVE_ITEM XRGAME_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/DynamicHeightMap.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/debug_make_final_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/static_cast_checked_test.cpp"
+    # vcxproj ExcludedFromBuild in Release (body unguarded, needs USE_PROFILER/DEBUG)
+    "${CMAKE_CURRENT_SOURCE_DIR}/profiler.cpp"
 )
 
 add_library(xrGame SHARED ${XRGAME_SOURCES})

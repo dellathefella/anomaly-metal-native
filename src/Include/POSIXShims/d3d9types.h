@@ -10,6 +10,10 @@
 #ifndef XR_POSIX_D3D9TYPES_H
 #define XR_POSIX_D3D9TYPES_H
 
+// Stand down when OpenXRay's Common/d3d9compat.hpp (GL renderer port) is
+// already in this TU: it provides a superset of these types.
+#ifndef XRAY_D3D9_TYPES_PROVIDED
+
 #include <stdint.h>
 
 typedef uint32_t D3DCOLOR;
@@ -323,4 +327,5 @@ typedef struct _D3DVERTEXELEMENT9
     uint8_t UsageIndex;
 } D3DVERTEXELEMENT9;
 
+#endif // XRAY_D3D9_TYPES_PROVIDED
 #endif // XR_POSIX_D3D9TYPES_H

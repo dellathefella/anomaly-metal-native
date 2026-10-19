@@ -17,6 +17,10 @@ protected:
 	typedef CPropertyEvaluator<_object_type> inherited;
 	// clang: dependent base typedefs must be re-exposed for unqualified use
 	typedef typename inherited::_condition_type _condition_type;
+
+public:
+	// clang: Lua binding (property_evaluator_script.cpp) names this from outside
+	// the class — MSVC permitted access to the protected re-export.
 	typedef typename inherited::_value_type _value_type;
 
 protected:

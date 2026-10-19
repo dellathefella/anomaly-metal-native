@@ -1,5 +1,9 @@
 #pragma once
 
+// D3D9 type set must precede the engine headers so the engine's POSIX shim
+// (Include/POSIXShims/d3d9types.h) stands down (see XRAY_D3D9_TYPES_PROVIDED).
+#include "Common/d3d9compat.hpp"
+
 #pragma warning(disable:4995)
 #include "xrEngine/stdafx.h"
 #pragma warning(default:4995)

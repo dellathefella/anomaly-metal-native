@@ -77,6 +77,25 @@ public:
 	// exposes DumpStatistics; the overlay itself is not ported (no-op stub).
 	IC void DumpStatistics(class IGameFont& /*font*/, class IPerformanceAlert* /*alert*/) {}
 
+	// p4: dev's per-call options form — the monolith COLLIDER keeps options as
+	// state, so apply them before the query (call sites pass explicit options
+	// on every query, so no restore is needed).
+	IC void ray_query(u32 options, const CDB::MODEL* m_def, const Fvector& r_start, const Fvector& r_dir, float r_range = 10000.f)
+	{
+		CL.ray_options(options);
+		ray_query(m_def, r_start, r_dir, r_range);
+	}
+	IC void box_query(u32 options, const CDB::MODEL* m_def, const Fvector& b_center, const Fvector& b_dim)
+	{
+		CL.box_options(options);
+		box_query(m_def, b_center, b_dim);
+	}
+	IC void frustum_query(u32 options, const CDB::MODEL* m_def, const CFrustum& F)
+	{
+		CL.frustum_options(options);
+		frustum_query(m_def, F);
+	}
+
 	xrXRC(const char* stat_name = nullptr);
 	~xrXRC();
 private:

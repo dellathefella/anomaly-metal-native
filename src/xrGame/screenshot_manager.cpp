@@ -9,7 +9,9 @@
 	#define CXIMAGE_AS_SHARED_LIBRARY
 #endif
 
-#include <ddraw.h>
+#ifdef _WIN32
+#include <ddraw.h> // DDraw capture path is Windows-only; DDS types below are unused on POSIX
+#endif
 #include "ximage.h"
 #include "xmemfile.h"
 

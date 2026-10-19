@@ -854,6 +854,39 @@ inline char* _itoa(int value, char* buf, int radix)
 	return buf;
 }
 #endif
+// itoa/ultoa: same MSVC family under the plain names
+#ifndef itoa
+inline char* itoa(int value, char* buf, int radix)
+{
+	return _itoa(value, buf, radix);
+}
+#endif
+#ifndef ultoa
+inline char* ultoa(unsigned long value, char* buf, int radix)
+{
+	switch (radix) {
+	case 16: sprintf(buf, "%lx", value); break;
+	case 8:  sprintf(buf, "%lo", value); break;
+	default: sprintf(buf, "%lu", value); break;
+	}
+	return buf;
+}
+#endif
+// _gcvt_s: MSVC secure-CRT double->string. Call sites use the array-template
+// overload (buffer, value, width), so provide both forms.
+#ifndef _CVTBUFSIZE
+#define _CVTBUFSIZE 349
+#endif
+inline errno_t _gcvt_s(char* buf, size_t size, double value, int width)
+{
+	snprintf(buf, size, "%.*g", width, value);
+	return 0;
+}
+template <size_t XrBufSize>
+inline errno_t _gcvt_s(char (&buf)[XrBufSize], double value, int width)
+{
+	return _gcvt_s(buf, XrBufSize, value, width);
+}
 // 64-bit time (macOS time_t is already 64-bit)
 #ifndef _localtime64
 #define _localtime64 localtime

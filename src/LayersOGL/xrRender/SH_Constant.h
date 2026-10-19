@@ -41,7 +41,7 @@ public:
 
     void set_dword(u32 c)
     {
-        const_float = c;
+        const_float.set(c); // OpenXRay Fcolor::operator=(u32) == set(u32); monolith Fcolor lacks the operator
         const_dword = c;
     }
     void Calculate();

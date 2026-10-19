@@ -4,8 +4,24 @@
 // (Include/POSIXShims/d3d9types.h) stands down (see XRAY_D3D9_TYPES_PROVIDED).
 #include "Common/d3d9compat.hpp"
 
+// OpenXRay's GL error-check macro lives in dev's xrDebug_macros.h; the monolith
+// xrCore has no CHK_GL — define the release form here (renderer TUs only).
+#ifndef CHK_GL
+#define CHK_GL(expr) expr
+#endif
+
 #pragma warning(disable:4995)
 #include "xrEngine/stdafx.h"
+
+// Dear ImGui texture id + xrImTextureData (OpenXRay's render.h): the staged
+// renderer only passes GL names through these; imgui itself is not linked in
+// this port. imgui 1.92 defines: typedef ImU64 ImTextureID.
+typedef uint64_t ImTextureID;
+struct xrImTextureData
+{
+	ImTextureID texture{};
+	Fvector2 size{};
+};
 #pragma warning(default:4995)
 #pragma warning(disable:4714)
 #pragma warning( 4 : 4018 )

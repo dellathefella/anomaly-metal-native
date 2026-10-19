@@ -48,6 +48,12 @@ struct xrImTextureData
 #define R_R4 4
 #define RENDER R_GL
 
+// p4: dev's parallel-context counts (dev's xrEngine/Engine.h). The GL port
+// renders on one immediate context, but staged graph arrays keep dev sizing.
+#define R__NUM_SUN_CASCADES (3u)
+#define R__NUM_AUX_CONTEXTS (1u)
+#define R__NUM_PARALLEL_CONTEXTS (R__NUM_SUN_CASCADES + R__NUM_AUX_CONTEXTS)
+
 #include "Layers/xrRenderGL/CommonTypes.h"
 
 #include "Layers/xrRenderGL/glHW.h"

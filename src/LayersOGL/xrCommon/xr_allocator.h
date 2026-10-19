@@ -1,5 +1,5 @@
 #pragma once
-// p4 GL-renderer port shim: OpenXRay's xrCommon/xr_allocator.h (alias of dev's
+// p4 GL-renderer port shim: OpenXRay's xrCommon/xr_static_allocator.h (alias of dev's
 // static xalloc). FixedMap calls allocate/construct/deallocate statically on
 // the type, so this mirrors dev's xrCore/Memory/xalloc.h statics on top of the
 // monolith's xr_malloc family.
@@ -10,7 +10,7 @@
 #include "xrCore/_stl_extensions.h" // xalloc, xr_alloc, xr_malloc/xr_free
 
 template <class T>
-class xr_allocator
+class xr_static_allocator
 {
 public:
 	typedef T value_type;

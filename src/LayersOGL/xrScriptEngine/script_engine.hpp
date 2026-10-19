@@ -66,7 +66,7 @@ public:
 			lua_pop(L, 1);
 			return;
 		}
-		env.pushvalue(L);
+		env.pushvalue();
 		lua_setfenv(L, -2);
 		if (lua_pcall(L, 0, 0, 0) != 0)
 		{
@@ -80,7 +80,7 @@ public:
 		if (!L)
 			return false;
 		luabind::object env = name_space(ns);
-		env.pushvalue(L);
+		env.pushvalue();
 		lua_getfield(L, -1, identifier);
 		const bool ok = lua_type(L, -1) == expected_type;
 		lua_pop(L, 2);
@@ -98,9 +98,9 @@ public:
 		luabind::object globals = luabind::get_globals(L);
 		// __index fallback to globals (raw API: this luabind fork predates
 		// setmetatable helpers).
-		env.pushvalue(L);
+		env.pushvalue();
 		lua_newtable(L); // metatable
-		globals.pushvalue(L);
+		globals.pushvalue();
 		lua_setfield(L, -2, "__index");
 		lua_setmetatable(L, -2);
 		lua_pop(L, 1); // env copy; the object keeps its own registry reference

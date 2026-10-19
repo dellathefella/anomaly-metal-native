@@ -90,21 +90,21 @@ typedef struct tagcomplex {
 #endif
 
 
-#if defined(WIN32) || defined(_WIN32_WCE)
-	// (Win32 gets these from the platform SDK — nothing to do)
-#elif defined(_LINUX)
-// p4 macOS: the engine chain (PlatformApple/win_compat) already provides
-// BYTE/WORD/DWORD/UINT/BOOL/HANDLE/RECT/POINT. Only the GDI-flavored aliases
-// cximage uses are added here.
-typedef DWORD COLORREF;
-typedef void* HRGN;
-typedef char  TCHAR;
-#else
+#if !defined(WIN32) && !defined(_WIN32_WCE)
 
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
+#ifdef _LINUX
+// p4 macOS: the engine chain (PlatformApple/win_compat) already provides
+// BYTE/WORD/DWORD/UINT/BOOL/HANDLE/RECT/POINT (DWORD/HANDLE differ in shape,
+// so the scalar fallbacks below must be skipped). Only the GDI-flavored
+// aliases are added; the BITMAP/RGB structs further down are absent from the
+// engine and stay unconditional.
+typedef DWORD COLORREF;
+typedef void* HRGN;
+#else
 typedef unsigned char  BYTE;
 typedef unsigned short WORD;
 typedef unsigned long  DWORD;
@@ -113,6 +113,7 @@ typedef unsigned int   UINT;
 typedef DWORD          COLORREF;
 typedef unsigned int   HANDLE;
 typedef void*          HRGN;
+#endif
 
 #ifndef BOOL
 #define	BOOL bool
@@ -131,6 +132,7 @@ typedef void*          HRGN;
 #define _T
 #endif
 
+#ifndef _LINUX // p4 macOS: engine PlatformApple provides RECT/POINT
 typedef struct tagRECT
 {
 	long    left;
@@ -144,6 +146,7 @@ typedef struct tagPOINT
 	long  x;
 	long  y;
 } POINT;
+#endif
 
 typedef struct tagRGBQUAD {
 	BYTE    rgbBlue;

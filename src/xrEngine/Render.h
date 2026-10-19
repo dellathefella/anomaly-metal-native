@@ -144,6 +144,12 @@ public:
 class ENGINE_API IRender_Sector
 {
 public:
+	// p4 GL-renderer port: dev's sector identity plumbing (their ISpatial.h).
+	using sector_id_t = size_t;
+	static auto constexpr INVALID_SECTOR_ID = static_cast<sector_id_t>(-1);
+
+	sector_id_t unique_id{ INVALID_SECTOR_ID };
+
 	virtual ~IRender_Sector()
 	{
 	};

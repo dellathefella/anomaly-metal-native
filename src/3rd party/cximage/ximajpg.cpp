@@ -9,7 +9,7 @@
 
 #if CXIMAGE_SUPPORT_JPG
 
-#define XMD_H
+
 #define HAVE_BOOLEAN
 #include <jpeg/jmorecfg.h>
 #undef HAVE_BOOLEAN

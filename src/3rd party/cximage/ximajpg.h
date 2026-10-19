@@ -28,7 +28,6 @@
 
 #define CXIMAGEJPG_SUPPORT_EXIF 1
 
-#define XMD_H
 #define HAVE_BOOLEAN
 extern "C" {
  #include <jpeg/jpeglib.h>

@@ -1,6 +1,11 @@
 #if !defined(__ximaCFG_h)
 #define __ximaCFG_h
 
+// p4 macOS port: this header is included first in the cximage TUs, so it must
+// pull its own primitive contexts (size_t, FILE).
+#include <stddef.h>
+#include <stdio.h>
+
 extern "C" void*	cxalloc(size_t size);
 extern "C" void		cxfree(void* ptr);
 extern "C" void*	cxrealloc(void* ptr, size_t size);

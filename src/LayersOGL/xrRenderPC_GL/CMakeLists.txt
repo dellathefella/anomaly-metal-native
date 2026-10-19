@@ -357,6 +357,9 @@ target_compile_definitions(xrRender_GL
 set_source_files_properties("${XRAY_SOURCE_DIR}/src/3rd party/glad/gl.c"
     PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE)
 
+# Monolith-era template code (luabind etc.) needs MSVC-style late template parsing
+target_compile_options(xrRender_GL PRIVATE -fdelayed-template-parsing)
+
 target_link_libraries(xrRender_GL
     PRIVATE
     xrAPI

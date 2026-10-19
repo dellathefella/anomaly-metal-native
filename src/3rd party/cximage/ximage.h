@@ -703,8 +703,10 @@ public:
 	CxImage* GetLayer(long position);
 	CxImage* GetParent() const;
 	long GetNumLayers() const;
+#ifdef WIN32 // p4: Win32 GDI surface (unused on POSIX)
 	long LayerDrawAll(HDC hdc, long x=0, long y=0, long cx = -1, long cy = -1, RECT* pClipRect = 0, bool bSmooth = false);
 	long LayerDrawAll(HDC hdc, const RECT& rect, RECT* pClipRect=NULL, bool bSmooth = false);
+#endif
 //@}
 #endif //CXIMAGE_SUPPORT_LAYERS
 
@@ -717,8 +719,8 @@ protected:
 	static float HueToRGB(float n1,float n2, float hue);
 	void Bitfield2RGB(BYTE *src, DWORD redmask, DWORD greenmask, DWORD bluemask, BYTE bpp);
 	static int CompareColors(const void *elem1, const void *elem2);
-	short ntohs(const short word);
-	long ntohl(const long dword);
+	short xr_ntohs(const short word); // p4: renamed (macOS ntohs is a macro)
+	long xr_ntohl(const long dword);
 	void bihtoh(BITMAPINFOHEADER* bih);
 
 	void*				pDib; //contains the header, the palette, the pixels

@@ -200,7 +200,7 @@ void CRenderTarget::accum_direct(CBackend& cmd_list, u32 sub_phase)
             static float w_shift = 0;
             Fmatrix m_xform;
             Fvector direction = fuckingsun->direction;
-            float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction // p4: CurrentEnv is a pointer in the monolith;
+            float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction; // p4: CurrentEnv is a pointer in the monolith
             // float	w_speed				= g_pGamePersistent->Environment().CurrentEnv->wind_velocity	;
             Fvector normal;
             normal.setHP(w_dir, 0);
@@ -493,7 +493,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
             static float w_shift = 0;
             Fmatrix m_xform;
             Fvector direction = fuckingsun->direction;
-            float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction // p4: CurrentEnv is a pointer in the monolith;
+            float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction; // p4: CurrentEnv is a pointer in the monolith
             // float	w_speed				= g_pGamePersistent->Environment().CurrentEnv->wind_velocity	;
             Fvector normal;
             normal.setHP(w_dir, 0);

@@ -659,7 +659,7 @@ IRenderVisual* CRender::model_Create(LPCSTR name, IReader* data) { return Models
 IRenderVisual* CRender::model_CreateChild(LPCSTR name, IReader* data) { return Models->CreateChild(name, data); }
 IRenderVisual* CRender::model_Duplicate(IRenderVisual* V) { return Models->Instance_Duplicate((dxRender_Visual*)V); }
 
-void CRender::model_Delete(IRenderVisual*& V, bool bDiscard)
+void CRender::model_Delete(IRenderVisual*& V, BOOL bDiscard)
 {
     dxRender_Visual* pVisual = (dxRender_Visual*)V;
     Models->Delete(pVisual, bDiscard);
@@ -795,8 +795,11 @@ void CRender::add_SkeletonWallmark(
     Wallmarks->AddSkeletonWallmark(xf, obj, sh, start, dir, size);
 }
 void CRender::add_SkeletonWallmark(
-    const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start, const Fvector& dir, float size)
+    const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start, const Fvector& dir, float size,
+    float ttl, bool ignore_opt) // p4: Anomaly args (dev GL wallmarks ignore them)
 {
+    (void)ttl;
+    (void)ignore_opt;
     dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
     ref_shader* pShader = pWMA->dxGenerateWallmark();
     if (pShader)

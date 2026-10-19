@@ -391,7 +391,7 @@ public:
 
 public:
     // feature level
-    GenerationLevel GetGeneration() const override { return IRender::GENERATION_R2; }
+    GenerationLevel GetGeneration() const { return IRender::GENERATION_R2; } // p4: monolith base spells get_generation()
     bool is_sun_static() override { return o.sunstatic; }
 
 #if defined(USE_DX11)
@@ -448,7 +448,8 @@ public:
     void add_SkeletonWallmark(const Fmatrix* xf, CKinematics* obj, ref_shader& sh, const Fvector& start,
                               const Fvector& dir, float size);
     void add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start,
-                              const Fvector& dir, float size) override;
+                              const Fvector& dir, float size,
+                              float ttl = 0.f, bool ignore_opt = false) override; // p4: Anomaly ttl/ignore_opt args
 
     //
     IBlender* blender_create(CLASS_ID cls);
@@ -468,11 +469,11 @@ public:
     IRenderVisual* model_Create(LPCSTR name, IReader* data = nullptr) override;
     IRenderVisual* model_CreateChild(LPCSTR name, IReader* data) override;
     IRenderVisual* model_Duplicate(IRenderVisual* V) override;
-    void model_Delete(IRenderVisual*& V, bool bDiscard) override;
+    void model_Delete(IRenderVisual*& V, BOOL bDiscard) override; // p4: BOOL (monolith)
     void model_Delete(IRender_DetailModel*& F);
-    void model_Logging(bool bEnable) override { Models->Logging(bEnable); }
+    void model_Logging(BOOL bEnable) override { Models->Logging(bEnable); } // p4: BOOL (monolith)
     void models_Prefetch() override;
-    void models_Clear(bool b_complete) override;
+    void models_Clear(bool b_complete); // p4: not a monolith IRender virtual
 
     // Occlusion culling
     BOOL occ_visible(vis_data& V) override;

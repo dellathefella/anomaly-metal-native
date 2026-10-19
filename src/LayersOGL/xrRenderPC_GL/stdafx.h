@@ -57,8 +57,10 @@ struct xrImTextureData
 
 // p4: the IRender boundary (IRender_interface/IRender_Sector/IRender_Light…)
 // must precede the staged layers so every renderer TU sees the same types
-// regardless of staged include order.
+// regardless of staged include order. CameraManager.h brings SPPInfo
+// (SetPostProcessParams) which the staged r2.h references unqualified.
 #include "xrEngine/Render.h"
+#include "xrEngine/CameraManager.h"
 
 // p4: dev's SpatialBase (default ISpatial implementation, dev xrCDB/ISpatial.h)
 // on top of the monolith's ISpatial — the staged light class derives from it.

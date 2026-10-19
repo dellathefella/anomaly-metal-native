@@ -12,8 +12,9 @@
 
 class Task
 {
-	friend class sync_task_scheduler;
-
+	// p4 shim: members are public so xr_port::sync_task_scheduler can drive
+	// them without a cross-namespace friend declaration.
+public:
 	std::function<void()> m_fn{};
 	bool m_done{ true };
 	int m_id{ 0 };

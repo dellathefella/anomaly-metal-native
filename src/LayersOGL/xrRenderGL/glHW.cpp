@@ -67,7 +67,7 @@ void CHW::OnAppDeactivate()
 {
     if (m_window)
     {
-        if (psDeviceMode.WindowStyle == rsFullscreen || psDeviceMode.WindowStyle == rsFullscreenBorderless)
+        if (SDL_GetWindowFlags(m_window) & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) // p4: monolith device has no psDeviceMode; ask SDL
             SDL_MinimizeWindow(m_window);
     }
 }
@@ -329,8 +329,8 @@ std::pair<u32, u32> CHW::GetSurfaceSize()
 {
     return
     {
-        psDeviceMode.Width,
-        psDeviceMode.Height
+        Device.dwWidth,
+        Device.dwHeight
     };
 }
 

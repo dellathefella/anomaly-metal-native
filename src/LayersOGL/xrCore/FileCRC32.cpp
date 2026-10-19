@@ -20,7 +20,7 @@ void getFileCrc32(IReader* F, pcstr filePath, u32& outCrc, bool parseIncludes)
                     xr_strlwr(inc_name);
                     string_path fn;
                     strconcat(sizeof fn, fn, filePath, inc_name);
-                    const xr_string inc_path = EFS_Utils::ExtractFilePath(fn);
+                    const xr_string inc_path = xr_EFS->ExtractFilePath(fn); // p4: monolith global-instance form
                     IReader* I = FS.r_open(fn);
                     R_ASSERT3(I, "Can't find include file:", inc_name);
                     addFileCrc32(I, inc_path.c_str(), outCrc, true);

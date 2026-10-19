@@ -41,17 +41,17 @@ namespace xray::render::render_gl
 
 // The boundary factory instance the engine's FactoryPtr binds to
 // (extern-declared by the monolith dxRenderFactory.h above).
-dxRenderFactory RenderFactoryImpl;
+::dxRenderFactory RenderFactoryImpl; // p4: :: — leaked using-directive makes the bare name ambiguous
 
 // ---------------------------------------------------------------------------
 // Delegation to the staged GL factory
 // ---------------------------------------------------------------------------
 #define GL_FACTORY_DELEGATE(Class)                                                    \
-	I##Class* dxRenderFactory::Create##Class()                                        \
+	I##Class* ::dxRenderFactory::Create##Class()                                        \
 	{                                                                                 \
 		return xray::render::render_gl::RenderFactoryImpl.Create##Class();                          \
 	}                                                                                 \
-	void dxRenderFactory::Destroy##Class(I##Class* pObject)                           \
+	void ::dxRenderFactory::Destroy##Class(I##Class* pObject)                           \
 	{                                                                                 \
 		xray::render::render_gl::RenderFactoryImpl.Destroy##Class(pObject);                         \
 	}
@@ -210,52 +210,52 @@ namespace
 // ---------------------------------------------------------------------------
 // Boundary-only classes
 // ---------------------------------------------------------------------------
-IRenderDeviceRender* dxRenderFactory::CreateRenderDeviceRender()
+IRenderDeviceRender* ::dxRenderFactory::CreateRenderDeviceRender()
 {
 	return new GLRenderDeviceRender();
 }
 
-void dxRenderFactory::DestroyRenderDeviceRender(IRenderDeviceRender* pObject)
+void ::dxRenderFactory::DestroyRenderDeviceRender(IRenderDeviceRender* pObject)
 {
 	delete pObject;
 }
 
-IApplicationRender* dxRenderFactory::CreateApplicationRender()
+IApplicationRender* ::dxRenderFactory::CreateApplicationRender()
 {
 	return new CNullApplicationRender();
 }
 
-void dxRenderFactory::DestroyApplicationRender(IApplicationRender* pObject)
+void ::dxRenderFactory::DestroyApplicationRender(IApplicationRender* pObject)
 {
 	delete pObject;
 }
 
-IConsoleRender* dxRenderFactory::CreateConsoleRender()
+IConsoleRender* ::dxRenderFactory::CreateConsoleRender()
 {
 	return new CNullConsoleRender();
 }
 
-void dxRenderFactory::DestroyConsoleRender(IConsoleRender* pObject)
+void ::dxRenderFactory::DestroyConsoleRender(IConsoleRender* pObject)
 {
 	delete pObject;
 }
 
-IStatsRender* dxRenderFactory::CreateStatsRender()
+IStatsRender* ::dxRenderFactory::CreateStatsRender()
 {
 	return new CNullStatsRender();
 }
 
-void dxRenderFactory::DestroyStatsRender(IStatsRender* pObject)
+void ::dxRenderFactory::DestroyStatsRender(IStatsRender* pObject)
 {
 	delete pObject;
 }
 
-IEnvDescriptorMixerRender* dxRenderFactory::CreateEnvDescriptorMixerRender()
+IEnvDescriptorMixerRender* ::dxRenderFactory::CreateEnvDescriptorMixerRender()
 {
 	return new CNullEnvDescriptorMixerRender();
 }
 
-void dxRenderFactory::DestroyEnvDescriptorMixerRender(IEnvDescriptorMixerRender* pObject)
+void ::dxRenderFactory::DestroyEnvDescriptorMixerRender(IEnvDescriptorMixerRender* pObject)
 {
 	delete pObject;
 }
@@ -263,13 +263,13 @@ void dxRenderFactory::DestroyEnvDescriptorMixerRender(IEnvDescriptorMixerRender*
 #ifdef DEBUG
 // ObjectSpaceRender (DEBUG-only editor gizmos) — monolith renders it in xrRender
 // itself; not requested outside DEBUG builds.
-IObjectSpaceRender* dxRenderFactory::CreateObjectSpaceRender()
+IObjectSpaceRender* ::dxRenderFactory::CreateObjectSpaceRender()
 {
 	Msg("! xrRender_GL: ObjectSpaceRender requested (not ported)");
 	return nullptr;
 }
 
-void dxRenderFactory::DestroyObjectSpaceRender(IObjectSpaceRender* pObject)
+void ::dxRenderFactory::DestroyObjectSpaceRender(IObjectSpaceRender* pObject)
 {
 	(void)pObject;
 }

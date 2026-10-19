@@ -233,7 +233,7 @@ CObjectActionFire::CObjectActionFire(CInventoryItem* item, CAI_Stalker* owner, C
 
 void CObjectActionFire::initialize()
 {
-	inherited::inherited::initialize();
+	inherited::initialize();;
 
 	VERIFY(m_item);
 	VERIFY(object().inventory().ActiveItem());
@@ -284,7 +284,7 @@ CObjectActionFireNoReload::CObjectActionFireNoReload(CInventoryItem* item, CAI_S
 
 void CObjectActionFireNoReload::initialize()
 {
-	inherited::inherited::initialize();
+	inherited::initialize();;
 
 	VERIFY(m_item);
 	VERIFY(object().inventory().ActiveItem());
@@ -797,7 +797,7 @@ CObjectActionQueueWait::CObjectActionQueueWait(CInventoryItem* item, CAI_Stalker
 
 void CObjectActionQueueWait::initialize()
 {
-	inherited::inherited::initialize();
+	inherited::initialize();;
 
 	VERIFY(m_item);
 	VERIFY(object().inventory().ActiveItem());
@@ -898,7 +898,7 @@ CObjectActionAim::CObjectActionAim(CInventoryItem* item, CAI_Stalker* owner, CPr
 
 void CObjectActionAim::initialize()
 {
-	inherited::inherited::initialize();
+	inherited::initialize();;
 
 	VERIFY(m_item);
 	VERIFY(object().inventory().ActiveItem());

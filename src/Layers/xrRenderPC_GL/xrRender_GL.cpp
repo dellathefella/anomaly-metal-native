@@ -1,120 +1,61 @@
+// xrRender_GL.cpp — monolith renderer-module entry for the ported OpenXRay GL
+// renderer (p4).
+//
+// On Windows the monolith engine LoadLibrary()s xrRender_PC_R2.dll; here xr_3da
+// links xrRender_GL.dylib directly and EngineAPI::Initialize calls
+// DllMainXrRenderR2(). The renderer globals (Render/RenderFactory/DU/UIRender/
+// vid_mode_token) live in the xrAPI dylib — this entry fills them with the GL
+// implementations from the staged OpenXRay layers (xrRenderOGL_shared /
+// xrRenderOGL_r2 / xrRenderGL).
+//
+// The OpenXRay original of this file implemented dev's newer RendererModule
+// plugin API; the monolith uses the classic DllMain + RenderFactory model, so
+// that entry is replaced by the bridge below. Factory method bodies (monolith
+// dxRenderFactory -> GL classes) live in xrRender_GL_factory.cpp.
+
 #include "stdafx.h"
 
 #include "Layers/xrRender/dxRenderFactory.h"
 #include "Layers/xrRender/dxUIRender.h"
-#include "Layers/xrRender/dxDebugRender.h"
-#include "Layers/xrRender/D3DUtils.h"
+#include "Include/xrAPI/xrAPI.h"
 
-#include "Include/xrRender/xrRender.h"
-
-namespace xray::render::RENDER_NAMESPACE
+// GL implementation objects, provided by the staged OpenXRay layers
+// (namespaces adapt during the interface bridge; see xrRender_GL_factory.cpp).
+namespace xray::render::render_gl
 {
-constexpr pcstr RENDERER_R2_MODE   = "renderer_r2";   // id 2
-constexpr pcstr RENDERER_R2_5_MODE = "renderer_r2.5"; // id 3
-constexpr pcstr RENDERER_R3_MODE   = "renderer_r3";   // id 4
-constexpr pcstr RENDERER_R4_MODE   = "renderer_r4";   // id 5
-constexpr pcstr RENDERER_RGL_MODE = "renderer_rgl";   // id 6
+	extern CRender RImplementation;
+	extern dxRenderFactory RenderFactoryImpl; // hmm: provided by factory bridge
+	extern CDUInterface DUImpl;
+	extern CUIRender UIRenderImpl;
+} // namespace xray::render::render_gl
 
-class RGLRendererModule final : public RendererModule
+using namespace xray::render::render_gl;
+
+// xrAPI-owned globals; the engine reads these after DllMainXrRenderR2.
+// (Defined in Layers/xrAPI/xrAPI_posix.cpp — we only assign.)
+
+// Engine-referenced capability flag (xrEngine/EngineAPI.cpp).
+bool SupportsAdvancedRendering()
 {
-    xr_vector<std::pair<pcstr, int>> modes;
-
-public:
-    bool CheckCanAddMode() const
-    {
-        // don't duplicate
-        if (!modes.empty())
-        {
-            return false;
-        }
-        return xrRender_test_hw();
-    }
-
-    const xr_vector<std::pair<pcstr, int>>& ObtainSupportedModes() override
-    {
-        ZoneScoped;
-
-        if (CheckCanAddMode())
-        {
-#ifdef XR_PLATFORM_WINDOWS
-            modes.emplace_back(RENDERER_RGL_MODE, 6);
-#else
-            //modes.emplace_back(RENDERER_R2_MODE, 2);
-            //modes.emplace_back(RENDERER_R2_5_MODE, 3);
-            modes.emplace_back(RENDERER_R3_MODE, 4);
-            //modes.emplace_back(RENDERER_R4_MODE, 5);
-#endif
-        }
-        return modes;
-    }
-
-    bool CheckGameRequirements() override
-    {
-        // Check if shaders are available
-        if (!FS.exist("$game_shaders$", RImplementation.getShaderPath()))
-        {
-            Log("~ No shaders found for OpenGL");
-            return false;
-        }
-        return true;
-    }
-
-    void SetupEnv(pcstr mode) override
-    {
-        ZoneScoped;
-
-        ps_r2_sun_static = false;
-        ps_r2_advanced_pp = true;
-
-        switch (strhash(mode))
-        {
-        //case strhash(RENDERER_R2A_MODE):
-        //    //ps_r2_sun_static = true;
-        //    [[fallthrough]];
-
-        case strhash(RENDERER_R2_MODE):
-            ps_r2_advanced_pp = false;
-            break;
-
-        case strhash(RENDERER_R2_5_MODE):
-        case strhash(RENDERER_R3_MODE):
-        case strhash(RENDERER_R4_MODE):
-        case strhash(RENDERER_RGL_MODE):
-            ps_r2_advanced_pp = true;
-            break;
-        }
-
-        GEnv.Render = &RImplementation;
-        GEnv.RenderFactory = &RenderFactoryImpl;
-        GEnv.DU = &DUImpl;
-        GEnv.UIRender = &UIRenderImpl;
-#ifdef DEBUG
-        GEnv.DRender = &DebugRenderImpl;
-        rdebug_render->Register();
-#endif
-        xrRender_initconsole();
-    }
-
-    void ClearEnv() override
-    {
-        modes.clear();
-
-        if (GEnv.Render == &RImplementation)
-        {
-            GEnv.Render = nullptr;
-            GEnv.RenderFactory = nullptr;
-            GEnv.DU = nullptr;
-            GEnv.UIRender = nullptr;
-            GEnv.DRender = nullptr;
-#ifdef DEBUG
-            rdebug_render->Unregister();
-#endif
-        }
-    }
-} static s_rgl_module;
-
-RendererModule* GetRendererModule()
-{
-    return &s_rgl_module;
+	return true;
 }
-} // namespace xray::render::RENDER_NAMESPACE
+
+BOOL __cdecl DllMainXrRenderR2(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+{
+	switch (ul_reason_for_call)
+	{
+	case DLL_PROCESS_ATTACH:
+		::Render = &RImplementation;
+		::RenderFactory = &RenderFactoryImpl;
+		::DU = &DUImpl;
+		::UIRender = &UIRenderImpl;
+		break;
+	case DLL_PROCESS_DETACH:
+		::Render = nullptr;
+		::RenderFactory = nullptr;
+		::DU = nullptr;
+		::UIRender = nullptr;
+		break;
+	}
+	return TRUE;
+}

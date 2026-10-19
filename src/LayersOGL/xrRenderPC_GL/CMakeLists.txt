@@ -364,6 +364,7 @@ target_link_libraries(xrRender_GL
     xrCDB
     xrEngine
     xrParticles
+    luabind
     OpenGL::GL
 )
 

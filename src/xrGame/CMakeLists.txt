@@ -61,6 +61,7 @@ target_link_libraries(xrGame
     xrODE
     xrDiscord
     luabind
+    cximage
 )
 
 if(APPLE)

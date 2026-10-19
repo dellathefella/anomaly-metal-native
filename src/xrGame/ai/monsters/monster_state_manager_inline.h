@@ -32,7 +32,7 @@ void CMonsterStateManagerAbstract::update()
 		return;
 	}
 
-	execute();
+	this->execute();
 }
 
 TEMPLATE_SPECIALIZATION

@@ -36,15 +36,10 @@ void R_hemi::set_material(float x, float y, float z, float w)
 // Обновляем значения в шейдерных константах //--#SM+#-- //SM_TODO Переместить
 void R_hemi::c_update(IRenderVisual* pVisual)
 {
-    vis_object_data* _data = pVisual->getVisData().obj_data;
-
-    if (c_camo_data)
-        cmd_list.set_c(c_camo_data, _data->sh_camo_data);
-
-    if (c_custom_data)
-        cmd_list.set_c(c_custom_data, _data->sh_custom_data);
-
-    if (c_entity_data)
-        cmd_list.set_c(c_entity_data, _data->sh_entity_data);
+    // p4: dev reads per-object shader data through vis_data::obj_data
+    // (vis_object_data), an engine extension the monolith 1.5.3 vis_data does
+    // not carry. The graph renderer's c_update call sites are already
+    // commented out, so the body is inert here.
+    (void)pVisual;
 }
 } // namespace xray::render::RENDER_NAMESPACE

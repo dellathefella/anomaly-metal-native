@@ -26,7 +26,7 @@
 namespace xray::render::RENDER_NAMESPACE
 {
 u32 ps_Preset = 2;
-const xr_token qpreset_token[] =
+xr_token qpreset_token[] =
 {
     { "Minimum", 0 },
     { "Low", 1 },
@@ -37,7 +37,7 @@ const xr_token qpreset_token[] =
 };
 
 u32 ps_r2_smapsize = 2048;
-const xr_token qsmapsize_token[] =
+xr_token qsmapsize_token[] =
 {
 #if !defined(MASTER_GOLD) || RENDER == R_R1
     { "256", 256 }, // Too bad for R2+
@@ -67,7 +67,7 @@ const xr_token qsmapsize_token[] =
 };
 
 u32 ps_r_ssao_mode = ssao_mode_default;
-const xr_token qssao_mode_token[] =
+xr_token qssao_mode_token[] =
 {
     { "disabled", ssao_mode_off },
     { "default",  ssao_mode_default },
@@ -77,22 +77,22 @@ const xr_token qssao_mode_token[] =
 };
 
 u32 ps_r_sun_shafts = 2;
-const xr_token qsun_shafts_token[] = {{"st_opt_off", 0}, {"st_opt_low", 1}, {"st_opt_medium", 2}, {"st_opt_high", 3}, {nullptr, 0}};
+xr_token qsun_shafts_token[] = {{"st_opt_off", 0}, {"st_opt_low", 1}, {"st_opt_medium", 2}, {"st_opt_high", 3}, {nullptr, 0}};
 
 u32 ps_r_ssao = 3;
-const xr_token qssao_token[] = {{"st_opt_off", 0}, {"st_opt_low", 1}, {"st_opt_medium", 2}, {"st_opt_high", 3},
+xr_token qssao_token[] = {{"st_opt_off", 0}, {"st_opt_low", 1}, {"st_opt_medium", 2}, {"st_opt_high", 3},
     {"st_opt_ultra", 4},
 {nullptr, 0}};
 
 u32 ps_r_sun_quality = 1; // = 0;
-const xr_token qsun_quality_token[] = {{"st_opt_low", 0}, {"st_opt_medium", 1}, {"st_opt_high", 2},
+xr_token qsun_quality_token[] = {{"st_opt_low", 0}, {"st_opt_medium", 1}, {"st_opt_high", 2},
 #if defined(USE_DX11) // TODO: OGL: fix ultra and extreme settings
     {"st_opt_ultra", 3}, {"st_opt_extreme", 4},
 #endif // USE_DX11
     {nullptr, 0}};
 
 u32 ps_r_water_reflection = 3;
-const xr_token qwater_reflection_quality_token[] =
+xr_token qwater_reflection_quality_token[] =
 {
     { "st_opt_off", 0 },
     { "st_opt_low", 1 },
@@ -103,15 +103,15 @@ const xr_token qwater_reflection_quality_token[] =
 };
 
 u32 ps_r3_msaa = 0; // = 0;
-const xr_token qmsaa_token[] = {{"st_opt_off", 0}, {"2x", 1}, {"4x", 2}, {"8x", 3},
+xr_token qmsaa_token[] = {{"st_opt_off", 0}, {"2x", 1}, {"4x", 2}, {"8x", 3},
     {nullptr, 0}};
 
 u32 ps_r3_msaa_atest = 0; // = 0;
-const xr_token qmsaa__atest_token[] = {
+xr_token qmsaa__atest_token[] = {
     {"st_opt_off", 0}, {"st_opt_atest_msaa_dx10_0", 1}, {"st_opt_atest_msaa_dx10_1", 2}, {nullptr, 0}};
 
 u32 ps_r3_minmax_sm = 3; // = 0;
-const xr_token qminmax_sm_token[] = {{"off", 0}, {"on", 1}, {"auto", 2}, {"autodetect", 3}, {nullptr, 0}};
+xr_token qminmax_sm_token[] = {{"off", 0}, {"on", 1}, {"auto", 2}, {"autodetect", 3}, {nullptr, 0}};
 
 // “Off”
 // “DX10.0 style [Standard]”
@@ -300,9 +300,9 @@ public:
         apply();
     }
 
-    void GetStatus(TStatus& S) override
+    void Status(TStatus& S) override
     {
-        CCC_Integer::GetStatus(S);
+        CCC_Integer::Status(S);
     }
 };
 //-AVO
@@ -332,9 +332,9 @@ public:
         CCC_Integer::Execute(args);
         apply();
     }
-    virtual void GetStatus(TStatus& S)
+    virtual void Status(TStatus& S)
     {
-        CCC_Integer::GetStatus(S);
+        CCC_Integer::Status(S);
         apply();
     }
 };
@@ -357,9 +357,9 @@ public:
         CCC_Float::Execute(args);
         apply();
     }
-    virtual void GetStatus(TStatus& S)
+    virtual void Status(TStatus& S)
     {
-        CCC_Float::GetStatus(S);
+        CCC_Float::Status(S);
         apply();
     }
 };
@@ -704,7 +704,7 @@ public:
                 g_pGamePersistent->SetBaseDof(ps_r2_dof);
         }
     }
-    virtual void GetStatus(TStatus& S) { xr_sprintf(S, "%f,%f,%f", value->x, value->y, value->z); }
+    virtual void Status(TStatus& S) { xr_sprintf(S, "%f,%f,%f", value->x, value->y, value->z); }
     virtual void Info(TInfo& I)
     {
         xr_sprintf(I, "vector3 in range [%f,%f,%f]-[%f,%f,%f]", min.x, min.y, min.z, max.x, max.y, max.z);

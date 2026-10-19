@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "xr_effgamma.h"
+#include <SDL.h> // p4: window gamma ramp (dev m_sdlWnd == monolith m_hWnd == SDL_Window*)
 
 namespace xray::render::RENDER_NAMESPACE
 {
@@ -84,6 +85,6 @@ void CGammaControl::Update() const
 #endif
     u16 red[256], green[256], blue[256];
     GenLUT(red, green, blue, 256);
-    SDL_SetWindowGammaRamp(Device.m_sdlWnd, red, green, blue);
+    SDL_SetWindowGammaRamp((SDL_Window*)Device.m_hWnd, red, green, blue);
 }
 } // namespace xray::render::RENDER_NAMESPACE

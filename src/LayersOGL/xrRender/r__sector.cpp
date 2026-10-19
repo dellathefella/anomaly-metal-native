@@ -91,7 +91,7 @@ void CPortal::OnRender()
 //
 void CPortal::setup(const level_portal_data_t& data, const xr_vector<CSector*>& sectors)
 {
-    const auto* V = data.vertices.begin();
+    const auto* V = data.vertices.cbegin();
     const auto vcnt = data.vertices.size();
     CSector* face = sectors[data.sector_front];
     CSector* back = sectors[data.sector_back];
@@ -104,7 +104,7 @@ void CPortal::setup(const level_portal_data_t& data, const xr_vector<CSector*>& 
     BB.getsphere(S.P, S.R);
 
     //
-    poly.assign(V, vcnt);
+    poly.assign(const_cast<Fvector*>(V), vcnt); // p4: svector::assign takes a non-const iterator but only reads
     pFace = face;
     pBack = back;
     marker = 0xffffffff;

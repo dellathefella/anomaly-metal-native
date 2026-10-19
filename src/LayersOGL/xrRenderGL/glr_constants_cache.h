@@ -79,7 +79,7 @@ private:
 
         default:
 #ifdef DEBUG
-			xrDebug::Fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
+			Debug.fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
 #else
             NODEFAULT;
 #endif
@@ -118,7 +118,7 @@ private:
 
         default:
 #ifdef DEBUG
-			xrDebug::Fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
+			Debug.fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
 #else
             NODEFAULT;
 #endif
@@ -158,7 +158,7 @@ private:
 
         default:
 #ifdef DEBUG
-			xrDebug::Fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
+			Debug.fatal(DEBUG_INFO, "Invalid constant run-time-type for '%s'", C->name.c_str());
 #else
             NODEFAULT;
 #endif

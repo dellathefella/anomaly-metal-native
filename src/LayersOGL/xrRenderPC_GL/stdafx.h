@@ -10,6 +10,12 @@
 #define CHK_GL(expr) expr
 #endif
 
+// p4: dev's assert-with-recovery form; release builds strip the assert, so the
+// cure clause is a no-op here.
+#ifndef R_ASSERT1_CURE
+#define R_ASSERT1_CURE(FUNC, CURE) R_ASSERT1(FUNC)
+#endif
+
 // p4: dev's Tracy profiling macros — no-op in the port (xrCore has no tracy).
 #ifndef ZoneScoped
 #define ZoneScoped

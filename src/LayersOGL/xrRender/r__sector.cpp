@@ -129,7 +129,7 @@ void CPortal::setup(const level_portal_data_t& data, const xr_vector<CSector*>& 
 
     /*
     if (_abs(1-P.n.magnitude())<EPS)
-    xrDebug::Fatal      (DEBUG_INFO,"Degenerated portal found at {%3.2f,%3.2f,%3.2f}.",VPUSH(poly[0]));
+    Debug.fatal      (DEBUG_INFO,"Degenerated portal found at {%3.2f,%3.2f,%3.2f}.",VPUSH(poly[0]));
     */
 }
 

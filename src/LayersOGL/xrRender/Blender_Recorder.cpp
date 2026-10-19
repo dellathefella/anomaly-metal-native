@@ -64,7 +64,7 @@ void CBlender_Compile::_cpp_Compile(ShaderElement* _SH)
         if (id >= 0)
         {
             if (id >= int(lst.size()))
-                xrDebug::Fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
+                Debug.fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
             base = lst[id].c_str();
         }
         if (!RImplementation.Resources->m_textures_description.GetDetailTexture(base, detail_texture, detail_scaler))
@@ -83,7 +83,7 @@ void CBlender_Compile::_cpp_Compile(ShaderElement* _SH)
             if (id >= 0)
             {
                 if (id >= int(lst.size()))
-                    xrDebug::Fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
+                    Debug.fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
                 base = lst[id].c_str();
             }
         }
@@ -332,7 +332,7 @@ void CBlender_Compile::Stage_Texture(LPCSTR name, u32, u32 fmin, u32 fmip, u32 f
     if (id >= 0)
     {
         if (id >= int(lst.size()))
-            xrDebug::Fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
+            Debug.fatal(DEBUG_INFO, "Not enought textures for shader. Base texture: '%s'.", lst[0].c_str());
         N = lst[id].c_str();
     }
     passTextures.emplace_back(Stage(), ref_texture(RImplementation.Resources->_CreateTexture(N)));

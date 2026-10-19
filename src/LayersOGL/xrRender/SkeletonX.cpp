@@ -339,7 +339,7 @@ void CSkeletonX::_Load(const char* N, IReader* data, u32& dwVertCount)
         }
     }
     break;
-    default: xrDebug::Fatal(DEBUG_INFO, "Invalid vertex type in skinned model '%s'", N); break;
+    default: Debug.fatal(DEBUG_INFO, "Invalid vertex type in skinned model '%s'", N); break;
     }
 
     // Look at single bone case in the switch above

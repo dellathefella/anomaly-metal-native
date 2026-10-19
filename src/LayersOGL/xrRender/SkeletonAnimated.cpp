@@ -737,7 +737,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
                 Msg("! Can't find motion file '%s'.", nm);
                 return;
 #else
-                xrDebug::Fatal(DEBUG_INFO, "Can't find motion file '%s'\nsection '%s'\nmodel '%s'", _path, current_player_hud_sect.c_str(), N);
+                Debug.fatal(DEBUG_INFO, "Can't find motion file '%s'\nsection '%s'\nmodel '%s'", _path, current_player_hud_sect.c_str(), N);
 #endif
             }
         }

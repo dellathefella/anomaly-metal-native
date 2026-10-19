@@ -73,10 +73,12 @@ void CUIMapList::StartDedicatedServer()
 	string_path ModuleFileName;
 	GetModuleFileName(NULL, ModuleFileName, sizeof(ModuleFileName));
 
-	char* ModuleName = NULL;
-	GetFullPathName(ModuleFileName, sizeof(g_sLaunchWorkingFolder), g_sLaunchWorkingFolder, &ModuleName);
-	//removing module name from WorkingDirectory that contain full path...
-	ModuleName[0] = 0;
+	// p4: Win32 GetFullPathName — ModuleFileName is already absolute; copy and
+	// strip the last component (module name) to get the working folder.
+	xr_strcpy(g_sLaunchWorkingFolder, ModuleFileName);
+	if (char* ModuleName = strrchr(g_sLaunchWorkingFolder, '/'))
+		//removing module name from WorkingDirectory that contain full path...
+		ModuleName[0] = 0;
 
 	xr_strcpy(g_sLaunchOnExit_app, g_sLaunchWorkingFolder);
 	xr_strcat(g_sLaunchOnExit_app, "dedicated\\xrEngine.exe");
@@ -148,7 +150,16 @@ void CUIMapList::OnListItemClicked()
 	m_pMapInfo->InitMap(M.map_name.c_str(), M.map_ver.c_str());
 }
 
-xr_token g_GameModes[];
+// p4: the monolith left this as an MSVC tentative definition (size 0 — the
+// token lookups below read garbage on Windows too). Real names for the ids
+// queried in this file.
+xr_token g_GameModes[] = {
+	{ "deathmatch", eGameIDDeathmatch },
+	{ "team_deathmatch", eGameIDTeamDeathmatch },
+	{ "artefact_hunt", eGameIDArtefactHunt },
+	{ "capture_the_artefact", eGameIDCaptureTheArtefact },
+	{ nullptr, eGameIDNoGame }
+};
 
 void CUIMapList::OnModeChange()
 {

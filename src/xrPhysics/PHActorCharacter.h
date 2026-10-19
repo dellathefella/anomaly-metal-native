@@ -1,5 +1,6 @@
 #pragma once
 #include "phsimplecharacter.h"
+#include "ExtendedGeom.h" // dxGeomUserData + retrieveGeomUserData (used by inline callbacks below)
 #include "PHActorCharacterInline.h"
 
 class CPhysicShellHolder;

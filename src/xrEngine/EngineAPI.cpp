@@ -214,6 +214,13 @@ void __cdecl xrFactory_Destroy(DLL_Pure* O);
 
 void CEngineAPI::Initialize(void)
 {
+#ifndef _WIN32
+	// On Windows xrPhysics.dll's DllMain fires automatically when the module
+	// is loaded (via import); in the static-link model install its ODE
+	// allocator hooks explicitly before any physics use.
+	extern BOOL DllMainXrPhysics(HANDLE, DWORD, LPVOID);
+	DllMainXrPhysics(NULL, DLL_PROCESS_ATTACH, NULL);
+#endif
 	//////////////////////////////////////////////////////////////////////////
 	// render
 	LPCSTR r1_name = "xrRender_R1.dll";

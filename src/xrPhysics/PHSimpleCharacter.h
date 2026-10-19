@@ -8,7 +8,7 @@
 
 namespace ALife
 {
-	enum EHitType;
+	enum EHitType : unsigned int; // opaque decl; see PHCharacter.h note
 };
 #ifdef DEBUG
 #include "debug_output.h"

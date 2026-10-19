@@ -101,7 +101,7 @@ class CPHItemStack :
 public:
 	void push_back(T* item)
 	{
-		item->stack_pos = size;
+		item->stack_pos = this->size; // protected member of dependent base CPHItemList<T>
 		CPHItemList<T>::push_back(item);
 	}
 };

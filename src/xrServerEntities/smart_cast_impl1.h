@@ -145,7 +145,7 @@ namespace SmartDynamicCast
 			enum { value = false };
 		};
 
-		enum { value = search_conversion<search_base<cast_type_list>::result>::value };
+		enum { value = search_conversion<typename search_base<cast_type_list>::result>::value };
 	};
 
 	template <typename T>
@@ -284,10 +284,10 @@ namespace SmartDynamicCast
 			typedef typename T::Tail Tail;
 			typedef typename Head::Tail HeadTail;
 
-			template <typename T, int length, bool use_heritage>
+			template <typename T2, int length, bool use_heritage>
 			struct helper
 			{
-				typedef typename conversion_sequence<Target, T, length, use_heritage/**,new_visited/**/>::result
+				typedef typename conversion_sequence<Target, T2, length, use_heritage/**,new_visited/**/>::result
 				search_result;
 
 				template <bool>
@@ -484,7 +484,7 @@ namespace SmartDynamicCast
 		template <bool base>
 		IC static T1* smart_cast(T2* p)
 		{
-			return (CSmartMatcher<T1, T2>::smart_cast < get_conversion_sequence<T1, T2>::result > (p));
+			return (CSmartMatcher<T1, T2>::template smart_cast < typename get_conversion_sequence<T1, T2>::result > (p));
 		}
 
 		template <>
@@ -497,7 +497,7 @@ namespace SmartDynamicCast
 	template <typename T1, typename T2>
 	IC T1* smart_cast(T2* p)
 	{
-		return (CHelper1<T1, T2>::smart_cast < object_type_traits::is_base_and_derived<T1, T2>::value ||
+		return (CHelper1<T1, T2>::template smart_cast < object_type_traits::is_base_and_derived<T1, T2>::value ||
 			object_type_traits::is_same<T1, T2>::value > (p));
 	}
 
@@ -509,8 +509,8 @@ namespace SmartDynamicCast
 		{
 			STATIC_CHECK(!object_type_traits::is_const<T2>::value || object_type_traits::is_const<T1>::value,
 			             Cannot_use_smart_cast_to_convert_const_to_non_const);
-			typedef object_type_traits::remove_const<T1>::type _T1;
-			typedef object_type_traits::remove_const<T2>::type _T2;
+			typedef typename object_type_traits::remove_const<T1>::type _T1;
+			typedef typename object_type_traits::remove_const<T2>::type _T2;
 #ifdef DEBUG
 			T1					*temp = SmartDynamicCast::smart_cast<_T1>(const_cast<_T2*>(p));
 			T1					*test = dynamic_cast<T1*>(p);
@@ -552,8 +552,8 @@ IC T1 smart_cast(T2* p)
 #ifdef PURE_DYNAMIC_CAST_COMPATIBILITY_CHECK
 	STATIC_CHECK(object_type_traits::is_pointer<T1>::value, Invalid_target_type_for_Dynamic_Cast);
 	STATIC_CHECK(
-		object_type_traits::is_void<object_type_traits::remove_pointer<T1>::type>::value || is_polymorphic<
-		object_type_traits::remove_pointer<T1>::type>::result, Invalid_target_type_for_Dynamic_Cast);
+		object_type_traits::is_void<typename object_type_traits::remove_pointer<T1>::type>::value || is_polymorphic<
+		typename object_type_traits::remove_pointer<T1>::type>::result, Invalid_target_type_for_Dynamic_Cast);
 	STATIC_CHECK(is_polymorphic<T2>::result, Invalid_source_type_for_Dynamic_Cast);
 #endif
 #ifdef SMART_CAST_STATS_ALL
@@ -561,7 +561,7 @@ IC T1 smart_cast(T2* p)
 #endif
 	if (!p)
 		return (reinterpret_cast<T1>(p));
-	return (SmartDynamicCast::CHelper2<T2>::smart_cast < object_type_traits::remove_pointer<T1>::type > (p));
+	return (SmartDynamicCast::CHelper2<T2>::template smart_cast < typename object_type_traits::remove_pointer<T1>::type > (p));
 }
 
 template <typename T1, typename T2>
@@ -569,14 +569,14 @@ IC T1 smart_cast(T2& p)
 {
 #ifdef PURE_DYNAMIC_CAST_COMPATIBILITY_CHECK
 	STATIC_CHECK(object_type_traits::is_reference<T1>::value, Invalid_target_type_for_Dynamic_Cast);
-	STATIC_CHECK(is_polymorphic<object_type_traits::remove_reference<T1>::type>::result,
+	STATIC_CHECK(is_polymorphic<typename object_type_traits::remove_reference<T1>::type>::result,
 	             Invalid_target_type_for_Dynamic_Cast);
 	STATIC_CHECK(is_polymorphic<T2>::result, Invalid_source_type_for_Dynamic_Cast);
 #endif
 #ifdef SMART_CAST_STATS_ALL
 	add_smart_cast_stats_all	(typeid(T2*).name(),typeid(object_type_traits::remove_reference<T1>::type*).name());
 #endif
-	return (*SmartDynamicCast::CHelper2<T2>::smart_cast < object_type_traits::remove_reference<T1>::type > (&p));
+	return (*SmartDynamicCast::CHelper2<T2>::template smart_cast < typename object_type_traits::remove_reference<T1>::type > (&p));
 }
 
 #ifdef XRGAME_EXPORTS

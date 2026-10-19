@@ -1,6 +1,7 @@
 #ifndef	_PHYSICS_EXTERNAL_COMMON_
 #define _PHYSICS_EXTERNAL_COMMON_
 #pragma once
+#include "MathUtils.h" // cast_fv (Windows build got it via the PCH chain)
 struct dContactGeom;
 struct dContact;
 struct SGameMtl;

@@ -89,7 +89,7 @@ namespace ALife
 		eRelationTypeDummy = u32(-1),
 	};
 
-	enum EHitType
+	enum EHitType : unsigned int // fixed underlying type: matches the opaque decls in xrPhysics/PHCharacter.h (any order)
 	{
 		eHitTypeBurn = u32(0),
 		eHitTypeShock,
@@ -152,14 +152,14 @@ namespace ALife
 		eCombatTypeDummy = u32(-1),
 	};
 
-	//возможность подключения аддонов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	enum EWeaponAddonStatus
 	{
 		eAddonDisabled = 0,
-		//нельзя присоеденить
+		//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		eAddonPermanent = 1,
-		//постоянно подключено по умолчанию
-		eAddonAttachable = 2 //можно присоединять
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		eAddonAttachable = 2 //пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	};
 
 	IC EHitType g_tfString2HitType(LPCSTR caHitType)

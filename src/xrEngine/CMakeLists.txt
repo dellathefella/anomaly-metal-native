@@ -35,6 +35,7 @@ target_link_libraries(xrEngine
     xrNetServer
     xrSound
     xrCPU_Pipe
+    xrPhysics
     xrDiscord
     luabind
 )

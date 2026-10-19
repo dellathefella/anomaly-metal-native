@@ -20,7 +20,9 @@ class CPHAICharacter;
 
 namespace ALife
 {
-	enum EHitType;
+	// C++11 opaque enum declaration; underlying type must match the plain
+	// enum in alife_space.h (all enumerators non-negative => unsigned int).
+	enum EHitType : unsigned int;
 };
 
 static enum EEnvironment

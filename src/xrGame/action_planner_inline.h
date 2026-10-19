@@ -315,7 +315,7 @@ IC	void CPlanner::show_current_world_state	()
 	EVALUATORS::const_iterator	I = evaluators().begin();
 	EVALUATORS::const_iterator	E = evaluators().end();
 	for ( ; I != E; ++I) {
-		xr_vector<COperatorCondition>::const_iterator J = std::lower_bound(current_state().conditions().begin(),current_state().conditions().end(),CWorldProperty((*I).first,false));
+		typename xr_vector<COperatorCondition>::const_iterator J = std::lower_bound(current_state().conditions().begin(),current_state().conditions().end(),CWorldProperty((*I).first,false));
 		char				temp = '?';
 		if ((J != current_state().conditions().end()) && ((*J).condition() == (*I).first)) {
 			temp			= (*J).value() ? '+' : '-';
@@ -331,7 +331,7 @@ IC	void CPlanner::show_target_world_state	()
 	EVALUATORS::const_iterator	I = evaluators().begin();
 	EVALUATORS::const_iterator	E = evaluators().end();
 	for ( ; I != E; ++I) {
-		xr_vector<COperatorCondition>::const_iterator J = std::lower_bound(target_state().conditions().begin(),target_state().conditions().end(),CWorldProperty((*I).first,false));
+		typename xr_vector<COperatorCondition>::const_iterator J = std::lower_bound(target_state().conditions().begin(),target_state().conditions().end(),CWorldProperty((*I).first,false));
 		char				temp = '?';
 		if ((J != target_state().conditions().end()) && ((*J).condition() == (*I).first)) {
 			temp			= (*J).value() ? '+' : '-';
@@ -360,14 +360,14 @@ IC	void CPlanner::show				(LPCSTR offset)
 			Msg		("%soperator    [%d][%s]",offset,(*I).m_operator_id,(*I).m_operator->m_action_name);
 
 			{
-				xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->conditions().conditions().begin();
-				xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->conditions().conditions().end();
+				typename xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->conditions().conditions().begin();
+				typename xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->conditions().conditions().end();
 				for ( ; i != e; ++i)
 					Msg	("%s	condition [%d][%s] = %s",offset,(*i).condition(),property2string((*i).condition()),(*i).value() ? "TRUE" : "FALSE");
 			}
 			{
-				xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->effects().conditions().begin();
-				xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->effects().conditions().end();
+				typename xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->effects().conditions().begin();
+				typename xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->effects().conditions().end();
 				for ( ; i != e; ++i)
 					Msg	("%s	effect    [%d][%s] = %s",offset,(*i).condition(),property2string((*i).condition()),(*i).value() ? "TRUE" : "FALSE");
 			}

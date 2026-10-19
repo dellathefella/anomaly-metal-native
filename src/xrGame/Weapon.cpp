@@ -771,7 +771,7 @@ void CWeapon::net_Import(NET_Packet& P)
 	P.r_u8(wstate);
 
 	u8 Zoom;
-	P.r_u8((u8)Zoom);
+	P.r_u8(Zoom); // was P.r_u8((u8)Zoom): a cast makes an rvalue no non-const-ref overload can bind to (upstream typo)
 
 	if (H_Parent() && H_Parent()->Remote())
 	{

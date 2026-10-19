@@ -78,7 +78,7 @@ if(NOT WIN32)
         "${XRAY_SOURCE_DIR}/src/3rd party/luabind"
     )
     target_compile_definitions(xr_3da PRIVATE _MT ENGINE_BUILD STATIC_RENDERER_R2)
-    target_link_libraries(xr_3da PRIVATE xrEngine)
+    target_link_libraries(xr_3da PRIVATE xrEngine xrGame)
     if(APPLE)
         target_link_options(xr_3da PRIVATE "-undefined" "dynamic_lookup")
     endif()

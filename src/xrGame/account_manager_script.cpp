@@ -36,7 +36,7 @@ namespace gamespy_gp
 	}
 } //namespace gamespy_gp
 
-DEFINE_MIXED_DELEGATE_SCRIPT(gamespy_gp::suggest_nicks_cb, "suggest_nicks_cb");
-DEFINE_MIXED_DELEGATE_SCRIPT(gamespy_gp::account_operation_cb, "account_operation_cb");
-DEFINE_MIXED_DELEGATE_SCRIPT(gamespy_gp::account_profiles_cb, "account_profiles_cb");
-DEFINE_MIXED_DELEGATE_SCRIPT(gamespy_gp::found_email_cb, "found_email_cb");
+DEFINE_MIXED_DELEGATE_SCRIPT("suggest_nicks_cb", mixed_delegate<void (u32 const, char const*), suggest_nicks_cb_tag>);
+DEFINE_MIXED_DELEGATE_SCRIPT("account_operation_cb", mixed_delegate<void (bool, char const*), account_operation_cb_tag>);
+DEFINE_MIXED_DELEGATE_SCRIPT("account_profiles_cb", mixed_delegate<void (u32 const, char const*), account_profiles_cb_tag>);
+DEFINE_MIXED_DELEGATE_SCRIPT("found_email_cb", mixed_delegate<void (bool, char const*), found_emails_cb_tag>);

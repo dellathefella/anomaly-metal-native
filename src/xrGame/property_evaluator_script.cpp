@@ -14,6 +14,7 @@
 using namespace luabind;
 
 #pragma optimize("s",on)
+template<> // clang: explicit member specialization needs the template<> header (MSVC omits it)
 void CPropertyEvaluator<CScriptGameObject>::script_register(lua_State* L)
 {
 	module(L)

@@ -24,4 +24,4 @@ void profile_data_script_registrator::script_register(lua_State* L)
 	];
 }
 
-DEFINE_MIXED_DELEGATE_SCRIPT(gamespy_profile::store_operation_cb, "store_operation_cb");
+DEFINE_MIXED_DELEGATE_SCRIPT("store_operation_cb", mixed_delegate<void (bool, char const*), store_operation_cb_tag>);

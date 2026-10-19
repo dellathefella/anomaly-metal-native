@@ -108,16 +108,20 @@ DECLARE_SCRIPT_REGISTER_FUNCTION
 }; //class mixed_delegate
 
 
-#define DEFINE_MIXED_DELEGATE_SCRIPT(type, name_str) \
-	void type::script_register(lua_State *L)\
+// clang rejects an out-of-class member definition spelled through a typedef name
+// (MSVC permissively accepts it). Define an explicit member specialization using the
+// full template-id instead: DEFINE_MIXED_DELEGATE_SCRIPT("lua_name", mixed_delegate<Signature, tag>)
+#define DEFINE_MIXED_DELEGATE_SCRIPT(name_str, ...) \
+	template<> \
+	void __VA_ARGS__::script_register(lua_State *L)\
 	{\
 		module(L)\
 		[\
-			class_<type>(name_str)\
+			class_<__VA_ARGS__>(name_str)\
 				.def(						constructor<>())\
-				.def(						constructor<type::lua_object_type, type::lua_function_type>())\
-				.def("bind",				&type::bind)\
-				.def("clear",				&type::clear)\
+				.def(						constructor<__VA_ARGS__::lua_object_type, __VA_ARGS__::lua_function_type>())\
+				.def("bind",				&__VA_ARGS__::bind)\
+				.def("clear",				&__VA_ARGS__::clear)\
 		];\
 	};
 

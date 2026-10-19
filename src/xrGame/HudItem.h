@@ -201,9 +201,11 @@ public:
 	virtual bool CheckCompatibility(CHudItem*) { return true; }
 
 	virtual collide::rq_result& GetRQ();
+
+	// public: the Lua binding in weapon script files takes its address
+	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 protected:
 
-	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 	shared_str hud_sect;
 
 	//êàäðû ìîìåíòà ïåðåñ÷åòà XFORM è FirePos

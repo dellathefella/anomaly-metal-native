@@ -91,8 +91,8 @@ void CStalkerPlanner::update(u32 time_delta)
 		}
 		{
 			Msg			("%d",target_state().conditions().size());
-			xr_vector<COperatorCondition>::const_iterator	I = target_state().conditions().begin();
-			xr_vector<COperatorCondition>::const_iterator	E = target_state().conditions().end();
+			typename xr_vector<COperatorCondition>::const_iterator	I = target_state().conditions().begin();
+			typename xr_vector<COperatorCondition>::const_iterator	E = target_state().conditions().end();
 			for ( ; I != E; ++I)
 				Msg		("%d,%d",(*I).condition(),(*I).value() ? 1 : 0);
 		}
@@ -104,15 +104,15 @@ void CStalkerPlanner::update(u32 time_delta)
 				Msg		("%d,%d",(*I).m_operator_id,(*I).m_operator->weight(target_state(),target_state()));
 				{
 					Msg		("%d",(*I).m_operator->conditions().conditions().size());
-					xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->conditions().conditions().begin();
-					xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->conditions().conditions().end();
+					typename xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->conditions().conditions().begin();
+					typename xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->conditions().conditions().end();
 					for ( ; i != e; ++i)
 						Msg	("%d,%d",(*i).condition(),(*i).value() ? 1 : 0);
 				}
 				{
 					Msg		("%d",(*I).m_operator->effects().conditions().size());
-					xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->effects().conditions().begin();
-					xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->effects().conditions().end();
+					typename xr_vector<COperatorCondition>::const_iterator	i = (*I).m_operator->effects().conditions().begin();
+					typename xr_vector<COperatorCondition>::const_iterator	e = (*I).m_operator->effects().conditions().end();
 					for ( ; i != e; ++i)
 						Msg	("%d,%d",(*i).condition(),(*i).value() ? 1 : 0);
 				}

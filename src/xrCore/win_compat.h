@@ -145,6 +145,19 @@ struct IUnknown
 
 typedef LARGE_INTEGER* PLARGE_INTEGER;
 
+typedef HANDLE* LPHANDLE;
+
+#ifndef INFINITE
+#define INFINITE 0xFFFFFFFF
+#endif
+
+// Process priority classes (SetPriorityClass is a no-op shim; constants kept
+// for source compatibility)
+#define IDLE_PRIORITY_CLASS 0x00000040
+#define NORMAL_PRIORITY_CLASS 0x00000080
+#define HIGH_PRIORITY_CLASS 0x00000100
+#define REALTIME_PRIORITY_CLASS 0x00000100
+
 struct FILETIME
 {
     uint32_t dwLowDateTime;
@@ -305,7 +318,7 @@ struct xr_win_thread
     bool joined;
 };
 
-typedef unsigned long(WINAPI* xr_thread_start_routine)(void*);
+typedef uint32_t(WINAPI* xr_thread_start_routine)(void*);
 
 inline void* xr_thread_trampoline(void* arg)
 {
@@ -484,12 +497,12 @@ inline void* _aligned_realloc_compat(void* p, size_t size, size_t align)
 // ---------------------------------------------------------------------------
 // Timing
 // ---------------------------------------------------------------------------
-inline void QueryPerformanceFrequency(LARGE_INTEGER* f) { *f = 1000000000LL; }
+inline void QueryPerformanceFrequency(LARGE_INTEGER* f) { f->QuadPart = 1000000000LL; }
 inline void QueryPerformanceCounter(LARGE_INTEGER* c)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    *c = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+    c->QuadPart = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
 inline unsigned long GetTickCount()
@@ -1119,7 +1132,7 @@ inline BOOL IsDebuggerPresentCompat() { return FALSE; }
 // Command line (populated by the SDL entry point via xr_set_command_line)
 // ---------------------------------------------------------------------------
 void xr_set_command_line(int argc, char** argv);
-LPCSTR xr_GetCommandLine();
+char* xr_GetCommandLine();
 #ifndef GetCommandLine
 #define GetCommandLine xr_GetCommandLine
 #endif

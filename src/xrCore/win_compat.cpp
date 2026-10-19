@@ -29,7 +29,7 @@ void xr_set_command_line(int argc, char** argv)
     }
 }
 
-LPCSTR xr_GetCommandLine()
+char* xr_GetCommandLine()
 {
     return g_command_line_storage;
 }

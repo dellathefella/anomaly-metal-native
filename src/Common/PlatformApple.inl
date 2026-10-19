@@ -134,8 +134,26 @@ typedef char* LPTSTR;
 typedef const char* LPCSTR;
 typedef const char* LPCTSTR;
 typedef unsigned int UINT;
-typedef long long int LARGE_INTEGER;
-typedef unsigned long long int ULARGE_INTEGER;
+// Win32 64-bit time/integers — union form so .QuadPart/.LowPart work
+// (anonymous members rely on -fms-extensions, as everywhere in this port).
+typedef union _LARGE_INTEGER
+{
+    struct
+    {
+        unsigned long LowPart;
+        long HighPart;
+    };
+    long long QuadPart;
+} LARGE_INTEGER;
+typedef union _ULARGE_INTEGER
+{
+    struct
+    {
+        unsigned long LowPart;
+        unsigned long HighPart;
+    };
+    unsigned long long QuadPart;
+} ULARGE_INTEGER;
 
 typedef struct _EXCEPTION_POINTERS {
 } EXCEPTION_POINTERS, *PEXCEPTION_POINTERS;
@@ -355,7 +373,26 @@ inline int xr_vsprintf_s_impl(char* dest, const char* format, va_list args)
 }
 #define vsprintf_s xr_vsprintf_s_impl
 #define _snprintf snprintf
-#define sprintf_s(buffer, buffer_size, stringbuffer, ...) sprintf(buffer, stringbuffer, ##__VA_ARGS__)
+// sprintf_s: 4-arg form (dest, size, fmt, ...) and the template form with
+// inferred array size (dest, fmt, ...) — both map onto vsnprintf.
+inline int xr_sprintf_s_impl(char* dest, size_t size, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int r = vsnprintf(dest, size, format, args);
+    va_end(args);
+    return r;
+}
+template <size_t N>
+inline int xr_sprintf_s_impl(char (&dest)[N], const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int r = vsnprintf(dest, N, format, args);
+    va_end(args);
+    return r;
+}
+#define sprintf_s xr_sprintf_s_impl
 #define sscanf_s sscanf
 //#define GetProcAddress(handle, name) dlsym(handle, name)
 #define _chdir chdir

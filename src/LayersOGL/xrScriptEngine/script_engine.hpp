@@ -14,6 +14,9 @@
 #include <lua.hpp>
 #include <luabind/luabind.hpp>
 
+#include <map>
+#include <string>
+
 // p4: Lock/ScopeLock come from the monolith's xrCore (identical to dev's
 // xrCore/Threading extraction; implemented in xrCore.dylib).
 #include "xrCore/ScopeLock.hpp"
@@ -21,6 +24,7 @@
 class CScriptEngine
 {
 	lua_State* L;
+	std::map<std::string, luabind::object> m_namespaces;
 
 public:
 	static constexpr pcstr GlobalNamespace = "xrDefault";
@@ -45,6 +49,7 @@ public:
 
 	void unload()
 	{
+		m_namespaces.clear();
 		if (L)
 			lua_close(L);
 		L = nullptr;
@@ -54,28 +59,28 @@ public:
 	{
 		if (!L)
 			return;
-		push_namespace(ns); // -1: namespace env table
+		luabind::object env = name_space(ns);
 		if (luaL_loadfile(L, file) != 0)
 		{
 			Msg("! ScriptEngine: cannot load '%s': %s", file, lua_tostring(L, -1));
-			lua_pop(L, 2);
+			lua_pop(L, 1);
 			return;
 		}
-		lua_pushvalue(L, -2);
+		env.pushvalue(L);
 		lua_setfenv(L, -2);
 		if (lua_pcall(L, 0, 0, 0) != 0)
 		{
 			Msg("! ScriptEngine: error running '%s': %s", file, lua_tostring(L, -1));
 			lua_pop(L, 1);
 		}
-		lua_pop(L, 1); // namespace table
 	}
 
 	bool object(pcstr ns, pcstr identifier, int expected_type)
 	{
 		if (!L)
 			return false;
-		push_namespace(ns);
+		luabind::object env = name_space(ns);
+		env.pushvalue(L);
 		lua_getfield(L, -1, identifier);
 		const bool ok = lua_type(L, -1) == expected_type;
 		lua_pop(L, 2);
@@ -85,36 +90,22 @@ public:
 	luabind::object name_space(pcstr ns)
 	{
 		R_ASSERT(L);
-		push_namespace(ns);
-		luabind::object result(luabind::from_stack, L, -1);
-		lua_pop(L, 1);
-		return result;
-	}
+		const auto found = m_namespaces.find(ns);
+		if (found != m_namespaces.end())
+			return found->second;
 
-private:
-	// Leaves the per-namespace environment table (with {__index = _G}) on the stack.
-	void push_namespace(pcstr ns)
-	{
-		lua_getfield(L, LUA_GLOBALSINDEX, "xr_script_namespaces");
-		if (lua_isnil(L, -1))
-		{
-			lua_pop(L, 1);
-			lua_newtable(L);
-			lua_pushvalue(L, -1);
-			lua_setfield(L, LUA_GLOBALSINDEX, "xr_script_namespaces");
-		}
-		lua_getfield(L, -1, ns);
-		if (lua_isnil(L, -1))
-		{
-			lua_pop(L, 1); // nil
-			lua_newtable(L); // env
-			lua_newtable(L); // metatable
-			lua_pushvalue(L, LUA_GLOBALSINDEX);
-			lua_setfield(L, -2, "__index");
-			lua_setmetatable(L, -2);
-			lua_pushvalue(L, -1);
-			lua_setfield(L, -3, ns); // namespaces[ns] = env
-		}
-		lua_remove(L, -2); // keep only the env table
+		luabind::object env = luabind::newtable(L);
+		luabind::object globals = luabind::get_globals(L);
+		// __index fallback to globals (raw API: this luabind fork predates
+		// setmetatable helpers).
+		env.pushvalue(L);
+		lua_newtable(L); // metatable
+		globals.pushvalue(L);
+		lua_setfield(L, -2, "__index");
+		lua_setmetatable(L, -2);
+		lua_pop(L, 1); // env copy; the object keeps its own registry reference
+
+		m_namespaces.emplace(ns, env);
+		return env;
 	}
 };

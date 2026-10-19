@@ -90,7 +90,16 @@ typedef struct tagcomplex {
 #endif
 
 
-#if !defined(WIN32) && !defined(_WIN32_WCE)
+#if defined(WIN32) || defined(_WIN32_WCE)
+	// (Win32 gets these from the platform SDK — nothing to do)
+#elif defined(_LINUX)
+// p4 macOS: the engine chain (PlatformApple/win_compat) already provides
+// BYTE/WORD/DWORD/UINT/BOOL/HANDLE/RECT/POINT. Only the GDI-flavored aliases
+// cximage uses are added here.
+typedef DWORD COLORREF;
+typedef void* HRGN;
+typedef char  TCHAR;
+#else
 
 #include <stdlib.h>
 #include <string.h>

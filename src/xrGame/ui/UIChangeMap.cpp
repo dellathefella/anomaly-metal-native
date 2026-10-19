@@ -14,7 +14,7 @@
 #include "../UIGameCustom.h"
 #include "../UIDialogHolder.h"
 
-xr_token game_types [];
+// p4: removed size-less tentative definition of unused `xr_token game_types[]` (MSVC extension)
 
 CUIChangeMap::CUIChangeMap()
 {

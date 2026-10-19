@@ -254,7 +254,7 @@ struct DumbClipper
 
     XMFLOAT3 point(Fbox& bb, int i) const
     {
-        return XMFLOAT3((i & 1) ? bb.vMin.x : bb.vMax.x, (i & 2) ? bb.vMin.y : bb.vMax.y, (i & 4) ? bb.vMin.z : bb.vMax.z);
+        return XMFLOAT3((i & 1) ? bb.min.x : bb.max.x, (i & 2) ? bb.min.y : bb.max.y, (i & 4) ? bb.min.z : bb.max.z);
     }
 
     Fbox clipped_AABB(xr_vector<Fbox>& src, Fmatrix& xf)
@@ -265,7 +265,7 @@ struct DumbClipper
         {
             Fbox& bb = src[it];
             u32 mask = frustum.getMask();
-            EFC_Visible res = frustum.testAABB(&bb.vMin.x, mask);
+            EFC_Visible res = frustum.testAABB(&bb.min.x, mask);
             switch (res)
             {
             case fcvNone: continue;
@@ -517,7 +517,7 @@ struct DumbClipper
 
     static glm::vec3 point(Fbox& bb, int i)
     {
-        return glm::vec3(i & 1 ? bb.vMin.x : bb.vMax.x, i & 2 ? bb.vMin.y : bb.vMax.y, i & 4 ? bb.vMin.z : bb.vMax.z);
+        return glm::vec3(i & 1 ? bb.min.x : bb.max.x, i & 2 ? bb.min.y : bb.max.y, i & 4 ? bb.min.z : bb.max.z);
     }
 
     Fbox clipped_AABB(xr_vector<Fbox>& src, glm::mat4& xf)
@@ -527,7 +527,7 @@ struct DumbClipper
         for (auto& bb : src)
         {
             u32 mask = frustum.getMask();
-            EFC_Visible res = frustum.testAABB(&bb.vMin.x, mask);
+            EFC_Visible res = frustum.testAABB(&bb.min.x, mask);
             switch (res)
             {
             case fcvFully:

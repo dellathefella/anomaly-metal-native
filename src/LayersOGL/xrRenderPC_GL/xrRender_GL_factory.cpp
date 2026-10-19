@@ -30,6 +30,10 @@
 #include "Include/xrRender/RenderDeviceRender.h"
 #include "Include/xrRender/EnvironmentRender.h"
 
+// p4: dev's SoC-resources toggle (xrEngine/defines.h) — the monolith has no
+// such switch; Anomaly always uses the enhanced resource set.
+bool ShadowOfChernobylMode = false;
+
 namespace xray::render::render_gl
 {
 	extern CRender RImplementation;

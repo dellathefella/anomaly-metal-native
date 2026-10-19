@@ -177,18 +177,18 @@ void CDetailManager::cache_Decompress(Slot* S)
             SlotItem& Item = *ItemP;
 
             // Position (XZ)
-            float rx = (float(x) / float(d_size)) * dm_slot_size + D.vis.box.vMin.x;
-            float rz = (float(z) / float(d_size)) * dm_slot_size + D.vis.box.vMin.z;
+            float rx = (float(x) / float(d_size)) * dm_slot_size + D.vis.box.min.x;
+            float rz = (float(z) / float(d_size)) * dm_slot_size + D.vis.box.min.z;
             Fvector Item_P;
 
 #ifndef DBG_SWITCHOFF_RANDOMIZE
-            Item_P.set(rx + r_jitter.randFs(jitter), D.vis.box.vMax.y, rz + r_jitter.randFs(jitter));
+            Item_P.set(rx + r_jitter.randFs(jitter), D.vis.box.max.y, rz + r_jitter.randFs(jitter));
 #else
-            Item_P.set(rx, D.vis.box.vMax.y, rz);
+            Item_P.set(rx, D.vis.box.max.y, rz);
 #endif
 
             // Position (Y)
-            float y = D.vis.box.vMin.y - 5;
+            float y = D.vis.box.min.y - 5;
             Fvector dir;
             dir.set(0, -1, 0);
 
@@ -211,7 +211,7 @@ void CDetailManager::cache_Decompress(Slot* S)
                     }
                 }
             }
-            if (y < D.vis.box.vMin.y)
+            if (y < D.vis.box.min.y)
                 continue;
             Item_P.y = y;
 

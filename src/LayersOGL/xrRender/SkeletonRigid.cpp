@@ -99,13 +99,13 @@ void CKinematics::CalculateBones(BOOL bForceExact)
         if (bones->size())
         {
             // previous frame we have updated box - update sphere
-            vis.box.vMin = (Box.vMin);
-            vis.box.vMax = (Box.vMax);
+            vis.box.min = (Box.min);
+            vis.box.max = (Box.max);
             vis.box.getsphere(vis.sphere.P, vis.sphere.R);
         }
 #ifdef DEBUG
         // Validate
-        VERIFY3(_valid(vis.box.vMin) && _valid(vis.box.vMax), "Invalid bones-xform in model", dbg_name.c_str());
+        VERIFY3(_valid(vis.box.min) && _valid(vis.box.max), "Invalid bones-xform in model", dbg_name.c_str());
         if (vis.sphere.R > 1000.f)
         {
             for (u16 ii = 0; ii < LL_BoneCount(); ++ii)

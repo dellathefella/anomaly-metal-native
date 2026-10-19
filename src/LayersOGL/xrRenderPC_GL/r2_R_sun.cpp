@@ -127,8 +127,8 @@ void render_sun_old::render_sun()
         Fbox& bb = frustum_bb;
         bb.grow(EPS);
 
-        mdir_Project = glm::ortho(bb.vMin.x, bb.vMax.x, bb.vMin.y, bb.vMax.y,
-                                  bb.vMin.z - tweak_ortho_xform_initial_offs, bb.vMax.z);
+        mdir_Project = glm::ortho(bb.min.x, bb.max.x, bb.min.y, bb.max.y,
+                                  bb.min.z - tweak_ortho_xform_initial_offs, bb.max.z);
 
         // full-xform
         cull_xform = mdir_Project * mdir_View;
@@ -441,33 +441,33 @@ void render_sun_old::render_sun()
 
         // because caster points are from coarse representation only allow to "shrink" box, not grow
         // that is the same as if we first clip casters by frustum
-        if (b_receivers.vMin.x < -1)
-            b_receivers.vMin.x = -1;
-        if (b_receivers.vMin.y < -1)
-            b_receivers.vMin.y = -1;
-        if (b_casters.vMin.z < 0)
-            b_casters.vMin.z = 0;
-        if (b_receivers.vMax.x > +1)
-            b_receivers.vMax.x = +1;
-        if (b_receivers.vMax.y > +1)
-            b_receivers.vMax.y = +1;
-        if (b_casters.vMax.z > +1)
-            b_casters.vMax.z = +1;
+        if (b_receivers.min.x < -1)
+            b_receivers.min.x = -1;
+        if (b_receivers.min.y < -1)
+            b_receivers.min.y = -1;
+        if (b_casters.min.z < 0)
+            b_casters.min.z = 0;
+        if (b_receivers.max.x > +1)
+            b_receivers.max.x = +1;
+        if (b_receivers.max.y > +1)
+            b_receivers.max.y = +1;
+        if (b_casters.max.z > +1)
+            b_casters.max.z = +1;
 
         // refit?
         /*
         const float EPS				= 0.001f;
         D3DXMATRIX					refit;
-        D3DXMatrixOrthoOffCenterLH	( &refit, b_receivers.vMin.x, b_receivers.vMax.x, b_receivers.vMin.y,
-        b_receivers.vMax.y, b_casters.vMin.z-EPS, b_casters.vMax.z+EPS );
+        D3DXMatrixOrthoOffCenterLH	( &refit, b_receivers.min.x, b_receivers.max.x, b_receivers.min.y,
+        b_receivers.max.y, b_casters.min.z-EPS, b_casters.max.z+EPS );
         D3DXMatrixMultiply			( &m_LightViewProj, &m_LightViewProj, &refit);
         */
 
-        float boxWidth = b_receivers.vMax.x - b_receivers.vMin.x;
-        float boxHeight = b_receivers.vMax.y - b_receivers.vMin.y;
+        float boxWidth = b_receivers.max.x - b_receivers.min.x;
+        float boxHeight = b_receivers.max.y - b_receivers.min.y;
         //  the divide by two's cancel out in the translation, but included for clarity
-        float boxX = (b_receivers.vMax.x + b_receivers.vMin.x) / 2.f;
-        float boxY = (b_receivers.vMax.y + b_receivers.vMin.y) / 2.f;
+        float boxX = (b_receivers.max.x + b_receivers.min.x) / 2.f;
+        float boxY = (b_receivers.max.y + b_receivers.min.y) / 2.f;
         glm::mat4 trapezoidUnitCube(2.f / boxWidth, 0.f, 0.f, 0.f,
                                      0.f, 2.f / boxHeight, 0.f, 0.f,
                                      0.f, 0.f, 1.f, 0.f,
@@ -605,8 +605,8 @@ void render_sun_old::render_sun_near()
         }
         Fbox& bb = frustum_bb;
         bb.grow(EPS);
-        mdir_Project = glm::ortho(bb.vMin.x, bb.vMax.x, bb.vMin.y, bb.vMax.y,
-                                  bb.vMin.z - tweak_ortho_xform_initial_offs, bb.vMax.z);
+        mdir_Project = glm::ortho(bb.min.x, bb.max.x, bb.min.y, bb.max.y,
+                                  bb.min.z - tweak_ortho_xform_initial_offs, bb.max.z);
 
         // build viewport xform
         const float view_dim = float(RImplementation.o.smapsize);
@@ -643,10 +643,10 @@ void render_sun_old::render_sun_near()
             scissor.modify(xf);
         }
         s32 limit = RImplementation.o.smapsize - 1;
-        sun->X.D[0].minX = clampr(iFloor(scissor.vMin.x), 0, limit);
-        sun->X.D[0].maxX = clampr(iCeil(scissor.vMax.x), 0, limit);
-        sun->X.D[0].minY = clampr(iFloor(scissor.vMin.y), 0, limit);
-        sun->X.D[0].maxY = clampr(iCeil(scissor.vMax.y), 0, limit);
+        sun->X.D[0].minX = clampr(iFloor(scissor.min.x), 0, limit);
+        sun->X.D[0].maxX = clampr(iCeil(scissor.max.x), 0, limit);
+        sun->X.D[0].minY = clampr(iFloor(scissor.min.y), 0, limit);
+        sun->X.D[0].maxY = clampr(iCeil(scissor.max.y), 0, limit);
 
         // full-xform
     }

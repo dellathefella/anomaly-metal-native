@@ -39,7 +39,7 @@ void CRenderTarget::enable_dbt_bounds(light* L)
         Device.mFullTransform.transform(pt);
         bbp.modify(pt);
     }
-    u_DBT_enable(bbp.vMin.z, bbp.vMax.z);
+    u_DBT_enable(bbp.min.z, bbp.max.z);
 }
 
 // nv-DBT

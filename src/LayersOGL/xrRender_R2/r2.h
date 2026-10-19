@@ -431,6 +431,7 @@ public:
     bool m_p4_hud{ false };
     bool m_p4_invisible{ false };
     IRenderable* m_p4_object{ nullptr };
+    u32 m_SMAPSize{ 2048 }; // p4: dev IRender member (sun/rain shadow-map size, shader define)
     bool is_sun_static() override { return o.sunstatic; }
 
 #if defined(USE_DX11)

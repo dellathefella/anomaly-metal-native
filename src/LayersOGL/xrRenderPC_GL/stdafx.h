@@ -16,6 +16,19 @@
 #define ZoneScopedN(x)
 #endif
 
+// p4: dev's path-delimiter macro (rgl_shaders cache paths) and cpstr spelling
+// (xrCore/xr_types.h). POSIX separator for gamedata-relative paths.
+#ifndef DELIMITER
+#define DELIMITER "/"
+#endif
+#ifndef cpstr
+using cpstr = char* const;
+#endif
+
+// p4: dev's global SoC-resources toggle (xrEngine/defines.h); the monolith has
+// no such switch — defined false in xrRender_GL_factory.cpp.
+extern bool ShadowOfChernobylMode;
+
 // OpenXRay's xr_types.h spelling used by the staged layers (xrCore untouched).
 using cpcstr = const char* const;
 
@@ -90,6 +103,15 @@ ICF Fmatrix xr_inv_view()
 	Fmatrix m;
 	m.invert(Device.mView); // 4x3 invert — view matrices are affine (dev mInvView use-sites)
 	return m;
+}
+
+// p4: dev's size-less strconcat overloads (xrCore/string_concatenations.h) for
+// fixed char arrays — forwards to the monolith's size-checked form (declared
+// here: the engine's strconcat must be visible for the forwarding call).
+template <size_t Size, class... Args>
+inline LPSTR strconcat(char (&dest)[Size], const Args&... sources)
+{
+	return strconcat(static_cast<int>(Size), dest, sources...);
 }
 
 // p4: dev containers key std::unordered_map by shared_str; the monolith's

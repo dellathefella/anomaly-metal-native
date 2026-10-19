@@ -124,7 +124,8 @@ private:
 	IC bool strapped() const;
 
 public:
-	IC bool standing() const;
+	// p4: non-inline (IC definition lives in stalker_animation_manager_impl.h)
+	bool standing() const;
 
 private:
 	IC void fill_object_info();

@@ -108,7 +108,10 @@ typedef void* HRGN;
 #else
 typedef unsigned char  BYTE;
 typedef unsigned short WORD;
-typedef unsigned long  DWORD;
+// p4: must match the engine's Common/PlatformApple.inl (DWORD = uint32_t) —
+// otherwise cximage's exported member functions mangle with 'k' (long) while
+// xrGame references 'j' (int) and the ABI does not link.
+typedef unsigned int   DWORD;
 typedef unsigned int   UINT;
 
 typedef DWORD          COLORREF;

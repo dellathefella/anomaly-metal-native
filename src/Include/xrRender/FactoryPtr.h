@@ -59,7 +59,7 @@ private:
 };
 
 
-#if !defined(_EDITOR) && !defined(XR_PLATFORM_POSIX)
+#if !defined(_EDITOR) // p4: RenderFactory/RenderFactoryImpl resolve via xrAPI + renderer dylib
 FACTORY_PTR_INSTANCIATE(UISequenceVideoItem)
 FACTORY_PTR_INSTANCIATE(UIShader)
 FACTORY_PTR_INSTANCIATE(StatGraphRender)
@@ -73,7 +73,7 @@ FACTORY_PTR_INSTANCIATE(WallMarkArray)
 FACTORY_PTR_INSTANCIATE(StatsRender);
 #endif // _EDITOR
 
-#if !defined(_EDITOR) && !defined(XR_PLATFORM_POSIX)
+#if !defined(_EDITOR) // p4: RenderFactory/RenderFactoryImpl resolve via xrAPI + renderer dylib
 FACTORY_PTR_INSTANCIATE(FlareRender)
 FACTORY_PTR_INSTANCIATE(ThunderboltRender)
 FACTORY_PTR_INSTANCIATE(ThunderboltDescRender)
@@ -83,9 +83,7 @@ FACTORY_PTR_INSTANCIATE(EnvironmentRender)
 FACTORY_PTR_INSTANCIATE(EnvDescriptorRender)
 FACTORY_PTR_INSTANCIATE(EnvDescriptorMixerRender)
 #endif // _EDITOR
-#ifndef XR_PLATFORM_POSIX
-FACTORY_PTR_INSTANCIATE(FontRender)
-#endif
+FACTORY_PTR_INSTANCIATE(FontRender) // p4: renderer provides CreateFontRender
 /*
 void FactoryPtr<IStatsRender>::CreateObject(void)
 {

@@ -1029,3 +1029,8 @@ void CCC_Register()
     CMD4(CCC_Integer, "debug_destroy", &debug_destroy, FALSE, TRUE);
 #endif
 };
+
+// p4: dev-engine diagnostic global referenced by the staged renderer
+// (SkeletonAnimated motion-load errors). The monolith never sets it; empty
+// simply means the message omits the HUD section.
+ENGINE_API shared_str current_player_hud_sect{};

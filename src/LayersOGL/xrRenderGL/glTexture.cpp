@@ -6,6 +6,12 @@
 
 #include <gli/gli.hpp>
 
+// p4: CPU BCn decode for GL contexts without RGTC/BPTC (Apple Silicon's GL
+// exposes only S3TC). Single-TU implementation; statics, no external symbols.
+#define BCDEC_STATIC
+#define BCDEC_IMPLEMENTATION
+#include <bcdec.h>
+
 namespace xray::render::RENDER_NAMESPACE
 {
 void fix_texture_name(pstr fn)
@@ -122,6 +128,124 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
     gli::gl::format const format = GL.translate(texture.format(), texture.swizzles());
     GLenum target = GL.translate(texture.target());
 
+    // p4: the Apple Silicon GL driver supports S3TC (BC1-3) but not RGTC
+    // (BC4/5) or BPTC (BC6H/BC7) — Anomaly's normal maps (BC5) and modern
+    // albedo/HDR (BC7/BC6H) live there. Block-decode those to RGBA8/RGBA16F
+    // on the CPU and upload as plain textures; S3TC stays on the hardware
+    // path. Raw hex values because the glad configuration may not define the
+    // extension tokens.
+    enum
+    {
+        p4_GL_COMPRESSED_RED_RGTC1 = 0x8DBB, p4_GL_COMPRESSED_SIGNED_RED_RGTC1 = 0x8DBC,
+        p4_GL_COMPRESSED_RG_RGTC2 = 0x8DBD, p4_GL_COMPRESSED_SIGNED_RG_RGTC2 = 0x8DBE,
+        p4_GL_COMPRESSED_RGBA_BPTC_UNORM = 0x8E8C, p4_GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM = 0x8E8D,
+        p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT = 0x8E8E, p4_GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT = 0x8E8F
+    };
+    bool p4_decode = false;
+    size_t p4_bps = 4; // destination bytes per pixel
+    gli::gl::format p4_format = format;
+    int p4_signed = 0;
+    switch (format.Internal)
+    {
+    case p4_GL_COMPRESSED_RED_RGTC1: case p4_GL_COMPRESSED_RG_RGTC2:
+    case p4_GL_COMPRESSED_RGBA_BPTC_UNORM:
+        p4_decode = true;
+        p4_format.Internal = GL_RGBA8;
+        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        break;
+    case p4_GL_COMPRESSED_SIGNED_RED_RGTC1: case p4_GL_COMPRESSED_SIGNED_RG_RGTC2:
+        p4_decode = true; p4_signed = 1;
+        p4_format.Internal = GL_RGBA8;
+        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        break;
+    case p4_GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+        p4_decode = true;
+        p4_format.Internal = GL_SRGB8_ALPHA8;
+        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        break;
+    case p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT: case p4_GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+        p4_decode = true; p4_bps = 8; p4_signed = p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT == format.Internal;
+        p4_format.Internal = GL_RGBA16F;
+        p4_format.External = GL_RGBA; p4_format.Type = GL_HALF_FLOAT;
+        break;
+    default: break;
+    }
+    if (p4_decode && gli::TARGET_2D != texture.target() && gli::TARGET_CUBE != texture.target())
+        p4_decode = false; // rare 3D/array BCn: leave to GL (will warn below)
+
+    xr_vector<u8> p4_decoded;
+    xr_vector<size_t> p4_offsets;
+    if (p4_decode)
+    {
+        const size_t faces = texture.faces(), layers = texture.layers(), levels = texture.levels();
+        const auto p4_idx = [&](size_t l, size_t f, size_t lv) { return (l * faces + f) * levels + lv; };
+        p4_offsets.resize(layers * faces * levels);
+        size_t total = 0;
+        for (size_t l = 0; l < layers; ++l)
+            for (size_t f = 0; f < faces; ++f)
+                for (size_t lv = 0; lv < levels; ++lv)
+                { p4_offsets[p4_idx(l, f, lv)] = total; total += size_t(texture.extent(lv).x) * texture.extent(lv).y * p4_bps; }
+        p4_decoded.resize(total);
+
+        const GLenum fmt = format.Internal;
+        const size_t bbytes = (p4_GL_COMPRESSED_RED_RGTC1 == fmt || p4_GL_COMPRESSED_SIGNED_RED_RGTC1 == fmt) ? 8 : 16;
+        for (size_t l = 0; l < layers; ++l)
+            for (size_t f = 0; f < faces; ++f)
+                for (size_t lv = 0; lv < levels; ++lv)
+                {
+                    const u8* src = static_cast<const u8*>(texture.data(l, f, lv));
+                    u8* dst = p4_decoded.data() + p4_offsets[p4_idx(l, f, lv)];
+                    const GLsizei w = GLsizei(texture.extent(lv).x), h = GLsizei(texture.extent(lv).y);
+                    const GLsizei bw = (w + 3) / 4, bh = (h + 3) / 4;
+                    // scratch holds one 4x4 block; per-format pixel strides:
+                    // BC4: 1B (pitch 4), BC5: 2B (pitch 4), BC6H: 3x16F (pitch 8), BC7: 4B (pitch 16)
+                    u8 scratch[16 * 8];
+                    for (GLsizei by = 0; by < bh; ++by)
+                        for (GLsizei bx = 0; bx < bw; ++bx)
+                        {
+                            const u8* blk = src + (size_t(by) * bw + bx) * bbytes;
+                            switch (fmt)
+                            {
+                            case p4_GL_COMPRESSED_RED_RGTC1: case p4_GL_COMPRESSED_SIGNED_RED_RGTC1:
+                                bcdec_bc4(blk, scratch, 4, p4_signed); break;
+                            case p4_GL_COMPRESSED_RG_RGTC2: case p4_GL_COMPRESSED_SIGNED_RG_RGTC2:
+                                bcdec_bc5(blk, scratch, 4, p4_signed); break;
+                            case p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT: case p4_GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+                                bcdec_bc6h_half(blk, scratch, 8, p4_signed); break;
+                            default:
+                                bcdec_bc7(blk, scratch, 16); break;
+                            }
+                            for (GLsizei y = 0; y < 4 && by * 4 + y < h; ++y)
+                                for (GLsizei x = 0; x < 4 && bx * 4 + x < w; ++x)
+                                {
+                                    u8* px = dst + (size_t(by * 4 + y) * w + bx * 4 + x) * p4_bps;
+                                    const size_t row = size_t(y), col = size_t(x);
+                                    switch (fmt)
+                                    {
+                                    case p4_GL_COMPRESSED_RED_RGTC1: case p4_GL_COMPRESSED_SIGNED_RED_RGTC1:
+                                        px[0] = px[1] = px[2] = scratch[row * 4 + col]; px[3] = 255;
+                                        break;
+                                    case p4_GL_COMPRESSED_RG_RGTC2: case p4_GL_COMPRESSED_SIGNED_RG_RGTC2:
+                                        px[0] = scratch[row * 4 + col * 2]; px[1] = scratch[row * 4 + col * 2 + 1];
+                                        px[2] = 0; px[3] = 255;
+                                        break;
+                                    case p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT: case p4_GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+                                    {
+                                        const unsigned short* hp = reinterpret_cast<const unsigned short*>(scratch);
+                                        unsigned short* dp = reinterpret_cast<unsigned short*>(px);
+                                        dp[0] = hp[row * 4 + col * 3]; dp[1] = hp[row * 4 + col * 3 + 1];
+                                        dp[2] = hp[row * 4 + col * 3 + 2]; dp[3] = 0x3C00; // half 1.0
+                                        break;
+                                    }
+                                    default:
+                                        std::memcpy(px, scratch + (row * 4 + col) * 4, 4);
+                                        break;
+                                    }
+                                }
+                        }
+                }
+    }
+
 
     const texture_upload_unit uploadUnit(target);
     glGenTextures(1, &pTexture);
@@ -146,9 +270,16 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
         return reordered.data();
     };
 #else
-    if (gli::gl::EXTERNAL_RED != format.External) // skip for proper greyscale-alpha font textures
+    if (!p4_decode && gli::gl::EXTERNAL_RED != format.External) // skip for proper greyscale-alpha font textures
         glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, &format.Swizzles[gli::SWIZZLE_RED]);
-    const auto texels = [&](size_t layer, size_t face, size_t level) { return texture.data(layer, face, level); };
+    // p4: decoded textures are plain RGBA — identity swizzle is correct for
+    // every BCn family (BC5 keeps x/y in R/G as the *2-1 shaders expect).
+    const auto texels = [&](size_t layer, size_t face, size_t level) -> const void*
+    {
+        if (p4_decode)
+            return p4_decoded.data() + p4_offsets[(layer * texture.faces() + face) * texture.levels() + level];
+        return texture.data(layer, face, level);
+    };
 #endif
 
     glm::tvec3<GLsizei> const tex_extent(texture.extent());
@@ -158,7 +289,7 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
     {
     case gli::TARGET_2D:
     case gli::TARGET_CUBE:
-        glTexStorage2D(target, static_cast<GLint>(texture.levels()), format.Internal,
+        glTexStorage2D(target, static_cast<GLint>(texture.levels()), p4_format.Internal,
                        tex_extent.x, tex_extent.y);
         err = glGetError();
         if (err != GL_NO_ERROR)
@@ -199,7 +330,7 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
                 case gli::TARGET_2D:
                 case gli::TARGET_CUBE:
                 {
-                    if (gli::is_compressed(texture.format()))
+                    if (gli::is_compressed(texture.format()) && !p4_decode)
                     {
                         glCompressedTexSubImage2D(sub_target, static_cast<GLint>(level),
                                     0, 0, tex_level_extent.x, tex_level_extent.y,
@@ -216,7 +347,7 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
                     {
                         glTexSubImage2D(sub_target, static_cast<GLint>(level),
                                     0, 0, tex_level_extent.x, tex_level_extent.y,
-                                    format.External, format.Type,
+                                    p4_format.External, p4_format.Type,
                                     texels(layer, face, level));
                         err = glGetError();
                         if (err != GL_NO_ERROR)

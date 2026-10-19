@@ -15,7 +15,7 @@ IC CStalkerAnimationManager::EBodyState CStalkerAnimationManager::body_state() c
 	return (object().movement().body_state());
 }
 
-IC bool CStalkerAnimationManager::standing() const
+bool CStalkerAnimationManager::standing() const
 {
 	CAI_Stalker& obj = object();
 	stalker_movement_manager_smart_cover& movement = obj.movement();

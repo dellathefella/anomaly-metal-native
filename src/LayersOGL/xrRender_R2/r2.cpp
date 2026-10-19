@@ -636,6 +636,13 @@ void CRender::OnFrame()
     // p4: dev's menu guard removed (see OnCalculate note above).
 }
 
+// p4: monolith IRender::getTarget — the engine (CameraManager pp queries,
+// GameFont DPI scaling) asks the renderer for its main render target.
+IRender_Target* CRender::getTarget()
+{
+    return Target;
+}
+
 #ifdef USE_OGL
 IRender::RenderContext CRender::GetCurrentContext() const
 {

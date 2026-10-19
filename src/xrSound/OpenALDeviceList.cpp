@@ -30,9 +30,10 @@
 #include <objbase.h>
 #pragma warning(pop)
 
-#ifdef _EDITOR
-	log_fn_ptr_type*	pLog = NULL;
-#endif
+// p4: upstream guards the definition with _EDITOR but assigns it
+// unconditionally in the ctor — non-editor Windows builds linked it from
+// elsewhere; on POSIX define it unconditionally.
+log_fn_ptr_type*	pLog = NULL;
 
 void __cdecl al_log(char* msg)
 {

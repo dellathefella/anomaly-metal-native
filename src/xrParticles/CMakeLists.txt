@@ -15,6 +15,19 @@ target_include_directories(xrParticles PRIVATE
     "${XRAY_SOURCE_DIR}/src/3rd party"
 )
 
+# p4: particle_actions_collection.cpp uses <tbb/parallel_for.h>. The bundled
+# "3rd party/tbb" headers are pre-oneTBB (old ABI: tbb::task_group_context
+# without detail::r1) and brew oneTBB does not export those symbols — pick the
+# brew headers first so the emitted references match the linked library.
+if(APPLE)
+    target_include_directories(xrParticles BEFORE PRIVATE "/opt/homebrew/include")
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/tbb")
+    find_package(TBB CONFIG)
+    if(TARGET TBB::tbb)
+        target_link_libraries(xrParticles PRIVATE TBB::tbb)
+    endif()
+endif()
+
 if(NOT MSVC)
     target_compile_definitions(xrParticles PRIVATE _MT)
     target_compile_options(xrParticles PRIVATE -w -fdelayed-template-parsing -fms-extensions -fno-operator-names)

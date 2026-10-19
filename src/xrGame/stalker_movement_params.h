@@ -72,7 +72,8 @@ public:
 	IC cover_type const* cover() const;
 
 public:
-	IC void cover_loophole_id(shared_str const& loophole_id);
+	// p4: non-inline (IC definition lives in the .cpp; clang emits no out-of-line copy)
+	void cover_loophole_id(shared_str const& loophole_id);
 	LPCSTR cover_loophole_id() const;
 	loophole_type const* cover_loophole() const;
 

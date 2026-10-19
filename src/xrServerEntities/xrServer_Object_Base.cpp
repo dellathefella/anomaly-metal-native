@@ -42,7 +42,11 @@ IPropHelper& PHelper()
 LPCSTR script_section = "script";
 LPCSTR current_version = "current_server_entity_version";
 
-IC u16 script_server_object_version()
+// p4: script_net_packet_script.cpp takes this function's address via a plain
+// extern declaration; MSVC emitted the out-of-line COMDAT for the inline
+// definition, clang only does so when the definition is visible there. Force
+// an external, non-inline definition in this TU instead.
+u16 script_server_object_version()
 {
 	static bool initialized = false;
 	static u16 script_version = 0;

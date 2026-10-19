@@ -7,7 +7,8 @@
 #include <cstdlib>
 #include <cctype>
 
-typedef unsigned long DWORD;
+#include <cstdint> // p4: DWORD must match the engine (Common/PlatformApple.inl) typedef exactly
+typedef uint32_t DWORD;
 typedef unsigned char BYTE;
 
 void open_additional_libs(lua_State*);

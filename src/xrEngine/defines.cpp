@@ -14,5 +14,10 @@ Flags32 psDeviceFlags = {
 	rsFullscreen | rsDetails | mtPhysics | mtSound | mtNetwork | rsDrawStatic | rsDrawDynamic
 };
 
+// p4: on Windows this lives in the monolith renderer's console; the staged
+// OpenXRay renderer console does not define it, so the engine owns it here.
+// xrGame registers discord_status / g_always_active against it.
+Flags32 psDeviceFlags2 = { 0 };
+
 // textures
 int psTextureLOD = 1;

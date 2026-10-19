@@ -76,7 +76,9 @@ protected:
 	void SetClientID(ClientID const& local_client) { net_ClientID = local_client; };
 
 
-	IC virtual void SendTo_LL(void* data, u32 size, u32 dwFlags = DPNSEND_GUARANTEED, u32 dwTimeout = 0);
+	// p4: non-inline: xrGame calls this through the class interface and
+	// clang (unlike MSVC) emits no out-of-line copy for IC functions
+	virtual void SendTo_LL(void* data, u32 size, u32 dwFlags = DPNSEND_GUARANTEED, u32 dwTimeout = 0);
 
 public:
 	IPureClient(CTimer* tm);

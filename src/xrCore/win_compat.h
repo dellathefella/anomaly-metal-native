@@ -809,6 +809,18 @@ BOOL xr_SetFileAttributesA(LPCSTR path, unsigned long attr);
 #ifndef _strupr_l
 #define _strupr_l(s, l) strupr(s)
 #endif
+// 64-bit time (macOS time_t is already 64-bit)
+#ifndef _localtime64
+#define _localtime64 localtime
+#endif
+// wcslen for 16-bit WCHAR strings (MSVC wchar_t is 2 bytes; macOS wchar_t is 4)
+inline size_t wcslen(const WCHAR* s)
+{
+    size_t n = 0;
+    while (s[n])
+        ++n;
+    return n;
+}
 
 inline char* _i64toa_s_compat(long long v, char* buf, size_t sz, int radix)
 {

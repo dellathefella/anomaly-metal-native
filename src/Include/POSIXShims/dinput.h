@@ -283,4 +283,19 @@ typedef struct HINSTANCE__* LPDIRECTINPUT_VERSION_UNUSED; // keep HINSTANCE-styl
 #define DIK_NUMPADSTAR DIK_MULTIPLY
 #define DIK_BACKSLASH2 DIK_BACKSLASH
 
+// Extended navigation/edit keys on the numeric keypad + PrintScreen
+#define DIK_SNAPSHOT 0xB7
+#define DIK_EXECUTE 0xB6
+#define DIK_HELP 0xB5
+#define DIK_NUMPADHOME 0x47
+#define DIK_NUMPADUP 0x48
+#define DIK_NUMPADPRIOR 0x49
+#define DIK_NUMPADLEFT 0x4B
+#define DIK_NUMPADRIGHT 0x4D
+#define DIK_NUMPADEND 0x4F
+#define DIK_NUMPADDOWN 0x50
+#define DIK_NUMPADNEXT 0x51
+#define DIK_NUMPADINSERT 0x52
+#define DIK_NUMPADDELETE 0x53
+
 #endif // XR_POSIX_DINPUT_H

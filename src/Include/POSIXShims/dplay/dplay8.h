@@ -36,6 +36,7 @@ extern const GUID CLSID_DirectPlay8Client;
 extern const GUID CLSID_DirectPlay8Server;
 extern const GUID CLSID_DirectPlay8Peer;
 extern const GUID CLSID_DirectPlay8Address;
+extern const GUID CLSID_DP8SP_TCPIP;
 extern const GUID IID_IDirectPlay8Client;
 extern const GUID IID_IDirectPlay8Server;
 extern const GUID IID_IDirectPlay8Address;
@@ -267,10 +268,11 @@ typedef struct _DPN_APPLICATION_DESC
 	WCHAR unused[4];
 } DPN_APPLICATION_DESC, *PDPN_APPLICATION_DESC;
 
+// X-Ray DP-fork spelling (xrNetServer uses pBufferData/dwBufferSize)
 typedef struct _DPN_BUFFER_DESC
 {
-	void* pvData;
-	DWORD dwDataSize;
+	unsigned char* pBufferData;
+	DWORD dwBufferSize;
 } DPN_BUFFER_DESC, *PDPN_BUFFER_DESC;
 
 typedef struct _DPN_CONNECTION_INFO
@@ -623,6 +625,7 @@ typedef PFNDPMESSAGECALLBACK PDPMSGHANDLER;
 // ---------------------------------------------------------------------------
 struct IDirectPlay8Address
 {
+	virtual ~IDirectPlay8Address() {}
 	virtual HRESULT WINAPI QueryInterface(const GUID&, void**) { return DPNERR_NOTAVAILABLE; }
 	virtual unsigned long WINAPI AddRef() = 0;
 	virtual unsigned long WINAPI Release() = 0;
@@ -647,6 +650,7 @@ struct IDirectPlay8Address
 
 struct IDirectPlay8Client
 {
+	virtual ~IDirectPlay8Client() {}
 	virtual HRESULT WINAPI QueryInterface(const GUID&, void**) { return DPNERR_NOTAVAILABLE; }
 	virtual unsigned long WINAPI AddRef() = 0;
 	virtual unsigned long WINAPI Release() = 0;
@@ -701,6 +705,7 @@ struct IDirectPlay8Client
 
 struct IDirectPlay8Server
 {
+	virtual ~IDirectPlay8Server() {}
 	virtual HRESULT WINAPI QueryInterface(const GUID&, void**) { return DPNERR_NOTAVAILABLE; }
 	virtual unsigned long WINAPI AddRef() = 0;
 	virtual unsigned long WINAPI Release() = 0;
@@ -743,13 +748,16 @@ struct IDirectPlay8Server
 	virtual HRESULT WINAPI SendToAll(DPNID, DPN_BUFFER_DESC*, DWORD, DWORD, void*, DPNHANDLE*, DWORD) { return DPNERR_NOTAVAILABLE; }
 	virtual HRESULT WINAPI CancelAsyncOperation(DPNHANDLE hAsync, DWORD dwFlags) { (void)hAsync; (void)dwFlags; return DPNERR_NOTAVAILABLE; }
 	virtual HRESULT WINAPI GetConnectionInfo(DPNID dpnidPlayer, DPN_CONNECTION_INFO* pConnectionInfo, DWORD dwFlags) = 0;
-	virtual HRESULT WINAPI GetSendQueueInfo(DWORD* pdwPending, DWORD* pdwHigh, DWORD dwFlags) = 0;
+	// DP fork: server queue info is per-client
+	virtual HRESULT WINAPI GetSendQueueInfo(DPNID dpnidPlayer, DWORD* pdwPending, DWORD* pdwHigh,
+	                                        DWORD dwFlags) = 0;
 	virtual HRESULT WINAPI GetClientAddress(DPNID, IDirectPlay8Address**, DWORD) { return DPNERR_NOTAVAILABLE; }
 	virtual HRESULT WINAPI CreatePlayer(DPN_PLAYER_INFO*, void*, DPNHANDLE*, DWORD) { return DPNERR_NOTAVAILABLE; }
 };
 
 struct IDirectPlay8Peer
 {
+	virtual ~IDirectPlay8Peer() {}
 	virtual HRESULT WINAPI QueryInterface(const GUID&, void**) { return DPNERR_NOTAVAILABLE; }
 	virtual unsigned long WINAPI AddRef() = 0;
 	virtual unsigned long WINAPI Release() = 0;

@@ -242,6 +242,9 @@ inline int strcpy_s(char *dest, size_t num, const char *source)
 template <size_t num>
 inline int strcpy_s(char (&dest)[num], const char *source) { return strcpy_s(dest, num, source); }
 
+#ifndef _TRUNCATE
+#define _TRUNCATE ((size_t)-1)
+#endif
 inline int strncpy_s(char * dest, size_t dst_size, const char * source, size_t num)
 {
     if (!dest || (0 == dst_size))

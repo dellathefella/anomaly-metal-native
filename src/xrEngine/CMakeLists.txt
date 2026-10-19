@@ -31,6 +31,9 @@ target_link_libraries(xrEngine
     PUBLIC
     xrCore
     xrCDB
+    xrAPI
+    xrNetServer
+    xrSound
     xrDiscord
     luabind
 )
@@ -48,10 +51,9 @@ endif()
 if(APPLE)
     find_package(PkgConfig)
     if(PkgConfig_FOUND)
-        pkg_check_modules(XR_MEDIA ogg vorbisfile theora jpeg)
-        if(XR_MEDIA_FOUND)
-            target_include_directories(xrEngine PRIVATE ${XR_MEDIA_INCLUDE_DIRS})
-            target_link_libraries(xrEngine PRIVATE ${XR_MEDIA_LIBRARIES})
+        pkg_check_modules(XR_MEDIA IMPORTED_TARGET ogg vorbisfile theora libjpeg)
+        if(TARGET PkgConfig::XR_MEDIA)
+            target_link_libraries(xrEngine PRIVATE PkgConfig::XR_MEDIA)
         endif()
     endif()
 

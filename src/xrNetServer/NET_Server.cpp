@@ -341,7 +341,13 @@ IPureServer::EConnect IPureServer::Connect(LPCSTR options, GameDescriptionData& 
 		// Set server-player info
 		DPN_APPLICATION_DESC dpAppDesc;
 		DPN_PLAYER_INFO dpPlayerInfo;
+#ifdef XR_PLATFORM_POSIX
+		// L"" literals are 32-bit wchar_t on LP64; WCHAR here is 16-bit
+		static WCHAR wszNameBuf[] = {'X', 'R', 'a', 'y', ' ', 'S', 'e', 'r', 'v', 'e', 'r', 0};
+		WCHAR* wszName = wszNameBuf;
+#else
 		WCHAR wszName [] = L"XRay Server";
+#endif
 
 		ZeroMemory(&dpPlayerInfo, sizeof(DPN_PLAYER_INFO));
 		dpPlayerInfo.dwSize = sizeof(DPN_PLAYER_INFO);
@@ -567,14 +573,14 @@ HRESULT IPureServer::net_Handler(u32 dwMessageType, PVOID pMessage)
 			if (GetBannedClient(HAddr))
 			{
 				msg->dwReplyDataSize = sizeof(NET_BANNED_STR);
-				msg->pvReplyData = NET_BANNED_STR;
+				msg->pvReplyData = (void*)NET_BANNED_STR;
 				return S_FALSE;
 			};
 			//first connected client is SV_Client so if it is NULL then this server client tries to connect ;)
 			if (SV_Client && !m_ip_filter.is_ip_present(HAddr.m_data.data))
 			{
 				msg->dwReplyDataSize = sizeof(NET_NOTFOR_SUBNET_STR);
-				msg->pvReplyData = NET_NOTFOR_SUBNET_STR;
+				msg->pvReplyData = (void*)NET_NOTFOR_SUBNET_STR;
 				return S_FALSE;
 			}
 		}

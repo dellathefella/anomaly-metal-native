@@ -325,7 +325,42 @@ inline bool& xr_quit_posted()
     return q;
 }
 
-static inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
+static // Raw input events for the CInput SDL backend (xr_input_sdl.cpp). The message
+// pump is the sole SDL_PollEvent consumer, so it mirrors input events here.
+struct XrRawInputEvent
+{
+    enum Type : unsigned char
+    {
+        KeyDown = 0,
+        KeyUp,
+        MouseMotion,
+        MouseButtonDown,
+        MouseButtonUp,
+        MouseWheel,
+        Controller, // t4: gamepad events (payload = SDL event index in .a)
+    };
+    Type type;
+    int a; // key: SDL scancode; button: SDL button; wheel: y; motion: dx
+    int b; // motion: dy
+};
+inline std::deque<XrRawInputEvent>& xr_raw_input_queue()
+{
+    static std::deque<XrRawInputEvent> q;
+    return q;
+}
+inline void xr_raw_input_push(XrRawInputEvent::Type t, int a, int b = 0)
+{
+    if (xr_raw_input_queue().size() < 8192)
+    {
+        XrRawInputEvent ev;
+        ev.type = t;
+        ev.a = a;
+        ev.b = b;
+        xr_raw_input_queue().push_back(ev);
+    }
+}
+
+inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
 {
     MSG m{};
     ok = false;
@@ -381,12 +416,16 @@ static inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         break;
     case SDL_KEYDOWN:
     case SDL_KEYUP:
+        xr_raw_input_push(e.type == SDL_KEYDOWN ? XrRawInputEvent::KeyDown
+                                                : XrRawInputEvent::KeyUp,
+                          e.key.keysym.scancode);
         m.message = e.type == SDL_KEYDOWN ? (uint32_t)WM_KEYDOWN : (uint32_t)WM_KEYUP;
         m.wParam = e.key.keysym.sym; // SDL keysym; input port maps to VK
         m.lParam = (e.key.state == SDL_PRESSED) ? 1 : 0;
         ok = true;
         break;
     case SDL_MOUSEMOTION:
+        xr_raw_input_push(XrRawInputEvent::MouseMotion, e.motion.xrel, e.motion.yrel);
         m.message = WM_MOUSEMOVE;
         m.lParam = MAKELPARAM(e.motion.x, e.motion.y);
         ok = true;
@@ -394,6 +433,9 @@ static inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
     {
+        xr_raw_input_push(e.type == SDL_MOUSEBUTTONDOWN ? XrRawInputEvent::MouseButtonDown
+                                                        : XrRawInputEvent::MouseButtonUp,
+                          e.button.button);
         bool down = e.button.state == SDL_PRESSED;
         m.wParam = 0;
         switch (e.button.button)
@@ -408,6 +450,7 @@ static inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         break;
     }
     case SDL_MOUSEWHEEL:
+        xr_raw_input_push(XrRawInputEvent::MouseWheel, e.wheel.y);
         m.message = WM_MOUSEWHEEL;
         m.wParam = (WPARAM)(short)(e.wheel.y * 120);
         ok = true;

@@ -100,6 +100,8 @@ protected:
 	using C::p_;
 	using C::_inc;
 	using C::_dec;
+public:
+	// these are public in resptr_base — keep them public through the chain
 	using C::_set;
 	using C::_get;
 	using C::_clear;

@@ -221,9 +221,9 @@ void CRender::Render()
 
         // perform tests
         size_t count = 0;
-        count = _max(count, LP.v_point.size());
-        count = _max(count, LP.v_spot.size());
-        count = _max(count, LP.v_shadowed.size());
+        count = std::max(count, u32(LP.v_point.size()));
+        count = std::max(count, u32(LP.v_spot.size()));
+        count = std::max(count, u32(LP.v_shadowed.size()));
         for (size_t it = 0; it < count; it++)
         {
             if (it < LP.v_point.size())

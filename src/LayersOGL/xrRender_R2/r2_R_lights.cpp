@@ -193,7 +193,7 @@ void CRender::render_lights(light_Package& LP)
 
                     dsgraph.o.phase = PHASE_SMAP;
                     dsgraph.r_pmask(true, RImplementation.o.Tshadows);
-                    dsgraph.o.sector_id = L->spatial.sector_id;
+                    dsgraph.o.sector_id = L->spatial.sector ? L->spatial.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID; // p4: monolith sector handle -> Sectors index
                     dsgraph.o.view_pos = L->position;
                     dsgraph.o.xform = L->X.S.combine;
                     dsgraph.o.view_frustum.CreateFromMatrix(L->X.S.combine, FRUSTUM_P_ALL & (~FRUSTUM_P_NEAR));
@@ -343,7 +343,7 @@ void CRender::render_indirect(light* L) const
             L_up = { 0, 0, 1 };
 
         L_right.crossproduct(L_up, LI.D).normalize();
-        LIGEN.spatial.sector_id = LI.S;
+        LIGEN.spatial.sector_id = LI.spatial.sector ? LI.spatial.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID; // p4: monolith sector handle -> Sectors index
         LIGEN.set_position(LI.P);
         LIGEN.set_rotation(LI.D, L_right);
 

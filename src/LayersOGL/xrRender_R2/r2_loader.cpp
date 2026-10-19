@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+#include "xrEngine/x_ray.h" // p4: pApp (CApplication LoadBegin/LoadEnd markers)
 #include "Layers/xrRender/ResourceManager.h"
 #include "Layers/xrRender/FBasicVisual.h"
 #include "xrCore/FMesh.hpp"

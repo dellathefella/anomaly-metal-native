@@ -326,6 +326,11 @@ Shader* CResourceManager::Create(LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_co
             return _lua_Create(s_shader, s_textures);
         else
         {
+            // p4: log unknown Anomaly l_shader names (they fall back to
+            // stub_default) so one launch enumerates the whole miss list.
+            static std::set<std::string> s_p4_unknown_ls;
+            if (s_p4_unknown_ls.insert(s_shader).second)
+                Msg("* p4: unknown l_shader '%s' -> fallback", s_shader);
             Shader* pShader = _cpp_Create(s_shader, s_textures, s_constants, s_matrices);
             if (pShader)
                 return pShader;

@@ -916,9 +916,9 @@ void CRender::SetPostProcessParams(const SPPInfo& ppi)
     Target->set_noise_scale(ppi.noise.grain);
     Target->set_noise_fps(ppi.noise.fps);
 
-    Target->set_color_base(const_cast<SColor&>(ppi.color_base)); // p4: monolith SColor converters are non-const (read-only)
-    Target->set_color_gray(const_cast<SColor&>(ppi.color_gray));
-    Target->set_color_add(const_cast<SColor&>(ppi.color_add));
+    Target->set_color_base(const_cast<SPPInfo::SColor&>(ppi.color_base)); // p4: monolith SColor converters are non-const (read-only)
+    Target->set_color_gray(const_cast<SPPInfo::SColor&>(ppi.color_gray));
+    Target->set_color_add(const_cast<SPPInfo::SColor&>(ppi.color_add));
 
     Target->set_cm_imfluence(ppi.cm_influence);
     Target->set_cm_interpolate(ppi.cm_interpolate);

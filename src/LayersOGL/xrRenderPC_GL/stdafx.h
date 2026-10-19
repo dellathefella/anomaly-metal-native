@@ -10,6 +10,12 @@
 #define CHK_GL(expr) expr
 #endif
 
+// p4: dev's Tracy profiling macros — no-op in the port (xrCore has no tracy).
+#ifndef ZoneScoped
+#define ZoneScoped
+#define ZoneScopedN(x)
+#endif
+
 // OpenXRay's xr_types.h spelling used by the staged layers (xrCore untouched).
 using cpcstr = const char* const;
 

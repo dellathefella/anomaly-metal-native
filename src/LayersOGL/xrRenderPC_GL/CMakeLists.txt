@@ -8,6 +8,9 @@
 
 file(GLOB RGL_PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 file(GLOB RGL_GL_SOURCES "${XRAY_SOURCE_DIR}/src/LayersOGL/xrRenderGL/*.cpp")
+# p4: vendored dev helper (shader-cache CRC over IReader + #include scan); the
+# monolith xrCore already exports the crc32() it calls.
+list(APPEND RGL_PC_SOURCES "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/FileCRC32.cpp")
 
 add_library(xrRender_GL SHARED
     ${RGL_PC_SOURCES}

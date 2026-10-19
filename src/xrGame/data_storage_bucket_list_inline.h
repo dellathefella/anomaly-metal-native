@@ -61,7 +61,7 @@ IC bool CBucketList::is_opened_empty()
 	{
 		if (!clear_buckets)
 			for (++m_min_bucket_id; (m_min_bucket_id < bucket_count) && (!m_buckets[m_min_bucket_id] || (m_buckets[
-				     m_min_bucket_id]->m_path_id != current_path_id()) || (m_buckets[m_min_bucket_id]->m_bucket_id !=
+				     m_min_bucket_id]->m_path_id != this->current_path_id()) || (m_buckets[m_min_bucket_id]->m_bucket_id !=
 				     m_min_bucket_id)); ++m_min_bucket_id);
 		else
 			for (++m_min_bucket_id; (m_min_bucket_id < bucket_count) && !m_buckets[m_min_bucket_id]; ++m_min_bucket_id);
@@ -85,11 +85,11 @@ IC void CBucketList::verify_buckets() const
 {
 	//		for (u32 i=0; i<bucket_count; ++i) {
 	//			CGraphVertex	*j = m_buckets[i], *k;
-	//			if (!j || (indexes[j->index()].m_path_id != current_path_id()) || (indexes[j->index()].vertex != j))
+	//			if (!j || (indexes[j->index()].m_path_id != this->current_path_id()) || (indexes[j->index()].vertex != j))
 	//				continue;
 	//			u32			count = 0, count1 = 0;
 	//			for ( ; j; k=j,j=j->next(), ++count) {
-	//				VERIFY	(indexes[j->index()].m_path_id == current_path_id());
+	//				VERIFY	(indexes[j->index()].m_path_id == this->current_path_id());
 	//				VERIFY	(compute_bucket_id(*j) == i);
 	//				VERIFY	(!j->prev() || (j == j->prev()->next()));
 	//				VERIFY	(!j->next() || (j == j->next()->prev()));
@@ -97,7 +97,7 @@ IC void CBucketList::verify_buckets() const
 	//				VERIFY	(!j->prev() || (j != j->prev()));
 	//			}
 	//			for ( ; k; k=k->prev(), ++count1) {
-	//				VERIFY	(indexes[k->index()].m_path_id == current_path_id());
+	//				VERIFY	(indexes[k->index()].m_path_id == this->current_path_id());
 	//				VERIFY	(compute_bucket_id(*k) == i);
 	//				VERIFY	(!k->prev() || (k == k->prev()->next()));
 	//				VERIFY	(!k->next() || (k == k->next()->prev()));
@@ -115,10 +115,10 @@ IC void CBucketList::add_to_bucket(CGraphVertex& vertex, u32 m_bucket_id)
 		m_min_bucket_id = m_bucket_id;
 
 	CGraphVertex* i = m_buckets[m_bucket_id];
-	if (!i || (!clear_buckets && ((i->m_path_id != current_path_id()) || (i->m_bucket_id != m_bucket_id))))
+	if (!i || (!clear_buckets && ((i->m_path_id != this->current_path_id()) || (i->m_bucket_id != m_bucket_id))))
 	{
 		vertex.m_bucket_id = m_bucket_id;
-		vertex.m_path_id = current_path_id();
+		vertex.m_path_id = this->current_path_id();
 		m_buckets[m_bucket_id] = &vertex;
 		vertex.next() = vertex.prev() = 0;
 		verify_buckets();
@@ -126,7 +126,7 @@ IC void CBucketList::add_to_bucket(CGraphVertex& vertex, u32 m_bucket_id)
 	}
 
 	vertex.m_bucket_id = m_bucket_id;
-	vertex.m_path_id = current_path_id();
+	vertex.m_path_id = this->current_path_id();
 
 	if (i->f() >= vertex.f())
 	{

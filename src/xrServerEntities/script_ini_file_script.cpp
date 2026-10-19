@@ -73,13 +73,15 @@ bool r_line(CScriptIniFile* self, LPCSTR S, int L, luabind::internal_string&N, l
 #pragma warning(disable:4238)
 CScriptIniFile* create_ini_file(LPCSTR ini_string)
 {
+	// clang: address-of-temporary — named local (CInifile is self-contained after ctor, as upstream relies on)
+	IReader ini_reader(
+		(void*)ini_string,
+		xr_strlen(ini_string)
+	);
 	return (
 		(CScriptIniFile*)
 		xr_new<CInifile>(
-			&IReader(
-				(void*)ini_string,
-				xr_strlen(ini_string)
-			),
+			&ini_reader,
 			FS.get_path("$game_config$")->m_Path
 		)
 	);

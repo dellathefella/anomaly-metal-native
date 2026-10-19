@@ -596,6 +596,9 @@ inline void SetLastError(unsigned long e) { xr_win_last_error = (int)e; }
 #define CREATE_ALWAYS 2
 #define CREATE_NEW 1
 #define FILE_ATTRIBUTE_READONLY 0x00000001UL
+#ifndef FILE_ATTRIBUTE_HIDDEN
+#define FILE_ATTRIBUTE_HIDDEN 0x00000002UL
+#endif
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010UL
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
 #define PAGE_READONLY 0x02

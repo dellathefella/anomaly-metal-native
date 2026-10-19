@@ -89,6 +89,11 @@ class CGraphAbstractSerialize : public CGraphAbstract<_data_type, _edge_weight_t
                                 public IPureSerializeObject<IReader, IWriter>
 {
 public:
+	// clang: dependent-base lookup — re-expose base typedefs for unqualified use
+	typedef CGraphAbstract<_data_type, _edge_weight_type, _vertex_id_type> inherited;
+	typedef typename inherited::const_vertex_iterator const_vertex_iterator;
+	typedef typename inherited::const_iterator const_iterator;
+
 	virtual void save(IWriter& stream);
 	virtual void load(IReader& stream);
 };

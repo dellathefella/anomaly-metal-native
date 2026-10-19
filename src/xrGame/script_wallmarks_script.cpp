@@ -9,7 +9,7 @@ ScriptWallmarksManager* GetManager()
 }
 
 #pragma optimize("s",on)
-void CScriptWallmarksManager::script_register(lua_State *L)
+template<> void class_exporter<ScriptWallmarksManager>::script_register(lua_State *L)
 {
 	module(L)
 	[

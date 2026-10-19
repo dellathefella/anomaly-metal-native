@@ -26,11 +26,13 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 
 #pragma warning(push)
 #pragma warning(disable:4238)
+	// clang: address-of-temporary вЂ” named local (same lifetime trick MSVC allowed, but safe)
+	IReader ini_reader(
+		(void*)(ini_string),
+		xr_strlen(ini_string)
+	);
 	CInifile ini(
-		&IReader(
-			(void*)(ini_string),
-			xr_strlen(ini_string)
-		),
+		&ini_reader,
 		FS.get_path("$game_config$")->m_Path
 	);
 #pragma warning(pop)
@@ -181,7 +183,7 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 					if (randF(1.f) < p)
 					{
 						CSE_Abstract* E = alife().spawn_item(N, o_Position, m_tNodeID, m_tGraphID, ID);
-						//подсоединить аддоны к оружию, если включены соответствующие флажки
+						//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 						CSE_ALifeItemWeapon* W = smart_cast<CSE_ALifeItemWeapon*>(E);
 						if (W)
 						{

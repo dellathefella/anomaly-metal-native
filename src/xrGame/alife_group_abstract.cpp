@@ -138,7 +138,9 @@ void CSE_ALifeGroupAbstract::try_switch_offline()
 	VERIFY(I);
 
 	// iterating on group members
-	for (u32 i = 0, N = (u32)m_tpMembers.size(); i < N; ++i)
+	// clang: MSVC for-scope leak — i and N are used after the loop below
+	u32 i = 0, N = 0;
+	for (i = 0, N = (u32)m_tpMembers.size(); i < N; ++i)
 	{
 		// casting group member to the abstract monster to get access to the Health property
 		CSE_ALifeMonsterAbstract* tpGroupMember = smart_cast<CSE_ALifeMonsterAbstract*>(

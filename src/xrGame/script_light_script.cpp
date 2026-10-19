@@ -4,7 +4,7 @@
 using namespace luabind;
 
 #pragma optimize("s",on)
-void CScriptLight::script_register(lua_State *L)
+template<> void class_exporter<ScriptLight>::script_register(lua_State *L)
 {
 	module(L)
 		[

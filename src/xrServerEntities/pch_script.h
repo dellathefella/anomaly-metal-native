@@ -34,4 +34,11 @@
 #include <luabind/out_value_policy.hpp>
 #include <luabind/iterator_policy.hpp>
 
+// luabind's boost.pp iteration helpers leak the N macro (MSVC's PCH hid leaked
+// macros from .cpp translation units; clang's -include PCH does not). xrGame/
+// xrServerEntities code uses N as a local variable name.
+#ifdef N
+#undef N
+#endif
+
 #endif // PCH_SCRIPT_H

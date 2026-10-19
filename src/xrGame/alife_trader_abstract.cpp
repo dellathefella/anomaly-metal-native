@@ -40,20 +40,22 @@ void CSE_ALifeTraderAbstract::spawn_supplies()
 
 	if (m_SpecificCharacter.size())
 	{
-		//если в custom data объекта есть
-		//секция [dont_spawn_character_supplies]
-		//то не вызывать spawn из selected_char.SupplySpawn()
+		//пїЅпїЅпїЅпїЅ пїЅ custom data пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+		//пїЅпїЅпїЅпїЅпїЅпїЅ [dont_spawn_character_supplies]
+		//пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ spawn пїЅпїЅ selected_char.SupplySpawn()
 		bool specific_character_supply = true;
 
 		if (xr_strlen(dynamic_object->m_ini_string))
 		{
 #pragma warning(push)
 #pragma warning(disable:4238)
+			// clang: address-of-temporary вЂ” named local (same lifetime trick MSVC allowed, but safe)
+			IReader ini_reader(
+				(void*)(*dynamic_object->m_ini_string),
+				xr_strlen(dynamic_object->m_ini_string)
+			);
 			CInifile ini(
-				&IReader(
-					(void*)(*dynamic_object->m_ini_string),
-					xr_strlen(dynamic_object->m_ini_string)
-				),
+				&ini_reader,
 				FS.get_path("$game_config$")->m_Path
 			);
 #pragma warning(pop)

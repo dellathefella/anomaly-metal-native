@@ -1,19 +1,19 @@
 ///////////////////////////////////////////////////////////////
 // ini_table_loader.h
-// темплейтовый класс, который загружает из ini файла 
-// квадратную таблицу для элементов
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ini пїЅпїЅпїЅпїЅпїЅ 
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ///////////////////////////////////////////////////////////////
 
 #pragma once
 
 
-//T_ITEM		-	тип элемента таблицы
+//T_ITEM		-	пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //					
-//T_INI_LOADER	-	тип класса CIni_IdToIndex, 
-//					откуда будет браться информация размерах таблицы
-//TABLE_INDEX		-	порядковый номер таблицы, нужен только в том случае
-//					если мы хотим сгененрировать несколько таблиц с одинаковыми
-//					T_ITEM и T_INI_LOADER
+//T_INI_LOADER	-	пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ CIni_IdToIndex, 
+//					пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//TABLE_INDEX		-	пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+//					пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//					T_ITEM пїЅ T_INI_LOADER
 
 
 #define TEMPLATE_SPECIALIZATION		template<typename T_ITEM, typename T_INI_LOADER, u16 TABLE_INDEX >
@@ -44,10 +44,10 @@ public:
 private:
 	ITEM_TABLE* m_pTable;
 	LPCSTR table_sect;
-	//ширина таблицы, если -1 то таблица делается квадратной (ширина равна высоте)
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ -1 пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 	int table_width;
 
-	//перобразование из LPCSTR в T_ITEM
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ LPCSTR пїЅ T_ITEM
 
 	template <typename T_CONVERT_ITEM>
 	T_ITEM convert(LPCSTR)
@@ -73,7 +73,7 @@ private:
 TEMPLATE_SPECIALIZATION
 typename CSIni_Table::ITEM_TABLE* CSIni_Table::m_pTable = NULL;
 
-//имя секции таблицы
+//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 TEMPLATE_SPECIALIZATION
 LPCSTR CSIni_Table::table_sect = NULL;
 TEMPLATE_SPECIALIZATION
@@ -117,10 +117,10 @@ typename CSIni_Table::ITEM_TABLE& CSIni_Table::table()
 
 	for (CInifile::SectCIt i = table_ini.Data.begin(); table_ini.Data.end() != i; ++i)
 	{
-		T_INI_LOADER::index_type cur_index = T_INI_LOADER::IdToIndex((*i).first, type_max(T_INI_LOADER::index_type));
+		typename T_INI_LOADER::index_type cur_index = T_INI_LOADER::IdToIndex((*i).first, type_max<typename T_INI_LOADER::index_type>());
 
-		if (type_max(T_INI_LOADER::index_type) == cur_index)
-			Debug.fatal(DEBUG_INFO, "wrong community %s in section [%s]", (*i).first, table_sect);
+		if (type_max<typename T_INI_LOADER::index_type> == cur_index)
+			Debug.fatal(DEBUG_INFO, "wrong community %s in section [%s]", (*i).first.c_str(), table_sect);
 
 		(*m_pTable)[cur_index].resize(cur_table_width);
 		for (std::size_t j = 0; j < cur_table_width; j++)

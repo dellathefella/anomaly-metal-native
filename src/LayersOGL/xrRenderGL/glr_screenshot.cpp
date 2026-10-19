@@ -63,4 +63,57 @@ void CRender::Screenshot(ScreenshotMode mode /*= SM_NORMAL*/, pcstr name /*= nul
         VERIFY(!"CRender::Screenshot. This screenshot type is not supported for OGL.");
     }
 }
+
+// p4: monolith screenshot family (xrEngine/screenshot_manager.cpp drives the
+// async pair; the engine resizes gamesave thumbnails itself). GL readback is
+// synchronous — Begin captures, End encodes.
+namespace
+{
+    xr_vector<u8> g_p4_ss_pixels;
+    u32 g_p4_ss_w{ 0 };
+    u32 g_p4_ss_h{ 0 };
+
+    void capture_backbuffer()
+    {
+        g_p4_ss_w = Device.dwWidth;
+        g_p4_ss_h = Device.dwHeight;
+        g_p4_ss_pixels.resize(size_t(g_p4_ss_w) * g_p4_ss_h * 3);
+        glReadPixels(0, 0, g_p4_ss_w, g_p4_ss_h, GL_RGB, GL_UNSIGNED_BYTE, g_p4_ss_pixels.data());
+    }
+} // namespace
+
+void CRender::Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer)
+{
+    (void)mode;
+    capture_backbuffer();
+    Image img{ g_p4_ss_w, g_p4_ss_h, g_p4_ss_pixels.data(), ImageDataFormat::RGB8 };
+    if (!img.SaveJPEG(memory_writer, 100, true))
+        Log("! Failed to make a screenshot.");
+    g_p4_ss_pixels.clear();
+}
+
+void CRender::ScreenshotAsyncBegin()
+{
+    if (!Device.b_is_Ready)
+        return;
+    capture_backbuffer();
+}
+
+void CRender::ScreenshotAsyncEnd(CMemoryWriter& memory_writer)
+{
+    if (g_p4_ss_pixels.empty())
+        return;
+    Image img{ g_p4_ss_w, g_p4_ss_h, g_p4_ss_pixels.data(), ImageDataFormat::RGB8 };
+    if (!img.SaveJPEG(memory_writer, 100, true))
+        Log("! Failed to make a screenshot.");
+    g_p4_ss_pixels.clear();
+}
+
+void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* memory_writer)
+{
+    if (memory_writer)
+        Screenshot(mode, *memory_writer);
+    else
+        Screenshot(mode, name);
+}
 } // namespace xray::render::RENDER_NAMESPACE

@@ -275,7 +275,7 @@ IC void delete_data(const CGraphAbstract<_data_type, _edge_weight_type, _vertex_
 		Edges& edges = const_cast<Edges&>(vert->edges());
 		for (typename Edges::iterator ei = edges.begin(); ei != edges.end(); ++ei)
 		{
-			Graph::CEdge& edge = (*ei);
+			typename Graph::CEdge& edge = (*ei);
 			delete_data(edge.data());
 		}
 	}

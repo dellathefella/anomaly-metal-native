@@ -702,7 +702,7 @@ IRenderVisual* CRender::model_CreateParticles(LPCSTR name)
     return Models->CreatePG(SG);
 }
 void CRender::models_Prefetch() { Models->Prefetch(); }
-void CRender::models_Clear(bool b_complete) { Models->ClearPool(b_complete); }
+void CRender::models_Clear(BOOL b_complete) { Models->ClearPool(b_complete != FALSE); }
 ref_shader CRender::getShader(int id)
 {
     VERIFY(id < int(Shaders.size()));
@@ -803,6 +803,39 @@ void CRender::add_Geometry(IRenderVisual* V)
 void CRender::models_PrefetchOne(LPCSTR name)
 {
     (void)name; // p4: deferred-loading hint; GL path loads visuals on demand
+}
+
+// p4: light-manager depth phases (monolith DX9 viewport z-range equivalents).
+void CRender::rmNear()
+{
+    m_p4_phase = 1;
+    glDepthRange(0.0, 0.02);
+}
+
+void CRender::rmFar()
+{
+    m_p4_phase = 2;
+    glDepthRange(0.99999, 1.0);
+}
+
+void CRender::rmNormal()
+{
+    m_p4_phase = 0;
+    glDepthRange(0.0, 1.0);
+}
+
+u32 CRender::memory_usage()
+{
+    u32 m_base = 0, c_base = 0, m_lmaps = 0, c_lmaps = 0;
+    ResourcesGetMemoryUsage(m_base, c_base, m_lmaps, c_lmaps);
+    return m_base + c_base + m_lmaps + c_lmaps;
+}
+
+void CRender::RenderToTarget(RRT target)
+{
+    // p4: monolith copies the backbuffer into rt_ui_pda/rt_secondVP; those GL
+    // render targets are not ported yet (tracked in p4 t2).
+    Msg("! xrRender_GL: RenderToTarget(%d) not supported yet", int(target));
 }
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {

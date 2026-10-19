@@ -401,7 +401,7 @@ public:
     HRESULT shader_compile(LPCSTR name, DWORD const* pSrcData, UINT SrcDataLen, LPCSTR pFunctionName, LPCSTR pTarget, DWORD Flags, void*& result) override;
     IRender_Sector* getSector(int id) override;
     IRender_Sector* detectSector(const Fvector& P) override;
-    IRender_Target* getTarget() override { return Target; }
+    IRender_Target* getTarget() override; // p4: defined in r2.cpp (needs CRenderTarget def)
     void set_Transform(Fmatrix* M) override { m_p4_xform = M; }
     void set_HUD(BOOL V) override { m_p4_hud = (V != FALSE); }
     BOOL get_HUD() override { return m_p4_hud ? TRUE : FALSE; }
@@ -412,6 +412,20 @@ public:
     void add_Visual(IRenderVisual* V) override;
     void add_Geometry(IRenderVisual* V) override; // p4: no engine callers; stub
     void models_PrefetchOne(LPCSTR name) override; // p4: dev ModelPool has no per-model prefetch; no-op
+
+    // p4: monolith screenshot family + light-manager phases (r__screenshot.cpp
+    // equivalents for the GL device; engine screenshot_manager + Environment_render).
+    void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer) override;
+    void ScreenshotAsyncBegin() override;
+    void ScreenshotAsyncEnd(CMemoryWriter& memory_writer) override;
+    void ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* memory_writer) override;
+    void rmNear() override;
+    void rmFar() override;
+    void rmNormal() override;
+    u32 memory_usage() override;
+    u32 active_phase() override { return m_p4_phase; } // p4: tracked by rm* (monolith phase semantics)
+    void RenderToTarget(RRT target) override; // p4: PDA/secondVP RTs not ported (p4 t2)
+    u32 m_p4_phase{ 0 };
 
     Fmatrix* m_p4_xform{ nullptr };
     bool m_p4_hud{ false };
@@ -499,7 +513,7 @@ public:
     void model_Delete(IRender_DetailModel*& F);
     void model_Logging(BOOL bEnable) override { Models->Logging(bEnable); } // p4: BOOL (monolith)
     void models_Prefetch() override;
-    void models_Clear(bool b_complete); // p4: not a monolith IRender virtual
+    void models_Clear(BOOL b_complete) override; // p4: BOOL (monolith)
 
     // Occlusion culling
     BOOL occ_visible(vis_data& V) override;

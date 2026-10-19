@@ -324,7 +324,8 @@ bool AABBNoLeafTree::Build(AABBTree* tree)
 	/* Get max values */																		\
 	Point CMax(flt_min, flt_min, flt_min);												\
 	Point EMax(flt_min, flt_min, flt_min);												\
-	for(udword i=0;i<mNbNodes;i++)																\
+	udword i;	/* reused by the quantize loops below (old MSVC for-scope leak) */	\
+	for(i=0;i<mNbNodes;i++)																\
 	{																							\
 		if(_abs(Nodes[i].mAABB.mCenter.x)>CMax.x)	CMax.x = _abs(Nodes[i].mAABB.mCenter.x);	\
 		if(_abs(Nodes[i].mAABB.mCenter.y)>CMax.y)	CMax.y = _abs(Nodes[i].mAABB.mCenter.y);	\

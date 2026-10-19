@@ -28,6 +28,14 @@ namespace luabind {
 	}
 } // namespace luabind
 
+#define LUABIND_CALL_ALLOCATOR_DEFINED
+
+// Now that call_allocator is visible, pull in the allocator template bodies
+// (deferred from luabind_memory_allocator.h to break the include cycle).
+#ifndef LUABIND_MEMORY_ALLOCATOR_INLINE_H_INCLUDED
+#include <luabind/luabind_memory_allocator_inline.h>
+#endif
+
 #include <luabind/luabind_delete.h>
 #include <luabind/luabind_auto_ptr.h>
 

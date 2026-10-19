@@ -76,10 +76,12 @@ namespace CDB
 		faces.push_back(T);
 	}
 
+#ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable:4995)
 #include <malloc.h>
 #pragma warning(pop)
+#endif // _WIN32
 
 #pragma pack(push,1)
 	struct edge

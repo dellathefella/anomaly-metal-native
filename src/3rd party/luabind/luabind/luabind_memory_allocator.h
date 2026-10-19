@@ -62,6 +62,12 @@ public:
 	inline	bool				operator!=			(const memory_allocator<_0>&, const memory_allocator<_1>&);
 } // namespace luabind
 
+// The inline definitions reference call_allocator() from luabind_memory.h,
+// which in turn includes this header through luabind_types.h. Only pull them
+// in once call_allocator is visible; luabind_memory.h includes them itself
+// after its definition.
+#ifdef LUABIND_CALL_ALLOCATOR_DEFINED
 #include <luabind/luabind_memory_allocator_inline.h>
+#endif
 
 #endif // #ifndef LUABIND_MEMORY_ALLOCATOR_H_INCLUDED

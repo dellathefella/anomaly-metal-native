@@ -26,6 +26,8 @@
 
 #include <typeinfo>
 #include <map>
+// Old MSVC headers put type_info in the global namespace
+using std::type_info;
 
 #include <luabind/config.hpp>
 #include <luabind/open.hpp>

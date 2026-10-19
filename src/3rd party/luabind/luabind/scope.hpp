@@ -45,7 +45,9 @@ namespace luabind { namespace detail {
         virtual void register_(lua_State*) const = 0;
 
     private:
-        friend struct scope;
+        // Qualify: unqualified here would declare detail::scope (old MSVC
+        // resolved it to the outer luabind::scope, which was the intent).
+        friend struct luabind::scope;
         registration* m_next;
     };
 

@@ -289,8 +289,10 @@ void CFrustum::CreateOccluder(Fvector* p, int count, Fvector& vBase, CFrustum& c
 
 	BOOL edge[FRUSTUM_SAFE];
 	float cls [FRUSTUM_SAFE];
+	// i/j reused by the loops below (old MSVC for-scope leak)
+	int i, j;
 	ZeroMemory(edge, sizeof(edge));
-	for (int i = 0; i < clip.p_count; i++)
+	for (i = 0; i < clip.p_count; i++)
 	{
 		// classify all points relative to plane #i
 		fplane& P = clip.planes[i];
@@ -346,7 +348,7 @@ sPoly* CFrustum::ClipPoly(sPoly& S, sPoly& D) const
 		src->push_back((*src)[0]);
 		Fvector D;
 		float denum, t;
-		for (j = 0; j < src->size() - 1; j++)
+		for (u32 j = 0; j < src->size() - 1; j++)
 		{
 			if ((*src)[j].similar((*src)[j + 1], EPS_S)) continue;
 

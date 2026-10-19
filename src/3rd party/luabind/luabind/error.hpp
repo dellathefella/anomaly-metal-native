@@ -25,6 +25,9 @@
 
 #include <luabind/prefix.hpp>
 #include <exception>
+#include <typeinfo>
+// Old MSVC headers put type_info in the global namespace
+using std::type_info;
 #include <luabind/config.hpp>
 
 struct lua_State;

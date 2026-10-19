@@ -4,14 +4,20 @@
 
 #include "RenderFactory.h"
 #include "../../Include/xrAPI/xrAPI.h"
-#include "../../Layers/xrRender/dxRenderFactory.h"
+#ifndef XR_PLATFORM_POSIX
+// Brings in RenderFactoryImpl + DX types; only needed by the instantiation
+// block below (Windows) — on POSIX the render factories are wired by xrEngine.
+#	include "../../Layers/xrRender/dxRenderFactory.h"
+#endif
 
 #define FACTORY_PTR_INSTANCIATE(Class) \
+	template <> \
 	inline void FactoryPtr<I##Class>::CreateObject(void) \
 { \
 	if (!RenderFactory) RenderFactory = &RenderFactoryImpl; \
 	m_pObject = RenderFactory->Create##Class(); \
 } \
+	template <> \
 	inline void FactoryPtr<I##Class>::DestroyObject(void) \
 { \
 	RenderFactory->Destroy##Class(m_pObject); \
@@ -55,7 +61,7 @@ private:
 };
 
 
-#ifndef _EDITOR
+#if !defined(_EDITOR) && !defined(XR_PLATFORM_POSIX)
 FACTORY_PTR_INSTANCIATE(UISequenceVideoItem)
 FACTORY_PTR_INSTANCIATE(UIShader)
 FACTORY_PTR_INSTANCIATE(StatGraphRender)
@@ -69,7 +75,7 @@ FACTORY_PTR_INSTANCIATE(WallMarkArray)
 FACTORY_PTR_INSTANCIATE(StatsRender);
 #endif // _EDITOR
 
-#ifndef _EDITOR
+#if !defined(_EDITOR) && !defined(XR_PLATFORM_POSIX)
 FACTORY_PTR_INSTANCIATE(FlareRender)
 FACTORY_PTR_INSTANCIATE(ThunderboltRender)
 FACTORY_PTR_INSTANCIATE(ThunderboltDescRender)
@@ -79,7 +85,9 @@ FACTORY_PTR_INSTANCIATE(EnvironmentRender)
 FACTORY_PTR_INSTANCIATE(EnvDescriptorRender)
 FACTORY_PTR_INSTANCIATE(EnvDescriptorMixerRender)
 #endif // _EDITOR
+#ifndef XR_PLATFORM_POSIX
 FACTORY_PTR_INSTANCIATE(FontRender)
+#endif
 /*
 void FactoryPtr<IStatsRender>::CreateObject(void)
 {

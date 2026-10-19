@@ -9,6 +9,11 @@
 #ifndef LUABIND_MEMORY_ALLOCATOR_INLINE_H_INCLUDED
 #define LUABIND_MEMORY_ALLOCATOR_INLINE_H_INCLUDED
 
+// Old MSVC far-qualifier, empty everywhere else.
+#ifndef _FARQ
+#define _FARQ
+#endif
+
 #define TEMPLATE_SPECIALIZATION	template <class T>
 #define MEMORY_ALLOCATOR		luabind::memory_allocator<T>
 

@@ -181,7 +181,7 @@ void CRenderTarget::accum_direct(CBackend& cmd_list, u32 sub_phase)
         {
             Fmatrix xf_project;
             xf_project.mul(m_TexelAdjust, RImplementation.r_sun_old.sun->X.D[0].combine);
-            m_shadow.mul(xf_project, Device.mInvView);
+            m_shadow.mul(xf_project, xr_inv_view() // p4: dev device member; monolith computes on demand);
 
             // tsm-bias
             if ((SE_SUN_FAR == sub_phase) && (RImplementation.o.HW_smap))
@@ -211,7 +211,7 @@ void CRenderTarget::accum_direct(CBackend& cmd_list, u32 sub_phase)
             Fvector localnormal;
             m_xform.transform_dir(localnormal, normal);
             localnormal.normalize();
-            m_clouds_shadow.mul(m_xform, Device.mInvView);
+            m_clouds_shadow.mul(m_xform, xr_inv_view() // p4: dev device member; monolith computes on demand);
             m_xform.scale(0.002f, 0.002f, 1.f);
             m_clouds_shadow.mulA_44(m_xform);
             m_xform.translate(localnormal.mul(w_shift));
@@ -474,7 +474,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
         {
             Fmatrix xf_project;
             xf_project.mul(m_TexelAdjust, fuckingsun->X.D[sub_phase].combine);
-            m_shadow.mul(xf_project, Device.mInvView);
+            m_shadow.mul(xf_project, xr_inv_view() // p4: dev device member; monolith computes on demand);
 
             // tsm-bias
             if ((SE_SUN_FAR == sub_phase) && (RImplementation.o.HW_smap))
@@ -504,7 +504,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
             Fvector localnormal;
             m_xform.transform_dir(localnormal, normal);
             localnormal.normalize();
-            m_clouds_shadow.mul(m_xform, Device.mInvView);
+            m_clouds_shadow.mul(m_xform, xr_inv_view() // p4: dev device member; monolith computes on demand);
             m_xform.scale(0.002f, 0.002f, 1.f);
             m_clouds_shadow.mulA_44(m_xform);
             m_xform.translate(localnormal.mul(w_shift));
@@ -883,7 +883,7 @@ void CRenderTarget::accum_direct_f(CBackend& cmd_list, u32 sub_phase)
         {
             Fmatrix xf_project;
             xf_project.mul(m_TexelAdjust, fuckingsun->X.D[0].combine);
-            m_shadow.mul(xf_project, Device.mInvView);
+            m_shadow.mul(xf_project, xr_inv_view() // p4: dev device member; monolith computes on demand);
 
             // tsm-bias
             if (SE_SUN_FAR == sub_phase)

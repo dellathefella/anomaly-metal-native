@@ -333,6 +333,8 @@ public:
 #endif
 
     ICF void ClearRT(ref_rt& rt, const Fcolor& color) { ClearRT(rt->pRT, color); }
+    // p4: monolith-era packed-color call sites (color_rgba(...) u32 constants)
+    ICF void ClearRT(ref_rt& rt, u32 color) { ClearRT(rt->pRT, Fcolor().set(color)); }
     ICF bool ClearRTRect(ref_rt& rt, const Fcolor& color, size_t numRects, const Irect* rects)
     {
         return ClearRTRect(rt->pRT, color, numRects, rects);

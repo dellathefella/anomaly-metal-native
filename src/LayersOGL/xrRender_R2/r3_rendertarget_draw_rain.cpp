@@ -84,7 +84,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
         {
             Fmatrix xf_project;
             xf_project.mul(m_TexelAdjust, RainSetup.X.D[0].combine);
-            m_shadow.mul(xf_project, Device.mInvView);
+            m_shadow.mul(xf_project, xr_inv_view() // p4: dev device member; monolith computes on demand);
         }
 
         /*
@@ -143,7 +143,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
             Fvector localnormal;
             m_xform.transform_dir(localnormal, normal);
             localnormal.normalize();
-            m_clouds_shadow.mul(m_xform, Device.mInvView);
+            m_clouds_shadow.mul(m_xform, xr_inv_view() // p4: dev device member; monolith computes on demand);
             // m_xform.scale				(0.002f,0.002f,1.f)			;
             // 			m_xform.scale				(1.f,1.f,1.f)				;
             // 			m_clouds_shadow.mulA_44		(m_xform)					;

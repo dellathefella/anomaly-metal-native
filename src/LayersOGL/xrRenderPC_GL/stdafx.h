@@ -76,6 +76,31 @@ public:
 	virtual bool spatial_inside() { return spatial.sector != nullptr; }
 };
 
+// p4: dev's CRenderDevice::mInvView (per-frame inverse view held by the dev
+// device) — the monolith device has no such member; compute on demand (only
+// shadow/accum pass call sites).
+ICF Fmatrix xr_inv_view()
+{
+	Fmatrix m;
+	m.inv(Device.xfView);
+	return m;
+}
+
+// p4: dev containers key std::unordered_map by shared_str; the monolith's
+// shared_str has no std::hash specialization (MSVC-era stdext::hash_map).
+#include <string_view>
+namespace std
+{
+	template <>
+	struct hash<shared_str>
+	{
+		size_t operator()(const shared_str& v) const
+		{
+			return std::hash<std::string_view>{}(v.c_str() ? std::string_view(v.c_str()) : std::string_view());
+		}
+	};
+} // namespace std
+
 // p4: synchronous task-shim (dev's xrCore/Threading; staged headers use Task
 // by pointer/reference without including it themselves).
 #include "xrCore/Threading/TaskManager.hpp"

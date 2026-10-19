@@ -89,7 +89,7 @@ void CRenderTarget::phase_combine()
         static Fmatrix m_saved_viewproj;
 
         // (new-camera) -> (world) -> (old_viewproj)
-        m_previous.mul(m_saved_viewproj, Device.mInvView);
+        m_previous.mul(m_saved_viewproj, xr_inv_view() // p4: dev device member; monolith computes on demand);
         m_current.set(Device.mProject);
         m_saved_viewproj.set(Device.mFullTransform);
         float scale = ps_r2_mblur / 2.f;
@@ -105,19 +105,19 @@ void CRenderTarget::phase_combine()
         const float minamb = 0.001f;
         Fvector4 ambclr =
         {
-            std::max(envdesc.ambient.x * 2.f, minamb),
-            std::max(envdesc.ambient.y * 2.f, minamb),
-            std::max(envdesc.ambient.z * 2.f, minamb),
+            std::max(envdesc->ambient.x * 2.f, minamb),
+            std::max(envdesc->ambient.y * 2.f, minamb),
+            std::max(envdesc->ambient.z * 2.f, minamb),
             0
         };
         ambclr.mul(ps_r2_sun_lumscale_amb);
 
-        Fvector4 envclr = envdesc.env_color;
+        Fvector4 envclr(envdesc->hemi_color.x, envdesc->hemi_color.y, envdesc->hemi_color.z, 0.f); // p4: monolith hemi_color (dev env_color)
         envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
 
-        Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
+        Fvector4 fogclr = {envdesc->fog_color.x, envdesc->fog_color.y, envdesc->fog_color.z, 0};
         Fvector4 sunclr, sundir;
 
         float fSSAONoise = 2.0f;
@@ -187,7 +187,7 @@ void CRenderTarget::phase_combine()
             RCache.set_Element(s_combine_msaa[0]->E[0]);
         RCache.set_Geometry(g_combine);
 
-        RCache.set_c("m_v2w", Device.mInvView);
+        RCache.set_c("m_v2w", xr_inv_view() // p4: dev device member; monolith computes on demand);
         RCache.set_c("L_ambient", ambclr);
 
         RCache.set_c("Ldynamic_color", sunclr);
@@ -269,7 +269,7 @@ void CRenderTarget::phase_combine()
         {
             PIX_EVENT(render_distort_objects);
             u_setrt(RCache, rt_Generic_1_r, nullptr, nullptr, rt_MSAADepth); // Now RT is a distortion mask
-            RCache.ClearRT(rt_Generic_1_r, color_rgba(127, 127, 0, 127));
+            RCache.ClearRT(rt_Generic_1_r, Fcolor().set(127 / 255.f, 127 / 255.f, 0.f, 127 / 255.f)); // p4: Fcolor (no u32 overload used here)
             RCache.set_CullMode(CULL_CCW);
             RCache.set_Stencil(FALSE);
             RCache.set_ColorWriteEnable();

@@ -10,7 +10,7 @@
 #if CXIMAGE_SUPPORT_JPG
 
 
-#define HAVE_BOOLEAN
+// p4: HAVE_BOOLEAN define removed (let libjpeg define boolean on POSIX)
 #include <jpeg/jmorecfg.h>
 #undef HAVE_BOOLEAN
 #undef XMD_H

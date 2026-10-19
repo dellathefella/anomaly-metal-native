@@ -179,8 +179,10 @@ public:
 //////////////////////////////////////////////////////////////////////////
 // definition (Renderer)
 
-// p4 GL-renderer port: OpenXRay's device-state enum (its render.h spells the
-// renderer interface IRender; see the typedef at the bottom of this header).
+// p4 GL-renderer port: device state enum for OpenXRay's device surface below
+// (SDL_Window is referenced by Create/Reset; forward decl avoids an SDL include).
+struct SDL_Window;
+
 enum class DeviceState
 {
 	Normal = 0,
@@ -321,6 +323,44 @@ public:
 	// p4 GL-renderer port: device state query (OpenXRay IRender). Safe to add
 	// here: every dylib is rebuilt from this header (no shipped renderer).
 	virtual DeviceState GetDeviceState() = 0;
+
+	// p4 GL-renderer port: OpenXRay folded the monolith's IRenderDeviceRender
+	// surface into IRender (see dev's xrEngine/render.h). D3DXRenderBase
+	// overrides these with `override`, so the interface must declare them.
+	// DumpStatistics is intentionally absent (dev's IGameFont/IPerformanceAlert
+	// types do not exist in the monolith; the staged override is patched out).
+	virtual void setGamma(float fGamma) = 0;
+	virtual void setBrightness(float fGamma) = 0;
+	virtual void setContrast(float fGamma) = 0;
+	virtual void updateGamma() = 0;
+
+	virtual void OnDeviceDestroy(bool bKeepTextures) = 0;
+	virtual void Destroy() = 0;
+	virtual void Reset(SDL_Window* hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2) = 0;
+
+	virtual void ObtainRequiredWindowFlags(u32& windowFlags) = 0;
+	virtual void SetupStates() = 0;
+	virtual void OnDeviceCreate(pcstr shName) = 0;
+	virtual void Create(SDL_Window* hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2) = 0;
+
+	virtual void overdrawBegin() = 0;
+	virtual void overdrawEnd() = 0;
+
+	virtual void DeferredLoad(bool E) = 0;
+	virtual void ResourcesDeferredUpload() = 0;
+	virtual void ResourcesDeferredUnload() = 0;
+	virtual void ResourcesGetMemoryUsage(u32& m_base, u32& c_base, u32& m_lmaps, u32& c_lmaps) = 0;
+	virtual void ResourcesDestroyNecessaryTextures() = 0;
+	virtual void ResourcesStoreNecessaryTextures() = 0;
+	virtual void ResourcesDumpMemoryUsage() = 0;
+
+	virtual bool GetForceGPU_REF() = 0;
+	virtual void Begin() = 0;
+	virtual void Clear() = 0;
+	virtual void End() = 0;
+	virtual void ClearTarget() = 0;
+	virtual void SetCacheXform(Fmatrix& mView, Fmatrix& mProject) = 0;
+	virtual void OnAssetsChanged() = 0;
 
 	enum RRT
 	{

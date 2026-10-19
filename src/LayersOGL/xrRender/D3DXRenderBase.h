@@ -58,7 +58,9 @@ public:
     virtual void ClearTarget() override;
     virtual void SetCacheXform(Fmatrix& mView, Fmatrix& mProject) override;
     virtual void OnAssetsChanged() override;
-    virtual void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert) override;
+    // p4: no base virtual (monolith IRender has no DumpStatistics; dev's
+    // IGameFont/IPerformanceAlert stats overlay is not ported)
+    virtual void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert);
 
     xrImTextureData GetImGuiTextureId(pcstr texture_name) override;
 

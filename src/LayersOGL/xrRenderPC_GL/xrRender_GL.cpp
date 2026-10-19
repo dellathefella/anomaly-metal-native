@@ -15,18 +15,20 @@
 
 #include "stdafx.h"
 
+// Staged internal factory (render_gl::RenderFactoryImpl)…
 #include "Layers/xrRender/dxRenderFactory.h"
+// …and the monolith boundary class whose RenderFactoryImpl instance the
+// engine's FactoryPtr binds to (defined in xrRender_GL_factory.cpp). The
+// relative include bypasses the identically named staged header.
+#include "../../Layers/xrRender/dxRenderFactory.h"
 #include "Layers/xrRender/dxUIRender.h"
+#include "Layers/xrRender/D3DUtils.h"
 #include "Include/xrAPI/xrAPI.h"
 
-// GL implementation objects, provided by the staged OpenXRay layers
-// (namespaces adapt during the interface bridge; see xrRender_GL_factory.cpp).
+// GL implementation objects, provided by the staged OpenXRay layers.
 namespace xray::render::render_gl
 {
 	extern CRender RImplementation;
-	extern dxRenderFactory RenderFactoryImpl; // hmm: provided by factory bridge
-	extern CDUInterface DUImpl;
-	extern CUIRender UIRenderImpl;
 } // namespace xray::render::render_gl
 
 using namespace xray::render::render_gl;
@@ -46,7 +48,7 @@ BOOL __cdecl DllMainXrRenderR2(HMODULE hModule, DWORD ul_reason_for_call, LPVOID
 	{
 	case DLL_PROCESS_ATTACH:
 		::Render = &RImplementation;
-		::RenderFactory = &RenderFactoryImpl;
+		::RenderFactory = &::RenderFactoryImpl; // boundary facade (xrRender_GL_factory.cpp)
 		::DU = &DUImpl;
 		::UIRender = &UIRenderImpl;
 		break;

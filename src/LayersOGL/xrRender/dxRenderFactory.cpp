@@ -4,7 +4,7 @@
 #include "dxStatGraphRender.h"
 #ifndef _EDITOR
 #include "dxLensFlareRender.h"
-#include "dxImGuiRender.h"
+// p4: dxImGuiRender not built (imgui overlay not ported)
 #endif
 #ifndef _EDITOR
 #include "dxThunderboltRender.h"
@@ -45,7 +45,7 @@ RENDER_FACTORY_IMPLEMENT(ThunderboltRender)
 RENDER_FACTORY_IMPLEMENT(ThunderboltDescRender)
 RENDER_FACTORY_IMPLEMENT(RainRender)
 RENDER_FACTORY_IMPLEMENT(LensFlareRender)
-RENDER_FACTORY_IMPLEMENT(ImGuiRender)
+
 RENDER_FACTORY_IMPLEMENT(EnvironmentRender)
 RENDER_FACTORY_IMPLEMENT(EnvDescriptorRender)
 RENDER_FACTORY_IMPLEMENT(FlareRender)

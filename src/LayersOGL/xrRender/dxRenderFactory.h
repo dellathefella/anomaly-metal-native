@@ -26,7 +26,7 @@ class dxRenderFactory : public IRenderFactory
     RENDER_FACTORY_DECLARE(ThunderboltDescRender)
     RENDER_FACTORY_DECLARE(RainRender)
     RENDER_FACTORY_DECLARE(LensFlareRender)
-    RENDER_FACTORY_DECLARE(ImGuiRender)
+    // p4: ImGuiRender factory entries dropped (imgui overlay not ported)
     RENDER_FACTORY_DECLARE(EnvironmentRender)
     RENDER_FACTORY_DECLARE(EnvDescriptorRender)
 #endif

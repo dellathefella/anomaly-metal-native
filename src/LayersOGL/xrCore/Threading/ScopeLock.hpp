@@ -1,4 +1,4 @@
 #pragma once
-// p4 shim: Lock/ScopeLock are defined once in the renderer port's
-// xrScriptEngine/script_engine.hpp facade; redirect to avoid duplicates.
-#include "xrScriptEngine/script_engine.hpp"
+// p4 shim: dev moved Lock/ScopeLock into xrCore/Threading/; the monolith keeps
+// them at xrCore root. Same classes, same Enter()/Leave() API.
+#include "xrCore/ScopeLock.hpp"

@@ -5,6 +5,22 @@
 // pull its own primitive contexts (size_t, FILE).
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
+
+// p4 macOS port: Win32 TCHAR helpers used by the (ASCII-only) cximage sources.
+#ifndef WIN32
+#define _T(x) x
+typedef const char* LPCTSTR;
+#ifndef _tfopen
+#define _tfopen fopen
+#endif
+#ifndef _tcsnicmp
+#define _tcsnicmp strncasecmp
+#endif
+#ifndef _tcsicmp
+#define _tcsicmp strcasecmp
+#endif
+#endif
 
 extern "C" void*	cxalloc(size_t size);
 extern "C" void		cxfree(void* ptr);

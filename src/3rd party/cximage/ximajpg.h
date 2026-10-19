@@ -28,7 +28,7 @@
 
 #define CXIMAGEJPG_SUPPORT_EXIF 1
 
-#define HAVE_BOOLEAN
+// p4: HAVE_BOOLEAN define removed (let libjpeg define boolean on POSIX)
 extern "C" {
  #include <jpeg/jpeglib.h>
  #include <jpeg/jerror.h>

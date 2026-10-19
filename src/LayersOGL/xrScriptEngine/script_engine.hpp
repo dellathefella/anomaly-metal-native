@@ -14,25 +14,9 @@
 #include <lua.hpp>
 #include <luabind/luabind.hpp>
 
-#include "xrCore/xr_locks.h"
-
-// p4: threading spellings the staged renderer expects from dev's xrCore.
-using Lock = xrCriticalSection;
-
-class ScopeLock
-{
-	Lock* syncObject;
-
-public:
-	explicit ScopeLock(Lock* SyncObject) : syncObject(SyncObject)
-	{
-		syncObject->Enter();
-	}
-	~ScopeLock()
-	{
-		syncObject->Leave();
-	}
-};
+// p4: Lock/ScopeLock come from the monolith's xrCore (identical to dev's
+// xrCore/Threading extraction; implemented in xrCore.dylib).
+#include "xrCore/ScopeLock.hpp"
 
 class CScriptEngine
 {

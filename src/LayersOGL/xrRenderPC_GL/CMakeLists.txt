@@ -13,6 +13,7 @@ add_library(xrRender_GL SHARED
     ${RGL_PC_SOURCES}
     ${RGL_GL_SOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/xrRender_GL.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/xrRender_GL_factory.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/Animation.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/Animation.h
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/AnimationKeyCalculate.h
@@ -55,8 +56,8 @@ add_library(xrRender_GL SHARED
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxEnvironmentRender.h
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxFontRender.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxFontRender.h
-    ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxImGuiRender.cpp
-    ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxImGuiRender.h
+
+
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxLensFlareRender.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxLensFlareRender.h
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/dxObjectSpaceRender.cpp

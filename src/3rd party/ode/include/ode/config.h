@@ -41,14 +41,17 @@ extern "C" {
 
 #include <stdarg.h>
 
+#ifdef _WIN32
 #include <malloc.h>		// for alloca under windows
+#else
+#include <stdlib.h>		// alloca lives here (via alloca.h) on POSIX
+#endif
 
 #include <string.h>
 
 #include <math.h>
 
 #if defined(WIN32) && (defined(MSVC) || defined(MINGW))
-
 static union { unsigned char __c[4]; float __f; } __ode_huge_valf =
 
   {{0,0,0x80,0x7f}};
@@ -77,6 +80,11 @@ static union { unsigned char __c[8]; double __d; } __ode_huge_val =
 
 #define dInfinity _INFINITY8
 
+#endif
+
+/* MSVC CRT spelling of copysign */
+#ifndef _MSC_VER
+#define _copysign copysign
 #endif
 
 

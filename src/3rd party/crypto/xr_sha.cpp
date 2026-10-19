@@ -1,6 +1,14 @@
 #include "xr_sha.h"
 #include <openssl/sha.h>
 
+// OpenSSL 1.0+ dropped the legacy SHA_* == SHA1_* aliases (this class is
+// SHA1 despite its name).
+#ifndef SHA_Init
+#define SHA_Init   SHA1_Init
+#define SHA_Update SHA1_Update
+#define SHA_Final  SHA1_Final
+#endif
+
 namespace crypto
 {
 

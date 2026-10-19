@@ -39,14 +39,21 @@ void dxProcessIslands (dxWorld *world, dReal stepsize, dstepper_fn_t stepper);
 
 inline bool		dValid	(const float x)
 {
-	// check for: Signaling NaN, Quiet NaN, Negative infinity ( –INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
+	// check for: Signaling NaN, Quiet NaN, Negative infinity ( ï¿½INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
+#ifdef _WIN32
 	int			cls			= _fpclass		(double(x));
 	if (cls&(_FPCLASS_SNAN+_FPCLASS_QNAN+_FPCLASS_NINF+_FPCLASS_PINF+_FPCLASS_ND+_FPCLASS_PD))	
 		return	false;	
+#else
+	// POSIX equivalent: NaN, infinity (denormals kept valid â€” not classified here).
+	// Unqualified: math.h provides isnan/isinf (macro or ::) on Apple platforms.
+	if (isnan(double(x)) || isinf(double(x)))
+		return	false;
+#endif
 
 	/*	*****other cases are*****
 	_FPCLASS_NN Negative normalized non-zero 
-	_FPCLASS_NZ Negative zero ( – 0) 
+	_FPCLASS_NZ Negative zero ( ï¿½ 0) 
 	_FPCLASS_PZ Positive 0 (+0) 
 	_FPCLASS_PN Positive normalized non-zero 
 	*/

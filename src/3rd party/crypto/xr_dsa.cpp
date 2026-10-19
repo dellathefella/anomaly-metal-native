@@ -10,6 +10,14 @@ xr_dsa::xr_dsa(u8 const p[public_key_length],
 			   u8 const g[public_key_length])
 {
 	m_dsa			= DSA_new();
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	// DSA struct is opaque since OpenSSL 1.1: use setters (take ownership)
+	BIGNUM*	p_bn	= BN_bin2bn(p, public_key_length, NULL);
+	BIGNUM*	q_bn	= BN_bin2bn(q, private_key_length, NULL);
+	BIGNUM*	g_bn	= BN_bin2bn(g, public_key_length, NULL);
+	DSA_set0_pqg		(m_dsa, p_bn, q_bn, g_bn);
+	DSA_set0_key		(m_dsa, BN_new(), BN_new());
+#else
 	m_dsa->p		= BN_new();
 	m_dsa->q		= BN_new();
 	m_dsa->g		= BN_new();
@@ -19,6 +27,7 @@ xr_dsa::xr_dsa(u8 const p[public_key_length],
 	BN_bin2bn(p, public_key_length, m_dsa->p);
 	BN_bin2bn(q, private_key_length, m_dsa->q);
 	BN_bin2bn(g, public_key_length, m_dsa->g);
+#endif
 }
 
 xr_dsa::~xr_dsa()
@@ -30,19 +39,38 @@ shared_str const xr_dsa::sign		(private_key_t const & priv_key,
 									 u8 const* data,
 									 u32 const data_size)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	const BIGNUM*	pub	= NULL;
+	BIGNUM*			priv = NULL;
+	DSA_get0_key			(m_dsa, &pub, (const BIGNUM**)&priv);
+	BN_bin2bn(priv_key.m_value, sizeof(priv_key.m_value), priv);
+#else
 	BN_bin2bn(priv_key.m_value, sizeof(priv_key.m_value), m_dsa->priv_key);
+#endif
 
 	unsigned int	sign_size = DSA_size(m_dsa);
 	u8*				sign_dest = static_cast<u8*>(
 		_alloca(sign_size));
 	
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	BIGNUM*			tmp_sign_res_bn = BN_new();
+#else
 	BIGNUM			tmp_sign_res_bn;
 	BN_init			(&tmp_sign_res_bn);
+#endif
 	
 	DSA_sign		(0, data, data_size, sign_dest, &sign_size, m_dsa);
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	BN_bin2bn		(sign_dest, sign_size, tmp_sign_res_bn);
+
+	shared_str	result		(BN_bn2hex(tmp_sign_res_bn));
+	BN_free					(tmp_sign_res_bn);
+	return					result;
+#else
 	BN_bin2bn		(sign_dest, sign_size, &tmp_sign_res_bn);
 
 	return			shared_str(BN_bn2hex(&tmp_sign_res_bn));
+#endif
 }
 
 bool		xr_dsa::verify				(public_key_t const & pub_key,
@@ -50,11 +78,22 @@ bool		xr_dsa::verify				(public_key_t const & pub_key,
 										 u32 const data_size,
 										 shared_str const & dsign)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	BIGNUM*			pub = NULL;
+	DSA_get0_key			(m_dsa, (const BIGNUM**)&pub, NULL);
+	BN_bin2bn(pub_key.m_value, sizeof(pub_key.m_value), pub);
+#else
 	BN_bin2bn(pub_key.m_value, sizeof(pub_key.m_value), m_dsa->pub_key);
+#endif
 
 	BIGNUM*	tmp_bn			= NULL;
 	BN_hex2bn				(&tmp_bn, dsign.c_str());
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+	// BIGNUM is opaque; BN_num_bytes is exact DER length (DER starts 0x30)
+	int	sig_size			= BN_num_bytes		(tmp_bn);
+#else
 	int	sig_size			= tmp_bn->top * sizeof(unsigned long);
+#endif
 	u8* sig_buff			= static_cast<u8*>(_alloca(sig_size));
 	VERIFY					(sig_size == DSA_size(m_dsa));
 	BN_bn2bin				(tmp_bn, sig_buff);

@@ -274,6 +274,7 @@ inline void* InterlockedCompareExchangePointer(void* volatile* p, void* xchg, vo
 }
 
 // MSVC intrinsic spellings (used by xrCPU_Pipe / xrEngine)
+#define _alloca alloca
 #define _InterlockedIncrement InterlockedIncrement
 #define _InterlockedDecrement InterlockedDecrement
 #define _InterlockedExchange InterlockedExchange

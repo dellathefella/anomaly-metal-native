@@ -425,7 +425,13 @@ static void SOR_LCP (int m, int nb, dRealMutablePtr J, int *jb, dxBody * const *
 #endif
 #ifdef RANDOMLY_REORDER_CONSTRAINTS
 		if ((iteration & 3) == 0) {
-			std::random_shuffle	(order,order+m);
+			// std::random_shuffle was removed in C++17 — Fisher-Yates with dRandInt
+			for (int si = m - 1; si > 0; --si) {
+				int sj = dRandInt(si + 1);
+				IndexError tmp = order[si];
+				order[si] = order[sj];
+				order[sj] = tmp;
+			}
 			/*
 			for (i=1; i<m; ++i) {
 				IndexError tmp = order[i];

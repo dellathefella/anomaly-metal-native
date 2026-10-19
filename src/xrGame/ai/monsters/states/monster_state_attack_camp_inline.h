@@ -96,28 +96,28 @@ void CStateMonsterAttackCampAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStateAttackCamp_Hide);
+		this->select_state(eStateAttackCamp_Hide);
 		return;
 	}
 
 	if (prev_substate == eStateAttackCamp_Hide)
 	{
-		select_state(eStateAttackCamp_Camp);
+		this->select_state(eStateAttackCamp_Camp);
 		return;
 	}
 
 	if (prev_substate == eStateAttackCamp_Camp)
 	{
 		if (get_state(eStateAttackCamp_StealOut)->check_start_conditions())
-			select_state(eStateAttackCamp_StealOut);
+			this->select_state(eStateAttackCamp_StealOut);
 		else
-			select_state(eStateAttackCamp_Hide);
+			this->select_state(eStateAttackCamp_Hide);
 		return;
 	}
 
 	if (prev_substate == eStateAttackCamp_StealOut)
 	{
-		select_state(eStateAttackCamp_Camp);
+		this->select_state(eStateAttackCamp_Camp);
 		return;
 	}
 }

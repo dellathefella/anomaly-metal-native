@@ -24,17 +24,17 @@ void CStateBloodsuckerVampireExecuteAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->CControlledActor::install();
+	this->object->CControlledActor::install();
 
 	look_head();
 
 	m_action = eActionPrepare;
 	time_vampire_started = 0;
 
-	object->set_visibility_state(CAI_Bloodsucker::full_visibility);
+	this->object->set_visibility_state(CAI_Bloodsucker::full_visibility);
 
-	object->m_hits_before_vampire = 0;
-	object->m_sufficient_hits_before_vampire_random = -1 + (rand() % 3);
+	this->object->m_hits_before_vampire = 0;
+	this->object->m_sufficient_hits_before_vampire_random = -1 + (rand() % 3);
 
 	HUD().SetRenderable(false);
 	NET_Packet P;
@@ -53,7 +53,7 @@ void CStateBloodsuckerVampireExecuteAbstract::execute()
 {
 	if (!object->CControlledActor::is_turning() && !m_effector_activated)
 	{
-		object->ActivateVampireEffector();
+		this->object->ActivateVampireEffector();
 		m_effector_activated = true;
 	}
 
@@ -85,7 +85,7 @@ void CStateBloodsuckerVampireExecuteAbstract::execute()
 		break;
 	}
 
-	object->dir().face_target(object->EnemyMan.get_enemy());
+	this->object->dir().face_target(object->EnemyMan.get_enemy());
 
 	Fvector const enemy_to_self = object->EnemyMan.get_enemy()->Position() - object->Position();
 	float const dist_to_enemy = magnitude(enemy_to_self);
@@ -94,21 +94,21 @@ void CStateBloodsuckerVampireExecuteAbstract::execute()
 	if (angle_between_vectors(object->Direction(), enemy_to_self) < deg2rad(20.f) &&
 		dist_to_enemy > vampire_dist)
 	{
-		object->set_action(ACT_RUN);
-		object->anim().accel_activate(eAT_Aggressive);
-		object->anim().accel_set_braking(false);
+		this->object->set_action(ACT_RUN);
+		this->object->anim().accel_activate(eAT_Aggressive);
+		this->object->anim().accel_set_braking(false);
 
 		u32 const target_vertex = object->EnemyMan.get_enemy()->ai_location().level_vertex_id();
 		Fvector const target_pos = ai().level_graph().vertex_position(target_vertex);
 
-		object->path().set_target_point(target_pos, target_vertex);
-		object->path().set_rebuild_time(100);
-		object->path().set_use_covers(false);
-		object->path().set_distance_to_end(vampire_dist);
+		this->object->path().set_target_point(target_pos, target_vertex);
+		this->object->path().set_rebuild_time(100);
+		this->object->path().set_use_covers(false);
+		this->object->path().set_distance_to_end(vampire_dist);
 	}
 	else
 	{
-		object->set_action(ACT_STAND_IDLE);
+		this->object->set_action(ACT_STAND_IDLE);
 	}
 }
 
@@ -130,10 +130,10 @@ void CStateBloodsuckerVampireExecuteAbstract::cleanup()
 	Actor()->set_inventory_disabled(false);
 
 	if (object->com_man().ta_is_active())
-		object->com_man().ta_deactivate();
+		this->object->com_man().ta_deactivate();
 
 	if (object->CControlledActor::is_controlling())
-		object->CControlledActor::release();
+		this->object->CControlledActor::release();
 
 	show_hud();
 }
@@ -165,7 +165,7 @@ bool CStateBloodsuckerVampireExecuteAbstract::check_start_conditions()
 		return false;
 
 	u32 const vertex_id = ai().level_graph().check_position_in_direction(object->ai_location().level_vertex_id(),
-	                                                                     object->Position(),
+	                                                                     this->object->Position(),
 	                                                                     enemy->Position());
 	if (!ai().level_graph().valid_vertex_id(vertex_id))
 		return false;
@@ -208,10 +208,10 @@ bool CStateBloodsuckerVampireExecuteAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerVampireExecuteAbstract::execute_vampire_prepare()
 {
-	object->com_man().ta_activate(object->anim_triple_vampire);
+	this->object->com_man().ta_activate(object->anim_triple_vampire);
 	time_vampire_started = Device.dwTimeGlobal;
 
-	object->sound().play(CAI_Bloodsucker::eVampireGrasp);
+	this->object->sound().play(CAI_Bloodsucker::eVampireGrasp);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -222,12 +222,12 @@ void CStateBloodsuckerVampireExecuteAbstract::execute_vampire_continue()
 	//if (object->Position().distance_to(Actor()->Position()) > 2.f) {
 	if (!object->MeleeChecker.can_start_melee(enemy))
 	{
-		object->com_man().ta_deactivate();
+		this->object->com_man().ta_deactivate();
 		m_action = eActionCompleted;
 		return;
 	}
 
-	object->sound().play(CAI_Bloodsucker::eVampireSucking);
+	this->object->sound().play(CAI_Bloodsucker::eVampireSucking);
 
 	// проверить на грави удар
 	if (time_vampire_started + VAMPIRE_TIME_HOLD < Device.dwTimeGlobal)
@@ -239,9 +239,9 @@ void CStateBloodsuckerVampireExecuteAbstract::execute_vampire_continue()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerVampireExecuteAbstract::execute_vampire_hit()
 {
-	object->com_man().ta_pointbreak();
-	object->sound().play(CAI_Bloodsucker::eVampireHit);
-	object->SatisfyVampire();
+	this->object->com_man().ta_pointbreak();
+	this->object->sound().play(CAI_Bloodsucker::eVampireHit);
+	this->object->SatisfyVampire();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -256,7 +256,7 @@ void CStateBloodsuckerVampireExecuteAbstract::look_head()
 	Fmatrix global_transform;
 	global_transform.mul_43(object->XFORM(), bone_transform);
 
-	object->CControlledActor::look_point(global_transform.c);
+	this->object->CControlledActor::look_point(global_transform.c);
 }
 
 #undef TEMPLATE_SPECIALIZATION

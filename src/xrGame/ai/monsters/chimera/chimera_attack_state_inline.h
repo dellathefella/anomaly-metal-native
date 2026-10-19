@@ -40,7 +40,7 @@ template <class Object>
 void ChimeraAttackState<Object>::initialize()
 {
 	inherited::initialize();
-	object->MeleeChecker.init_attack();
+	this->object->MeleeChecker.init_attack();
 	m_target_vertex = (u32)(-1);
 	m_allow_jump = false;
 	m_last_jump_time = current_time();
@@ -64,15 +64,15 @@ void ChimeraAttackState<Object>::finalize()
 	{
 		if (object->control().get_capturer(ControlCom::eControlPath) == m_capturer)
 		{
-			object->control().release(m_capturer, ControlCom::eControlPath);
+			this->object->control().release(m_capturer, ControlCom::eControlPath);
 		}
 		if (object->control().get_capturer(ControlCom::eControlMovement) == m_capturer)
 		{
-			object->control().release(m_capturer, ControlCom::eControlMovement);
+			this->object->control().release(m_capturer, ControlCom::eControlMovement);
 		}
 		if (object->anim().has_override_animation())
 		{
-			object->anim().clear_override_animation();
+			this->object->anim().clear_override_animation();
 		}
 	}
 }
@@ -121,7 +121,7 @@ bool ChimeraAttackState<Object>::jump(Fvector const& target, bool attack_jump)
 	float dir_yaw = (target - object->Position()).getH();
 	dir_yaw = angle_normalize(-dir_yaw);
 	float yaw_current, yaw_target;
-	object->control().direction().get_heading(yaw_current, yaw_target);
+	this->object->control().direction().get_heading(yaw_current, yaw_target);
 	if (angle_difference(yaw_current, dir_yaw) > 1.f)
 		return false;
 
@@ -305,7 +305,7 @@ template <class Object>
 void ChimeraAttackState<Object>::set_turn_animation()
 {
 	bool const rotate_right = object->control().direction().is_from_right(m_target);
-	object->anim().set_override_animation(rotate_right ? eAnimFastStandTurnRight : eAnimFastStandTurnLeft, 0);
+	this->object->anim().set_override_animation(rotate_right ? eAnimFastStandTurnRight : eAnimFastStandTurnLeft, 0);
 }
 
 template <class Object>
@@ -372,21 +372,21 @@ void ChimeraAttackState<Object>::execute()
 			m_stealth_end_tick = 0;
 
 		if (object->anim().has_override_animation())
-			object->anim().clear_override_animation();
+			this->object->anim().clear_override_animation();
 
 		if (!good_aiming || in_stealth)
 		{
 			if (good_aiming && in_stealth)
-				object->anim().set_override_animation(eAnimPrepareAttack, 0);
+				this->object->anim().set_override_animation(eAnimPrepareAttack, 0);
 			else
 				set_turn_animation();
 
-			object->dir().face_target(m_target);
+			this->object->dir().face_target(m_target);
 		}
 		else
 		{
-			object->control().release(m_capturer, ControlCom::eControlPath);
-			object->control().release(m_capturer, ControlCom::eControlMovement);
+			this->object->control().release(m_capturer, ControlCom::eControlPath);
+			this->object->control().release(m_capturer, ControlCom::eControlMovement);
 
 			bool valid_target = check_if_jump_possible(m_target);
 
@@ -416,7 +416,7 @@ void ChimeraAttackState<Object>::execute()
 	{
 		if (object->anim().has_override_animation())
 		{
-			object->anim().clear_override_animation();
+			this->object->anim().clear_override_animation();
 		}
 
 		if (current_time() > m_state_end_tick)
@@ -446,7 +446,7 @@ void ChimeraAttackState<Object>::execute()
 		}
 		else
 		{
-			object->anim().set_override_animation(eAnimUpperAttack, 0);
+			this->object->anim().set_override_animation(eAnimUpperAttack, 0);
 		}
 	}
 	else if (object->is_jumping())
@@ -470,10 +470,10 @@ void ChimeraAttackState<Object>::execute()
 				m_stealth_end_tick = current_time() + object->get_attack_params().stealth_timeout;
 			}
 
-			object->control().capture(m_capturer, ControlCom::eControlPath);
-			object->control().capture(m_capturer, ControlCom::eControlMovement);
-			object->control().path_stop(m_capturer);
-			object->control().move_stop(m_capturer);
+			this->object->control().capture(m_capturer, ControlCom::eControlPath);
+			this->object->control().capture(m_capturer, ControlCom::eControlMovement);
+			this->object->control().path_stop(m_capturer);
+			this->object->control().move_stop(m_capturer);
 
 			set_turn_animation();
 		}
@@ -505,14 +505,14 @@ void ChimeraAttackState<Object>::execute()
 	text_tree.add_line						("num_attack_jumps", m_num_attack_jumps);
 #endif // #ifdef DEBUG_STATE
 
-	object->set_action(ACT_RUN);
-	object->path().set_use_dest_orient(false);
-	object->path().set_try_min_time(false);
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
-	object->path().set_rebuild_time(250);
-	object->path().extrapolate_path(true);
-	object->path().set_target_point(m_target, m_target_vertex);
+	this->object->set_action(ACT_RUN);
+	this->object->path().set_use_dest_orient(false);
+	this->object->path().set_try_min_time(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
+	this->object->path().set_rebuild_time(250);
+	this->object->path().extrapolate_path(true);
+	this->object->path().set_target_point(m_target, m_target_vertex);
 }
 
 #endif // #ifdef CHIMERA_ATTACK_STATE_INLINE_H_INCLUDED

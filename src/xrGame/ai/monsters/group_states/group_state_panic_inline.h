@@ -36,7 +36,7 @@ void CStateGroupPanicAbstract::reselect_state()
 {
 	if (get_state(eStatePanic_MoveToHomePoint)->check_start_conditions())
 	{
-		select_state(eStatePanic_MoveToHomePoint);
+		this->select_state(eStatePanic_MoveToHomePoint);
 		return;
 	}
 
@@ -73,13 +73,13 @@ void CStateGroupPanicAbstract::check_force_state()
 		// если видит врага
 		if (object->EnemyMan.get_enemy_time_last_seen() == Device.dwTimeGlobal)
 		{
-			select_state(eStatePanic_Run);
+			this->select_state(eStatePanic_Run);
 			return;
 		}
 		// если получил hit
 		if (object->HitMemory.get_last_hit_time() + 5000 > Device.dwTimeGlobal)
 		{
-			select_state(eStatePanic_Run);
+			this->select_state(eStatePanic_Run);
 			return;
 		}
 	}

@@ -364,7 +364,7 @@ xrImTextureData D3DXRenderBase::GetImGuiTextureId(pcstr texture_name)
     };
 }
 
-void D3DXRenderBase::DumpStatistics(IGameFont& font, IPerformanceAlert* alert)
+void D3DXRenderBase::DumpStatistics(CGameFont& font, IPerformanceAlert* alert)
 {
     // p4 port: dev stats overlay needs IGameFont/IPerformanceAlert (not in the
     // monolith) and is never called from Anomaly; keep only the stats tick.

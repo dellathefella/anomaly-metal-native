@@ -39,7 +39,7 @@ void CStateGroupRestAbstract::initialize()
 	inherited::initialize();
 	time_for_sleep = 0;
 	time_for_life = time() + object->m_min_life_time + Random.randI(10) * object->m_min_life_time;
-	object->anomaly_detector().activate();
+	this->object->anomaly_detector().activate();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -47,7 +47,7 @@ void CStateGroupRestAbstract::finalize()
 {
 	inherited::finalize();
 
-	object->anomaly_detector().deactivate();
+	this->object->anomaly_detector().deactivate();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -55,7 +55,7 @@ void CStateGroupRestAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
 
-	object->anomaly_detector().deactivate();
+	this->object->anomaly_detector().deactivate();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -110,33 +110,33 @@ void CStateGroupRestAbstract::execute()
 					switch (object->get_number_animation())
 					{
 					case u32(8):
-						object->set_current_animation(13);
+						this->object->set_current_animation(13);
 						break;
 					case u32(14):
-						object->set_current_animation(12);
+						this->object->set_current_animation(12);
 						break;
 					case u32(12):
-						object->set_current_animation(7);
-						object->saved_state = u32(-1);
+						this->object->set_current_animation(7);
+						this->object->saved_state = u32(-1);
 						break;
 					default:
 						break;
 					}
 					if (object->b_state_check)
 					{
-						object->b_state_check = false;
-						select_state(eStateCustom);
+						this->object->b_state_check = false;
+						this->select_state(eStateCustom);
 						get_state_current()->execute();
-						prev_substate = current_substate;
+						this->prev_substate = current_substate;
 						return;
 					}
 				}
 				if (time() < time_for_sleep && object->saved_state == eStateRest_Sleep && object->get_number_animation()
 					== u32(13))
 				{
-					select_state(eStateRest_Sleep);
+					this->select_state(eStateRest_Sleep);
 					get_state_current()->execute();
-					prev_substate = current_substate;
+					this->prev_substate = current_substate;
 					return;
 				}
 				bool use_to_do = false;
@@ -149,11 +149,11 @@ void CStateGroupRestAbstract::execute()
 					else
 					{
 						time_for_life = time() + object->m_min_life_time + Random.randI(10) * object->m_min_life_time;
-						object->set_current_animation(14);
-						select_state(eStateCustom);
-						object->b_state_check = false;
+						this->object->set_current_animation(14);
+						this->select_state(eStateCustom);
+						this->object->b_state_check = false;
 						get_state_current()->execute();
-						prev_substate = current_substate;
+						this->prev_substate = current_substate;
 						return;
 					}
 				}
@@ -161,14 +161,14 @@ void CStateGroupRestAbstract::execute()
 				{
 					if (time() > time_for_life && object->Home->at_min_home(object->Position()))
 					{
-						object->set_current_animation(8);
-						select_state(eStateCustom);
-						object->saved_state = eStateRest_Sleep;
+						this->object->set_current_animation(8);
+						this->select_state(eStateCustom);
+						this->object->saved_state = eStateRest_Sleep;
 						time_for_sleep = time() + object->m_min_sleep_time + Random.randI(5) * object->m_min_sleep_time;
 						use_to_do = true;
-						object->b_state_check = false;
+						this->object->b_state_check = false;
 						get_state_current()->execute();
-						prev_substate = current_substate;
+						this->prev_substate = current_substate;
 						return;
 					}
 					else
@@ -176,21 +176,21 @@ void CStateGroupRestAbstract::execute()
 						if (object->saved_state != eStateRest_Sleep && prev_substate == eStateCustom && object->
 							get_number_animation() >= u32(8) && object->get_number_animation() < u32(12))
 						{
-							object->set_current_animation(object->get_number_animation() + u32(1));
-							select_state(eStateCustom);
-							object->b_state_check = false;
+							this->object->set_current_animation(object->get_number_animation() + u32(1));
+							this->select_state(eStateCustom);
+							this->object->b_state_check = false;
 							get_state_current()->execute();
-							prev_substate = current_substate;
+							this->prev_substate = current_substate;
 							return;
 						}
 						if (object->b_state_check)
 						{
-							select_state(eStateCustom);
-							object->b_state_check = false;
+							this->select_state(eStateCustom);
+							this->object->b_state_check = false;
 						}
 						else
 						{
-							select_state(eStateRest_Idle);
+							this->select_state(eStateRest_Idle);
 						}
 					}
 				}
@@ -199,7 +199,7 @@ void CStateGroupRestAbstract::execute()
 	}
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 }
 
 #undef TEMPLATE_SPECIALIZATION

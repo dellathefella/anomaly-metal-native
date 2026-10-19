@@ -24,11 +24,11 @@ TEMPLATE_SPECIALIZATION
 void CStateCustomGroupAbstract::execute()
 {
 	// check alife control
-	select_state(eStateCustom);
-	object->start_animation();
+	this->select_state(eStateCustom);
+	this->object->start_animation();
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 }
 
 TEMPLATE_SPECIALIZATION

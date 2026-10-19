@@ -154,13 +154,18 @@ struct r1v_lmap_unpacked
     {
         P = packed.P;
 
-        Fcolor unpackedN(packed.N);
+        // p4: dev's Fcolor(u32) unpack ctor; the monolith's _color<float>
+        // exposes the identical unpack via set(u32) (same byte order).
+        Fcolor unpackedN;
+        unpackedN.set(packed.N);
         unpackedN.mul_rgb(2);
         unpackedN.sub_rgb(1);
         N = unpackedN.get();
 
-        Fcolor T(packed.T);
-        Fcolor B(packed.B);
+        Fcolor T;
+        T.set(packed.T);
+        Fcolor B;
+        B.set(packed.B);
 
         tc0.x = (packed.tc0.x + T.a) * (32.f / 32768.f);
         tc0.y = (packed.tc0.y + B.a) * (32.f / 32768.f);
@@ -211,15 +216,15 @@ struct r1v_vert_unpacked
     {
         P = packed.P;
 
-        Fcolor unpackedN(packed.N);
+        Fcolor unpackedN; unpackedN.set(packed.N); // p4 unpack via set(u32)
         unpackedN.mul_rgb(2);
         unpackedN.sub_rgb(1);
         N = unpackedN.get();
 
         C = packed.C;
 
-        Fcolor T(packed.T);
-        Fcolor B(packed.B);
+        Fcolor T; T.set(packed.T); // p4 unpack via set(u32)
+        Fcolor B; B.set(packed.B); // p4 unpack via set(u32)
 
         tc.x = (packed.tc.x + T.a) * (32.f / 32768.f);
         tc.y = (packed.tc.y + B.a) * (32.f / 32768.f);
@@ -247,7 +252,7 @@ struct mu_model_vert_unpacked
     {
         P = packed.P;
 
-        Fcolor unpackedN(packed.N);
+        Fcolor unpackedN; unpackedN.set(packed.N); // p4 unpack via set(u32)
         unpackedN.mul_rgb(2);
         unpackedN.sub_rgb(1);
         N = unpackedN.get();

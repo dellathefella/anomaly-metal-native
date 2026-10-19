@@ -60,7 +60,7 @@ public:
     virtual void OnAssetsChanged() override;
     // p4: no base virtual (monolith IRender has no DumpStatistics; dev's
     // IGameFont/IPerformanceAlert stats overlay is not ported)
-    virtual void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert);
+    virtual void DumpStatistics(class CGameFont& font, class IPerformanceAlert* alert);
 
     xrImTextureData GetImGuiTextureId(pcstr texture_name);
 

@@ -14,24 +14,24 @@ void CStateGroupPanicRunAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateGroupPanicRunAbstract::execute()
 {
-	object->set_action(ACT_RUN);
-	object->set_state_sound(MonsterSound::eMonsterSoundPanic);
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
+	this->object->set_action(ACT_RUN);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundPanic);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
 
 	Fvector enemy2home = object->Home->get_home_point();
 	enemy2home.sub(object->EnemyMan.get_enemy_position());
 	enemy2home.normalize_safe();
 
-	object->path().set_target_point(object->Home->get_place_in_max_home_to_direction(enemy2home));
+	this->object->path().set_target_point(object->Home->get_place_in_max_home_to_direction(enemy2home));
 
-	object->path().set_generic_parameters();
+	this->object->path().set_generic_parameters();
 }
 
 TEMPLATE_SPECIALIZATION

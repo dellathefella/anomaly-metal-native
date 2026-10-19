@@ -2,6 +2,7 @@
 
 #include "FHierrarhyVisual.h"
 #include "xrCore/Animation/Bone.hpp"
+#include "KinematicsAddBoneTransform.hpp" // p4: monolith's KinematicsABT::additional_bone_transform (dev's copy rides in its Bone.hpp)
 #include "Include/xrRender/Kinematics.h"
 
 class CInifile;

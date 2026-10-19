@@ -938,7 +938,7 @@ CRender::CRender()
 
 CRender::~CRender() {}
 
-void CRender::DumpStatistics(IGameFont& font, IPerformanceAlert* alert)
+void CRender::DumpStatistics(CGameFont& font, IPerformanceAlert* alert)
 {
     D3DXRenderBase::DumpStatistics(font, alert);
     Stats.FrameEnd();

@@ -39,9 +39,9 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterHearHelpSoundAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
-		select_state(eStateHearHelpSound_MoveToDest);
+		this->select_state(eStateHearHelpSound_MoveToDest);
 	else if (prev_substate == eStateHearHelpSound_MoveToDest)
-		select_state(eStateHearHelpSound_LookAround);
+		this->select_state(eStateHearHelpSound_LookAround);
 }
 
 TEMPLATE_SPECIALIZATION

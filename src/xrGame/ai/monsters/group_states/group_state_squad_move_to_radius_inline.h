@@ -14,7 +14,7 @@ TEMPLATE_SPECIALIZATION
 void CStateGroupSquadMoveToRadiusExAbstract::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -54,24 +54,24 @@ void CStateGroupSquadMoveToRadiusExAbstract::execute()
 	{
 		data.point = object->EnemyMan.get_enemy()->Position();
 	}
-	object->set_action(data.action.action);
-	object->anim().SetSpecParams(data.action.spec_params);
+	this->object->set_action(data.action.action);
+	this->object->anim().SetSpecParams(data.action.spec_params);
 
-	object->path().set_target_point(data.point, data.vertex);
-	object->path().set_rebuild_time(data.time_to_rebuild);
-	object->path().set_distance_to_end(2.f);
-	object->path().set_use_covers();
-	object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
+	this->object->path().set_target_point(data.point, data.vertex);
+	this->object->path().set_rebuild_time(data.time_to_rebuild);
+	this->object->path().set_distance_to_end(2.f);
+	this->object->path().set_use_covers();
+	this->object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
 
 	if (data.accelerated)
 	{
-		object->anim().accel_activate(EAccelType(data.accel_type));
-		object->anim().accel_set_braking(data.braking);
+		this->object->anim().accel_activate(EAccelType(data.accel_type));
+		this->object->anim().accel_set_braking(data.braking);
 	}
 
 	if (data.action.sound_type != u32(-1))
 	{
-		object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
+		this->object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
 	}
 }
 
@@ -98,7 +98,7 @@ TEMPLATE_SPECIALIZATION
 void CStateGroupSquadMoveToRadiusAbstract::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -118,24 +118,24 @@ void CStateGroupSquadMoveToRadiusAbstract::execute()
 		data.point = object->EnemyMan.get_enemy()->Position();
 	}
 
-	object->set_action(data.action.action);
-	object->anim().SetSpecParams(data.action.spec_params);
+	this->object->set_action(data.action.action);
+	this->object->anim().SetSpecParams(data.action.spec_params);
 
-	object->path().set_target_point(data.point, data.vertex);
-	object->path().set_rebuild_time(data.time_to_rebuild);
-	object->path().set_distance_to_end(1.f);
-	object->path().set_use_covers();
-	object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
+	this->object->path().set_target_point(data.point, data.vertex);
+	this->object->path().set_rebuild_time(data.time_to_rebuild);
+	this->object->path().set_distance_to_end(1.f);
+	this->object->path().set_use_covers();
+	this->object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
 
 	if (data.accelerated)
 	{
-		object->anim().accel_activate(EAccelType(data.accel_type));
-		object->anim().accel_set_braking(data.braking);
+		this->object->anim().accel_activate(EAccelType(data.accel_type));
+		this->object->anim().accel_set_braking(data.braking);
 	}
 
 	if (data.action.sound_type != u32(-1))
 	{
-		object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
+		this->object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
 	}
 }
 

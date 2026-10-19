@@ -15,6 +15,15 @@ namespace xray::render::RENDER_NAMESPACE
 {
 float psOSSR = .001f;
 
+// p4: dev's xrCore ScopeStatTimer (FTimer.h) is gated on g_bEnableStatGather;
+// the GL port has no stats overlay consuming these timers, so the RAII shape
+// is kept but inert.
+class ScopeStatTimer
+{
+public:
+    ScopeStatTimer(CStatTimer& /*base*/, Lock& /*lock*/) {}
+};
+
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -74,18 +83,20 @@ void CHOM::Load()
     IReader* fs = FS.r_open(fName);
 
     // Prepare AABB-tree
-    static const bool use_cache = !strstr(Core.Params, "-no_cdb_cache");
+    static const bool use_cache = false; // p4: monolith CDB::MODEL has no serialize/deserialize cache (dev xrCDB extension); HOM rebuilds per level load
+    static const bool skip_crc32_check = false;
+    (void)use_cache;
+    (void)skip_crc32_check;
 
     m_pModel = xr_new<CDB::MODEL>();
-    if (use_cache)
-        m_pModel->set_model_crc32(crc32(fs->pointer(), fs->length()));
+    // p4: m_pModel->set_model_crc32(...) — dev's cache key, dropped with the cache.
 
     // Load tris and merge them
     CDB::Collector CL;
     {
         IReader* S = fs->open_chunk(1);
-        const auto begin = static_cast<HOM_poly*>(S->pointer());
-        const auto end   = static_cast<HOM_poly*>(S->end());
+        HOM_poly* begin = static_cast<HOM_poly*>(S->pointer());
+        const auto end = begin + S->length() / sizeof(HOM_poly); // p4: dev's IReader::end() == base+size
         for (HOM_poly* poly = begin; poly != end; ++poly)
         {
             CL.add_face_packed_D(poly->v1, poly->v2, poly->v3, poly->flags, 0.01f);
@@ -126,12 +137,10 @@ void CHOM::Load()
     });
 
     // Create AABB-tree
-    static const bool skip_crc32_check = strstr(Core.Params, "-skip_cdb_cache_crc32_check");
-
     strconcat(fName, "cdb_cache" DELIMITER, FS.get_path("$level$")->m_Add, "hom.bin");
     FS.update_path(fName, "$app_data_root$", fName);
 
-    if (use_cache && FS.exist(fName) && m_pModel->deserialize(fName, skip_crc32_check))
+    if (false) // p4: dev's CDB::MODEL::deserialize cache not available
     {
 #ifndef MASTER_GOLD
         Msg("* Loaded HOM cache (%s)...", fName);
@@ -144,8 +153,7 @@ void CHOM::Load()
 #endif
         m_pModel->build(CL.getV(), CL.getVS(), CL.getT(), CL.getTS());
 
-        if (use_cache)
-            m_pModel->serialize(fName);
+        // p4: m_pModel->serialize(fName) — dev's cache writer, dropped.
     }
 
     bEnabled = TRUE;
@@ -413,7 +421,7 @@ BOOL CHOM::visible(const sPoly& P) const
 
 void CHOM::Disable() { bEnabled = FALSE; }
 void CHOM::Enable() { bEnabled = m_pModel ? TRUE : FALSE; }
-void CHOM::DumpStatistics(IGameFont& font, IPerformanceAlert* alert)
+void CHOM::DumpStatistics(CGameFont& font, IPerformanceAlert* alert)
 {
     stats.FrameEnd();
     font.OutNext("HOM:          %2.2fms, %u", stats.Total.result, stats.Total.count);

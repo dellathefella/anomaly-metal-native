@@ -26,7 +26,7 @@ void CStateControlCampAbstract::initialize()
 	m_angle_to = angle_normalize(angle + ANGLE_DISP);
 
 	Fvector trace_from;
-	object->Center(trace_from);
+	this->object->Center(trace_from);
 	Fvector direction;
 
 	// trace discretely left
@@ -65,7 +65,7 @@ void CStateControlCampAbstract::initialize()
 
 	Fvector pos;
 	pos.mad(object->Position(), Fvector().setHP(angle, 0.f), 3.f);
-	object->dir().face_target(pos);
+	this->object->dir().face_target(pos);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -76,8 +76,8 @@ void CStateControlCampAbstract::execute()
 	Fvector point;
 	point.mad(object->Position(), Fvector().setHP(m_target_angle, 0.f), 3.f);
 
-	object->custom_dir().head_look_point(point);
-	object->custom_anim().set_body_state(CControllerAnimation::eTorsoIdle, CControllerAnimation::eLegsTypeSteal);
+	this->object->custom_dir().head_look_point(point);
+	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoIdle, CControllerAnimation::eLegsTypeSteal);
 }
 
 TEMPLATE_SPECIALIZATION

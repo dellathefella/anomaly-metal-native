@@ -30,7 +30,7 @@ void CStateMonsterFindEnemyAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStateFindEnemy_Run);
+		this->select_state(eStateFindEnemy_Run);
 		return;
 	}
 

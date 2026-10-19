@@ -28,23 +28,23 @@ void CStateMonsterHittedAbstract::reselect_state()
 {
 	if (get_state(eStateHitted_Home)->check_start_conditions())
 	{
-		select_state(eStateHitted_Home);
+		this->select_state(eStateHitted_Home);
 		return;
 	}
 
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStateHitted_Hide);
+		this->select_state(eStateHitted_Hide);
 		return;
 	}
 
 	if (prev_substate == eStateHitted_Hide)
 	{
-		select_state(eStateHitted_MoveOut);
+		this->select_state(eStateHitted_MoveOut);
 		return;
 	}
 
-	select_state(eStateHitted_Hide);
+	this->select_state(eStateHitted_Hide);
 }
 
 #undef TEMPLATE_SPECIALIZATION

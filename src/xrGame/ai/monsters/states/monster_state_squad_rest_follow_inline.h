@@ -42,11 +42,11 @@ void CStateMonsterSquadRestFollowAbstract::reselect_state()
 	SSquadCommand& command = monster_squad().get_squad(object)->GetCommand(object);
 	if (command.position.distance_to(object->Position()) < Random.randF(STOP_DISTANCE, STAY_DISTANCE))
 	{
-		select_state(eStateSquad_RestFollow_Idle);
+		this->select_state(eStateSquad_RestFollow_Idle);
 	}
 	else
 	{
-		select_state(eStateSquad_RestFollow_WalkToPoint);
+		this->select_state(eStateSquad_RestFollow_WalkToPoint);
 	}
 }
 

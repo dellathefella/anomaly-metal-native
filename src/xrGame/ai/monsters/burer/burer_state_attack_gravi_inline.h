@@ -16,8 +16,8 @@ void CStateBurerAttackGravi<Object>::initialize()
 	m_time_gravi_started = 0;
 	m_anim_end_tick = 0;
 	m_next_gravi_allowed_tick = current_time() + object->m_gravi.cooldown;
-	object->set_force_gravi_attack(false);
-	object->set_script_capture(false);
+	this->object->set_force_gravi_attack(false);
+	this->object->set_script_capture(false);
 }
 
 template <typename Object>
@@ -48,21 +48,21 @@ void CStateBurerAttackGravi<Object>::execute()
 		break;
 	}
 
-	object->face_enemy();
+	this->object->face_enemy();
 
 	if (current_time() < m_anim_end_tick)
 	{
-		object->anim().set_override_animation(eAnimGraviFire);
+		this->object->anim().set_override_animation(eAnimGraviFire);
 	}
 
-	object->set_action(ACT_STAND_IDLE);
+	this->object->set_action(ACT_STAND_IDLE);
 }
 
 template <typename Object>
 void CStateBurerAttackGravi<Object>::finalize()
 {
 	inherited::finalize();
-	object->set_script_capture(true);
+	this->object->set_script_capture(true);
 }
 
 template <typename Object>
@@ -70,8 +70,8 @@ void CStateBurerAttackGravi<Object>::critical_finalize()
 {
 	inherited::critical_finalize();
 
-	object->StopGraviPrepare();
-	object->set_script_capture(false);
+	this->object->StopGraviPrepare();
+	this->object->set_script_capture(false);
 }
 
 template <typename Object>
@@ -104,7 +104,7 @@ void CStateBurerAttackGravi<Object>::ExecuteGraviStart()
 	m_anim_end_tick = current_time() + TTime(time * 1000);
 	m_action = ACTION_GRAVI_CONTINUE;
 	m_time_gravi_started = Device.dwTimeGlobal;
-	object->StartGraviPrepare();
+	this->object->StartGraviPrepare();
 }
 
 template <typename Object>
@@ -134,8 +134,8 @@ void CStateBurerAttackGravi<Object>::ExecuteGraviFire()
 	target_pos = object->EnemyMan.get_enemy()->Position();
 	target_pos.y += 0.5f;
 
-	object->m_gravi_object.activate(object->EnemyMan.get_enemy(), from_pos, target_pos);
+	this->object->m_gravi_object.activate(object->EnemyMan.get_enemy(), from_pos, target_pos);
 
-	object->StopGraviPrepare();
-	object->sound().play(CBurer::eMonsterSoundGraviAttack);
+	this->object->StopGraviPrepare();
+	this->object->sound().play(CBurer::eMonsterSoundGraviAttack);
 }

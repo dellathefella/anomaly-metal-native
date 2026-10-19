@@ -68,7 +68,7 @@ void CStateBurerAttack<Object>::execute()
 
 	if (object->anim().has_override_animation())
 	{
-		object->anim().clear_override_animation();
+		this->object->anim().clear_override_animation();
 	}
 
 	if (object->conditions().GetHealth() <= m_last_health - burer::health_delta)
@@ -86,7 +86,7 @@ void CStateBurerAttack<Object>::execute()
 		else
 		{
 			get_state_current()->execute();
-			prev_substate = current_substate;
+			this->prev_substate = current_substate;
 			return;
 		}
 	}
@@ -103,20 +103,20 @@ void CStateBurerAttack<Object>::execute()
 
 	if (gravi_ready)
 	{
-		select_state(eStateBurerAttack_Gravi);
+		this->select_state(eStateBurerAttack_Gravi);
 	}
 	else if (m_lost_delta_health && shield_ready)
 	{
 		m_lost_delta_health = false;
-		select_state(eStateBurerAttack_Shield);
+		this->select_state(eStateBurerAttack_Shield);
 	}
 	else if (anti_aim_ready)
 	{
-		select_state(eStateBurerAttack_AntiAim);
+		this->select_state(eStateBurerAttack_AntiAim);
 	}
 	else if (tele_ready && current_substate != eStateBurerAttack_RunAround)
 	{
-		select_state(eStateBurerAttack_Tele);
+		this->select_state(eStateBurerAttack_Tele);
 	}
 	else
 	{
@@ -127,7 +127,7 @@ void CStateBurerAttack<Object>::execute()
 	{
 		get_state_current()->execute();
 		m_wait_state_end = true;
-		prev_substate = current_substate;
+		this->prev_substate = current_substate;
 		return;
 	}
 
@@ -144,16 +144,16 @@ void CStateBurerAttack<Object>::execute()
 		if (!get_state_current()->check_completion())
 		{
 			get_state_current()->execute();
-			prev_substate = current_substate;
+			this->prev_substate = current_substate;
 			return;
 		}
 	}
 
 	if (get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
 	{
-		select_state(eStateCustomMoveToRestrictor);
+		this->select_state(eStateCustomMoveToRestrictor);
 		get_state_current()->execute();
-		prev_substate = current_substate;
+		this->prev_substate = current_substate;
 		return;
 	}
 
@@ -169,7 +169,7 @@ void CStateBurerAttack<Object>::execute()
 		else
 		{
 			get_state_current()->execute();
-			prev_substate = current_substate;
+			this->prev_substate = current_substate;
 			return;
 		}
 	}
@@ -178,11 +178,11 @@ void CStateBurerAttack<Object>::execute()
 		(in_runaway_range && current_time() > m_next_runaway_allowed_tick))
 	{
 		m_lost_delta_health = false;
-		select_state(eStateBurerAttack_RunAround);
+		this->select_state(eStateBurerAttack_RunAround);
 	}
 	else if (!in_normal_range)
 	{
-		select_state(eStateAttack_Run);
+		this->select_state(eStateAttack_Run);
 	}
 	else
 	{
@@ -190,22 +190,22 @@ void CStateBurerAttack<Object>::execute()
 		bool const good_aiming = angle_between_vectors(self2enemy, object->Direction())
 			< deg2rad(20.f);
 
-		select_state(eStateBurerAttack_FaceEnemy);
+		this->select_state(eStateBurerAttack_FaceEnemy);
 
 		if (!good_aiming)
 		{
 			bool const rotate_right = object->control().direction().is_from_right(enemy_pos);
-			object->anim().set_override_animation
+			this->object->anim().set_override_animation
 				(rotate_right ? eAnimStandTurnRight : eAnimStandTurnLeft, 0);
-			object->dir().face_target(enemy_pos);
+			this->object->dir().face_target(enemy_pos);
 		}
 
-		object->set_action(ACT_STAND_IDLE);
+		this->object->set_action(ACT_STAND_IDLE);
 		return;
 	}
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 }
 
 template <typename Object>
@@ -213,7 +213,7 @@ void CStateBurerAttack<Object>::finalize()
 {
 	if (object->anim().has_override_animation())
 	{
-		object->anim().clear_override_animation();
+		this->object->anim().clear_override_animation();
 	}
 
 	inherited::finalize();
@@ -224,7 +224,7 @@ void CStateBurerAttack<Object>::critical_finalize()
 {
 	if (object->anim().has_override_animation())
 	{
-		object->anim().clear_override_animation();
+		this->object->anim().clear_override_animation();
 	}
 
 	inherited::critical_finalize();

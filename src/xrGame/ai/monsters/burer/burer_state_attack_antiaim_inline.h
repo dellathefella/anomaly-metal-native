@@ -13,7 +13,7 @@ void CStateBurerAntiAim<Object>::initialize()
 {
 	inherited::initialize();
 	m_allow_anti_aim = true;
-	object->control().activate(ControlCom::eAntiAim);
+	this->object->control().activate(ControlCom::eAntiAim);
 	m_allow_anti_aim = false;
 
 	VERIFY(object->get_anti_aim()->is_active());
@@ -22,8 +22,8 @@ void CStateBurerAntiAim<Object>::initialize()
 template <class Object>
 void CStateBurerAntiAim<Object>::execute()
 {
-	object->face_enemy();
-	object->set_action(ACT_STAND_IDLE);
+	this->object->face_enemy();
+	this->object->set_action(ACT_STAND_IDLE);
 }
 
 template <class Object>

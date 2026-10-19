@@ -37,7 +37,7 @@ void CStateBloodsuckerPredatorLiteAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->predator_start();
+	this->object->predator_start();
 
 	m_target_node = u32(-1);
 	m_freezed = false;
@@ -57,8 +57,8 @@ void CStateBloodsuckerPredatorLiteAbstract::reselect_state()
 	{
 		if (enemy_see_me())
 		{
-			select_state(eStatePredator_MoveToCover);
-			object->set_berserk();
+			this->select_state(eStatePredator_MoveToCover);
+			this->object->set_berserk();
 		}
 		else select_state(eStatePredator_LookOpenPlace);
 		return;
@@ -66,24 +66,24 @@ void CStateBloodsuckerPredatorLiteAbstract::reselect_state()
 
 	if (prev_substate == eStatePredator_LookOpenPlace)
 	{
-		select_state(eStatePredator_Camp);
+		this->select_state(eStatePredator_Camp);
 		return;
 	}
 
 	if (prev_substate == eStatePredator_Camp)
 	{
-		select_state(eStatePredator_MoveToCover);
+		this->select_state(eStatePredator_MoveToCover);
 		return;
 	}
 
-	select_state(eStatePredator_MoveToCover);
+	this->select_state(eStatePredator_MoveToCover);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::finalize()
 {
 	inherited::finalize();
-	object->predator_stop();
+	this->object->predator_stop();
 	if (m_freezed) object->predator_unfreeze();
 
 	if (m_target_node != u32(-1))
@@ -94,7 +94,7 @@ TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	object->predator_stop();
+	this->object->predator_stop();
 	if (m_freezed) object->predator_unfreeze();
 
 	if (m_target_node != u32(-1))
@@ -107,7 +107,7 @@ bool CStateBloodsuckerPredatorLiteAbstract::check_completion()
 	if (object->EnemyMan.see_enemy_now() && (object->Position().distance_to(object->EnemyMan.get_enemy()->Position()) <
 		4.f))
 	{
-		object->set_berserk();
+		this->object->set_berserk();
 		return true;
 	}
 	if (object->conditions().health() > 0.9f) return true;
@@ -123,12 +123,12 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 
 	if (current_substate == eStatePredator_Camp)
 	{
-		object->predator_freeze();
+		this->object->predator_freeze();
 		m_freezed = true;
 	}
 	else
 	{
-		object->predator_unfreeze();
+		this->object->predator_unfreeze();
 		m_freezed = false;
 	}
 
@@ -158,7 +158,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		SStateDataLookToPoint data;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 
 		data.point.mad(object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;
@@ -198,7 +198,7 @@ void CStateBloodsuckerPredatorLiteAbstract::check_force_state()
 			if (object->EnemyMan.get_enemy() &&
 				(object->EnemyMan.get_enemy()->Position().distance_to(object->Position()) < 10.f))
 			{
-				object->set_berserk();
+				this->object->set_berserk();
 			}
 			else
 				current_substate = u32(-1);

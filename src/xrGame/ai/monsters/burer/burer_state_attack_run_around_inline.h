@@ -53,7 +53,7 @@ void CStateBurerAttackRunAroundAbstract::initialize()
 		dest_direction.normalize();
 	}
 
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -61,18 +61,18 @@ void CStateBurerAttackRunAroundAbstract::execute()
 {
 	if (!fis_zero(dest_direction.square_magnitude()))
 	{
-		object->path().set_use_dest_orient(true);
-		object->path().set_dest_direction(dest_direction);
+		this->object->path().set_use_dest_orient(true);
+		this->object->path().set_dest_direction(dest_direction);
 	}
 	else object->path().set_use_dest_orient(false);
 
 
-	object->set_action(ACT_RUN);
-	object->path().set_target_point(selected_point);
-	object->path().set_generic_parameters();
-	object->path().set_use_covers(false);
+	this->object->set_action(ACT_RUN);
+	this->object->path().set_target_point(selected_point);
+	this->object->path().set_generic_parameters();
+	this->object->path().set_use_covers(false);
 
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
 }
 
 
@@ -88,7 +88,7 @@ bool CStateBurerAttackRunAroundAbstract::check_completion()
 	if ((time_started + object->m_max_runaway_time < Device.dwTimeGlobal) ||
 		(object->control().path_builder().is_moving_on_path() && object->control().path_builder().is_path_end(2.f)))
 	{
-		object->dir().face_target(object->EnemyMan.get_enemy());
+		this->object->dir().face_target(object->EnemyMan.get_enemy());
 		return true;
 	}
 

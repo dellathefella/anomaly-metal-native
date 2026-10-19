@@ -47,7 +47,7 @@ void CStateGroupAttackAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->MeleeChecker.init_attack();
+	this->object->MeleeChecker.init_attack();
 	m_drive_out = false;
 
 	m_enemy = object->EnemyMan.get_enemy();
@@ -87,7 +87,7 @@ void CStateGroupAttackAbstract::finalize()
 	inherited::finalize();
 	CEntityAlive* enemy = const_cast<CEntityAlive*>(m_enemy);
 	enemy->is_agresive(false);
-	object->EnemyMan.script_enemy();
+	this->object->EnemyMan.script_enemy();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -101,7 +101,7 @@ void CStateGroupAttackAbstract::critical_finalize()
 		enemy->is_agresive(false);
 		enemy->is_start_attack(false);
 	}
-	object->EnemyMan.script_enemy();
+	this->object->EnemyMan.script_enemy();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -119,12 +119,12 @@ void CStateGroupAttackAbstract::execute()
 
 	if (enemy == object->EnemyMan.get_script_enemy())
 	{
-		object->EnemyMan.add_enemy(enemy);
-		object->EnemyMan.script_enemy();
+		this->object->EnemyMan.add_enemy(enemy);
+		this->object->EnemyMan.script_enemy();
 
 		if (!object->EnemyMan.get_enemy())
 		{
-			object->SetEnemy(enemy);
+			this->object->SetEnemy(enemy);
 		}
 	}
 
@@ -185,12 +185,12 @@ void CStateGroupAttackAbstract::execute()
 		{
 			if (get_state_current()->check_completion())
 			{
-				select_state(eStateAttack_FindEnemy);
+				this->select_state(eStateAttack_FindEnemy);
 			}
 		}
 		else
 		{
-			select_state(eStateAttack_MoveToHomePoint);
+			this->select_state(eStateAttack_MoveToHomePoint);
 		}
 	}
 	else
@@ -217,11 +217,11 @@ void CStateGroupAttackAbstract::execute()
 			// [TODO] make specific state and replace run_away state (to avoid rotation jumps)
 			if (check_behinder())
 			{
-				select_state(eStateAttack_RunAway);
+				this->select_state(eStateAttack_RunAway);
 			}
 			else
 			{
-				select_state(eStateAttack_Melee);
+				this->select_state(eStateAttack_Melee);
 			}
 		}
 		else
@@ -230,10 +230,10 @@ void CStateGroupAttackAbstract::execute()
 			{
 				if (object->get_custom_anim_state())
 				{
-					object->anim_end_reinit();
+					this->object->anim_end_reinit();
 				}
 
-				select_state(can_attack_on_move ? eStateAttack_Attack_On_Run : eStateAttack_Run);
+				this->select_state(can_attack_on_move ? eStateAttack_Attack_On_Run : eStateAttack_Run);
 			}
 			else
 			{
@@ -242,20 +242,20 @@ void CStateGroupAttackAbstract::execute()
 				case eStateAttack_Steal:
 					if (get_state_current()->check_completion())
 					{
-						select_state(eStateAttack_AttackHidden);
+						this->select_state(eStateAttack_AttackHidden);
 					}
 					break;
 
 				case eStateAttack_AttackHidden:
 					if (get_state_current()->check_completion())
 					{
-						select_state(eStateCustom);
+						this->select_state(eStateCustom);
 					}
 					else
 					{
 						if (object->Position().distance_to(enemy->Position()) > 17.f + m_delta_distance)
 						{
-							select_state(eStateAttack_Steal);
+							this->select_state(eStateAttack_Steal);
 						}
 					}
 					break;
@@ -268,16 +268,16 @@ void CStateGroupAttackAbstract::execute()
 							return;
 						}
 
-						object->set_current_animation(6);
-						object->b_state_check = false;
+						this->object->set_current_animation(6);
+						this->object->b_state_check = false;
 						m_time_start_drive_out = Device.dwTimeGlobal;
-						select_state(eStateAttack_ControlFire);
+						this->select_state(eStateAttack_ControlFire);
 					}
 					else
 					{
 						if (object->Position().distance_to(enemy_pos) > 11.f + m_delta_distance)
 						{
-							select_state(eStateAttack_AttackHidden);
+							this->select_state(eStateAttack_AttackHidden);
 							m_drive_out = false;
 						}
 					}
@@ -289,7 +289,7 @@ void CStateGroupAttackAbstract::execute()
 					{
 						if (object->get_custom_anim_state())
 						{
-							object->anim_end_reinit();
+							this->object->anim_end_reinit();
 						}
 
 						if (Device.dwTimeGlobal - m_time_start_drive_out > object->m_drive_out_time)
@@ -297,7 +297,7 @@ void CStateGroupAttackAbstract::execute()
 							m_drive_out = true;
 						}
 
-						select_state(eStateCustom);
+						this->select_state(eStateCustom);
 					}
 					else
 					{
@@ -306,14 +306,14 @@ void CStateGroupAttackAbstract::execute()
 							return;
 						}
 
-						object->set_current_animation(6);
-						object->b_state_check = false;
-						select_state(eStateAttack_ControlFire);
+						this->object->set_current_animation(6);
+						this->object->b_state_check = false;
+						this->select_state(eStateAttack_ControlFire);
 					}
 					break;
 
 				default:
-					select_state(eStateAttack_Steal);
+					this->select_state(eStateAttack_Steal);
 					break;
 				}
 			}
@@ -328,7 +328,7 @@ void CStateGroupAttackAbstract::execute()
 
 	get_state_current()->execute();
 
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 
 	// Notify squad	
 	if (squad)

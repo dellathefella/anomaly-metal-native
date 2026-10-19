@@ -95,7 +95,7 @@ void CStateMonsterAttackAbstract::execute()
 	else if (check_run_away_state()) select_state(eStateAttack_RunAway);
 	else if (!can_attack_on_move &&
 		check_run_attack_state())
-		select_state(eStateAttack_RunAttack);
+		this->select_state(eStateAttack_RunAttack);
 	else if (can_attack_on_move) select_state(eStateAttack_Attack_On_Run);
 	else
 	{
@@ -114,12 +114,12 @@ void CStateMonsterAttackAbstract::execute()
 		}
 
 		// установить целевое состояние
-		select_state(b_melee ? eStateAttack_Melee : eStateAttack_Run);
+		this->select_state(b_melee ? eStateAttack_Melee : eStateAttack_Run);
 	}
 
 	get_state_current()->execute();
 
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 
 	// Notify squad	
 	CMonsterSquad* squad = monster_squad().get_squad(object);

@@ -57,10 +57,10 @@ void CStateControllerControlHitAbstract::execute()
 		break;
 	}
 
-	object->anim().m_tAction = ACT_STAND_IDLE;
-	object->dir().face_target(object->EnemyMan.get_enemy(), 1200);
+	this->object->anim().m_tAction = ACT_STAND_IDLE;
+	this->object->dir().face_target(object->EnemyMan.get_enemy(), 1200);
 
-	object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -101,8 +101,8 @@ void CStateControllerControlHitAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 void CStateControllerControlHitAbstract::execute_hit_prepare()
 {
-	object->com_man().ta_activate(object->anim_triple_control);
-	object->play_control_sound_start();
+	this->object->com_man().ta_activate(object->anim_triple_control);
+	this->object->play_control_sound_start();
 
 	time_control_started = Device.dwTimeGlobal;
 }
@@ -120,7 +120,7 @@ void CStateControllerControlHitAbstract::execute_hit_continue()
 TEMPLATE_SPECIALIZATION
 void CStateControllerControlHitAbstract::execute_hit_fire()
 {
-	object->com_man().ta_pointbreak();
+	this->object->com_man().ta_pointbreak();
 
 	if (object->EnemyMan.see_enemy_now()) object->control_hit();
 }

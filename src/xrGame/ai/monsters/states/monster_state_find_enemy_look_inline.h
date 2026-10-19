@@ -49,7 +49,7 @@ void CStateMonsterFindEnemyLookAbstract::reselect_state()
 		current_dir.setHP(h, p);
 		current_dir.normalize();
 		target_point.mad(start_position, current_dir, Random.randF(4.f, 5.f));
-		select_state(
+		this->select_state(
 			(Random.randI(2)) ? eStateFindEnemy_LookAround_MoveToPoint : eStateFindEnemy_LookAround_TurnToPoint);
 	}
 	else select_state(eStateFindEnemy_LookAround_LookAround);

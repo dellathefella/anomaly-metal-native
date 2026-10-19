@@ -19,7 +19,7 @@ void CStateControllerHideAbstract::initialize()
 
 	m_cover_reached = false;
 	select_target_point();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -30,33 +30,33 @@ void CStateControllerHideAbstract::execute()
 		if (target.position.distance_to(object->Position()) < 5.f)
 		{
 			m_state_fast_run = false;
-			object->set_mental_state(CController::eStateDanger);
+			this->object->set_mental_state(CController::eStateDanger);
 		}
 	}
 
-	object->set_action(ACT_RUN);
+	this->object->set_action(ACT_RUN);
 
-	object->path().set_target_point(target.position, target.node);
-	object->path().set_rebuild_time(0);
-	object->path().set_distance_to_end(0.f);
-	object->path().set_use_covers(false);
+	this->object->path().set_target_point(target.position, target.node);
+	this->object->path().set_rebuild_time(0);
+	this->object->path().set_distance_to_end(0.f);
+	this->object->path().set_use_covers(false);
 
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
 
-	object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
 
 	if (object->HitMemory.get_last_hit_time() > object->EnemyMan.get_enemy_time_last_seen())
 	{
 		Fvector pos;
 		pos.mad(object->Position(), object->HitMemory.get_last_hit_dir(), 5.f);
 		pos.y += 1.5f;
-		object->custom_dir().head_look_point(pos);
+		this->object->custom_dir().head_look_point(pos);
 	}
 	else
-		object->custom_dir().head_look_point(object->EnemyMan.get_enemy_position());
+		this->object->custom_dir().head_look_point(object->EnemyMan.get_enemy_position());
 
-	object->custom_anim().set_body_state(CControllerAnimation::eTorsoRun, CControllerAnimation::eLegsTypeRun);
+	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoRun, CControllerAnimation::eLegsTypeRun);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -69,14 +69,14 @@ TEMPLATE_SPECIALIZATION
 void CStateControllerHideAbstract::finalize()
 {
 	inherited::finalize();
-	object->set_mental_state(CController::eStateDanger);
+	this->object->set_mental_state(CController::eStateDanger);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateControllerHideAbstract::critical_finalize()
 {
 	inherited::finalize();
-	object->set_mental_state(CController::eStateDanger);
+	this->object->set_mental_state(CController::eStateDanger);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -108,7 +108,7 @@ void CStateControllerHideAbstract::select_target_point()
 
 	m_state_fast_run = (target.position.distance_to(object->Position()) > 20.f);
 	if (m_state_fast_run && (Random.randI(100) < 50))
-		object->set_mental_state(CController::eStateIdle);
+		this->object->set_mental_state(CController::eStateIdle);
 }
 
 #undef TEMPLATE_SPECIALIZATION

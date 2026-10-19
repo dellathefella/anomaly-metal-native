@@ -21,24 +21,24 @@ TEMPLATE_SPECIALIZATION
 void CStateControlFireAbstract::initialize()
 {
 	inherited::initialize();
-	object->set_psy_fire_delay_zero();
+	this->object->set_psy_fire_delay_zero();
 	m_time_started = time();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateControlFireAbstract::execute()
 {
-	object->dir().face_target(object->EnemyMan.get_enemy());
-	object->custom_dir().head_look_point(get_head_position(const_cast<CEntityAlive *>(object->EnemyMan.get_enemy())));
+	this->object->dir().face_target(object->EnemyMan.get_enemy());
+	this->object->custom_dir().head_look_point(get_head_position(const_cast<CEntityAlive *>(object->EnemyMan.get_enemy())));
 
-	object->custom_anim().set_body_state(CControllerAnimation::eTorsoIdle, CControllerAnimation::eLegsTypeSteal);
+	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoIdle, CControllerAnimation::eLegsTypeSteal);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateControlFireAbstract::finalize()
 {
 	inherited::finalize();
-	object->set_psy_fire_delay_default();
+	this->object->set_psy_fire_delay_default();
 	m_time_state_last_execute = time();
 }
 
@@ -46,7 +46,7 @@ TEMPLATE_SPECIALIZATION
 void CStateControlFireAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	object->set_psy_fire_delay_default();
+	this->object->set_psy_fire_delay_default();
 	m_time_state_last_execute = time();
 }
 

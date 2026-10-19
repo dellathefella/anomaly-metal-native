@@ -17,24 +17,24 @@ void CStateControllerHideLiteAbstract::initialize()
 	inherited::initialize();
 
 	select_target_point();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateControllerHideLiteAbstract::execute()
 {
-	object->path().set_target_point(target.position, target.node);
-	object->path().set_rebuild_time(0);
-	object->path().set_distance_to_end(0.f);
-	object->path().set_use_covers(true);
+	this->object->path().set_target_point(target.position, target.node);
+	this->object->path().set_rebuild_time(0);
+	this->object->path().set_distance_to_end(0.f);
+	this->object->path().set_use_covers(true);
 
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
 
-	object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
-	object->custom_dir().head_look_point(object->EnemyMan.get_enemy_position());
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->custom_dir().head_look_point(object->EnemyMan.get_enemy_position());
 
-	object->custom_anim().set_body_state(CControllerAnimation::eTorsoRun, CControllerAnimation::eLegsTypeRun);
+	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoRun, CControllerAnimation::eLegsTypeRun);
 }
 
 TEMPLATE_SPECIALIZATION

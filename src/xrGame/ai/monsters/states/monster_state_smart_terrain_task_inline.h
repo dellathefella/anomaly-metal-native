@@ -128,28 +128,28 @@ void CStateMonsterSmartTerrainTaskAbstract::reselect_state()
 	{
 		if (get_state(eStateSmartTerrainTaskGamePathWalk)->check_start_conditions())
 		{
-			select_state(eStateSmartTerrainTaskGamePathWalk);
+			this->select_state(eStateSmartTerrainTaskGamePathWalk);
 		}
 		else
 		{
-			select_state(eStateSmartTerrainTaskLevelPathWalk);
+			this->select_state(eStateSmartTerrainTaskLevelPathWalk);
 		}
 		return;
 	}
 
 	if (prev_substate == eStateSmartTerrainTaskGamePathWalk)
 	{
-		select_state(eStateSmartTerrainTaskLevelPathWalk);
+		this->select_state(eStateSmartTerrainTaskLevelPathWalk);
 		return;
 	}
 
 	if (prev_substate == eStateSmartTerrainTaskLevelPathWalk)
 	{
-		select_state(eStateSmartTerrainTaskWaitCapture);
+		this->select_state(eStateSmartTerrainTaskWaitCapture);
 		return;
 	}
 
-	select_state(eStateSmartTerrainTaskWaitCapture);
+	this->select_state(eStateSmartTerrainTaskWaitCapture);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -162,7 +162,7 @@ void CStateMonsterSmartTerrainTaskAbstract::check_force_state()
 
 	if ((monster->m_smart_terrain_id == 0xffff) || monster->m_task_reached)
 	{
-		select_state(eStateSmartTerrainTaskWaitCapture);
+		this->select_state(eStateSmartTerrainTaskWaitCapture);
 		return;
 	}
 
@@ -173,7 +173,7 @@ void CStateMonsterSmartTerrainTaskAbstract::check_force_state()
 		if (current_substate != u32(-1)) get_state_current()->critical_finalize();
 
 		current_substate = u32(-1);
-		prev_substate = u32(-1);
+		this->prev_substate = u32(-1);
 
 		m_current_task = task;
 	}

@@ -36,10 +36,10 @@ void CStateAbstract::reinit()
 TEMPLATE_SPECIALIZATION
 void CStateAbstract::initialize()
 {
-	time_state_started = Device.dwTimeGlobal;
+	this->time_state_started = Device.dwTimeGlobal;
 
 	current_substate = u32(-1); // means need reselect state
-	prev_substate = u32(-1);
+	this->prev_substate = u32(-1);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -75,7 +75,7 @@ void CStateAbstract::execute()
 	state->execute();
 
 	// сохранить текущее состояние
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 
 	// проверить на завершение текущего состояния
 	if (state->check_completion())
@@ -102,8 +102,8 @@ TEMPLATE_SPECIALIZATION
 void CStateAbstract::reset()
 {
 	current_substate = u32(-1);
-	prev_substate = u32(-1);
-	time_state_started = 0;
+	this->prev_substate = u32(-1);
+	this->time_state_started = 0;
 }
 
 TEMPLATE_SPECIALIZATION

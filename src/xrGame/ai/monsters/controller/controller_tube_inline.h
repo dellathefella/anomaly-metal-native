@@ -11,8 +11,8 @@
 TEMPLATE_SPECIALIZATION
 void CStateControllerTubeAbstract::execute()
 {
-	object->control().activate(ControlCom::eComCustom1);
-	object->set_action(ACT_STAND_IDLE);
+	this->object->control().activate(ControlCom::eComCustom1);
+	this->object->set_action(ACT_STAND_IDLE);
 }
 
 #define SEE_ENEMY_DURATION 1000

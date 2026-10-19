@@ -38,7 +38,7 @@ void CStateGroupHearDangerousSoundAbstract::reselect_state()
 
 	if (get_state(eStateHearDangerousSound_Home)->check_start_conditions())
 	{
-		select_state(eStateHearDangerousSound_Home);
+		this->select_state(eStateHearDangerousSound_Home);
 		return;
 	}
 
@@ -46,11 +46,11 @@ void CStateGroupHearDangerousSoundAbstract::reselect_state()
 	{
 		if (object != squad->GetLeader())
 		{
-			select_state(eStateSquad);
+			this->select_state(eStateSquad);
 		}
 		else
 		{
-			select_state(eStateHearDangerousSound_Hide);
+			this->select_state(eStateHearDangerousSound_Hide);
 		}
 	}
 	else
@@ -63,7 +63,7 @@ void CStateGroupHearDangerousSoundAbstract::reselect_state()
 
 		squad->UpdateGoal(object, goal);
 
-		select_state(eStateHearDangerousSound_Hide);
+		this->select_state(eStateHearDangerousSound_Hide);
 		squad->UpdateSquadCommands();
 	}
 }

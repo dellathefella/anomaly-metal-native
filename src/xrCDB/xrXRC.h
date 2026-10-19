@@ -70,12 +70,16 @@ public:
 	IC CDB::RESULT* r_end() { return CL.r_end(); };
 	IC void r_free() { CL.r_free(); }
 	IC int r_count() { return CL.r_count(); };
+	// p4: dev's result-vector accessor (GL HOM iterates query results directly)
+	IC xr_vector<CDB::RESULT>* r_get() { return CL.r_get(); };
 	IC void r_clear() { CL.r_clear(); };
 	IC void r_clear_compact() { CL.r_clear_compact(); };
 
 	// p4: dev's xrXRC carries an instance label for the stats overlay and
 	// exposes DumpStatistics; the overlay itself is not ported (no-op stub).
-	IC void DumpStatistics(class IGameFont& /*font*/, class IPerformanceAlert* /*alert*/) {}
+	// (dev spells the font type IGameFont; on the monolith that interface is
+	// the concrete CGameFont.)
+	IC void DumpStatistics(class CGameFont& /*font*/, class IPerformanceAlert* /*alert*/) {}
 
 	// p4: dev's per-call options form — the monolith COLLIDER keeps options as
 	// state, so apply them before the query (call sites pass explicit options

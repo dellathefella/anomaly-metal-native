@@ -33,14 +33,14 @@ TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackAbstract::finalize()
 {
 	inherited::finalize();
-	object->start_invisible_predator();
+	this->object->start_invisible_predator();
 }
 
 TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	object->start_invisible_predator();
+	this->object->start_invisible_predator();
 }
 
 namespace detail
@@ -82,7 +82,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 
 		if (!b_melee && (prev_substate == eStateAttack_Melee))
 		{
-			select_state(eStateAttack_Hide);
+			this->select_state(eStateAttack_Hide);
 		}
 		else
 			// установить целевое состояние
@@ -93,11 +93,11 @@ void CBloodsuckerStateAttackAbstract::execute()
 				//if (check_behinder()) 
 				//	select_state(eStateAttack_RunAway);
 				//else 
-				select_state(eStateAttack_Melee);
+				this->select_state(eStateAttack_Melee);
 			}
 			else
 			{
-				select_state(eStateAttack_Run);
+				this->select_state(eStateAttack_Run);
 			}
 	}
 
@@ -108,11 +108,11 @@ void CBloodsuckerStateAttackAbstract::execute()
 	}
 	else
 	{
-		object->clear_runaway_invisible();
+		this->object->clear_runaway_invisible();
 	}
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 
 	// Notify squad	
 	CMonsterSquad* squad = monster_squad().get_squad(object);
@@ -149,7 +149,7 @@ bool CBloodsuckerStateAttackAbstract::check_hiding()
 
 	if (health_step_lost)
 	{
-		object->start_runaway_invisible();
+		this->object->start_runaway_invisible();
 		m_last_health = object->conditions().GetHealth();
 		m_start_with_encircle = true;
 		return true;
@@ -159,7 +159,7 @@ bool CBloodsuckerStateAttackAbstract::check_hiding()
 	u32 last_critical_hit_tick = object->get_last_critical_hit_tick();
 	if (last_critical_hit_tick && time() < last_critical_hit_tick + 1000)
 	{
-		object->clear_last_critical_hit_tick();
+		this->object->clear_last_critical_hit_tick();
 		m_start_with_encircle = true;
 		return true;
 	}
@@ -211,7 +211,7 @@ template <class _Object>
 void CStateMonsterBackstubEnemy<_Object>::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 	m_last_health = object->conditions().GetHealth();
 	m_encircle = data.start_with_encircle;
 	m_encircle_end_tick = Device.dwTimeGlobal + detail::bloodsucker::encircle_time;
@@ -242,8 +242,8 @@ void CStateMonsterBackstubEnemy<_Object>::execute()
 		}
 	}
 
-	object->set_action(data.action.action);
-	object->anim().SetSpecParams(data.action.spec_params);
+	this->object->set_action(data.action.action);
+	this->object->anim().SetSpecParams(data.action.spec_params);
 
 	data.point = object->EnemyMan.get_enemy_position();
 	data.vertex = 0;
@@ -255,33 +255,33 @@ void CStateMonsterBackstubEnemy<_Object>::execute()
 	const SRotation rot = enemy->Orientation();
 	data.target_direction.setHP(rot.yaw, rot.pitch);
 
-	object->path().set_target_point(data.point, data.vertex);
-	object->path().set_rebuild_time(data.time_to_rebuild);
-	object->path().set_distance_to_end(data.completion_dist);
-	object->path().set_use_covers();
-	object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
+	this->object->path().set_target_point(data.point, data.vertex);
+	this->object->path().set_rebuild_time(data.time_to_rebuild);
+	this->object->path().set_distance_to_end(data.completion_dist);
+	this->object->path().set_use_covers();
+	this->object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
 
 	if (m_encircle)
 	{
-		object->path().set_use_dest_orient(true);
-		object->path().set_dest_direction(data.target_direction);
-		object->path().set_try_min_time(false);
+		this->object->path().set_use_dest_orient(true);
+		this->object->path().set_dest_direction(data.target_direction);
+		this->object->path().set_try_min_time(false);
 	}
 	else
 	{
-		object->path().set_try_min_time(true);
-		object->path().set_use_dest_orient(false);
+		this->object->path().set_try_min_time(true);
+		this->object->path().set_use_dest_orient(false);
 	}
 
 	if (data.accelerated)
 	{
-		object->anim().accel_activate(EAccelType(data.accel_type));
-		object->anim().accel_set_braking(data.braking);
+		this->object->anim().accel_activate(EAccelType(data.accel_type));
+		this->object->anim().accel_set_braking(data.braking);
 	}
 
 	if (data.action.sound_type != u32(-1))
 	{
-		object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
+		this->object->set_state_sound(data.action.sound_type, data.action.sound_delay == u32(-1));
 	}
 }
 

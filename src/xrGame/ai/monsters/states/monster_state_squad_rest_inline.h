@@ -35,7 +35,7 @@ CStateMonsterSquadRestAbstract::~CStateMonsterSquadRest()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterSquadRestAbstract::reselect_state()
 {
-	select_state(Random.randI(2) ? eStateSquad_Rest_Idle : eStateSquad_Rest_WalkAroundLeader);
+	this->select_state(Random.randI(2) ? eStateSquad_Rest_Idle : eStateSquad_Rest_WalkAroundLeader);
 }
 
 

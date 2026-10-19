@@ -19,7 +19,7 @@ TEMPLATE_SPECIALIZATION
 void CStateGroupAttackRunAbstract::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 
 	// interception
 	m_intercept_tick = Device.dwTimeGlobal;
@@ -145,31 +145,31 @@ void CStateGroupAttackRunAbstract::execute()
 	}
 
 	// установка параметров функциональных блоков
-	object->set_action(ACT_RUN);
+	this->object->set_action(ACT_RUN);
 
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
-	object->path().set_target_point(target, vertex);
-	object->path().set_rebuild_time(object->get_attack_rebuild_time());
-	object->path().set_use_covers(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
+	this->object->path().set_target_point(target, vertex);
+	this->object->path().set_rebuild_time(object->get_attack_rebuild_time());
+	this->object->path().set_use_covers(false);
 	//object->path().set_cover_params			(0.1f, 30.f, 1.f, 30.f);
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
 
-	object->path().extrapolate_path(true);
+	this->object->path().extrapolate_path(true);
 
-	object->path().set_try_min_time(self2enemy_dist >= 5.f);
+	this->object->path().set_try_min_time(self2enemy_dist >= 5.f);
 
 	const bool enemy_at_home = object->Home->at_home(enemy_pos);
 
 	if (!enemy_at_home || Device.dwTimeGlobal < time_state_started + m_encircle_time)
 	{
-		object->path().set_use_dest_orient(true);
-		object->path().set_dest_direction(m_encircle_dir);
-		object->path().set_try_min_time(false);
+		this->object->path().set_use_dest_orient(true);
+		this->object->path().set_dest_direction(m_encircle_dir);
+		this->object->path().set_try_min_time(false);
 	}
 	else
 	{
-		object->path().set_use_dest_orient(false);
+		this->object->path().set_use_dest_orient(false);
 	}
 }
 
@@ -215,14 +215,14 @@ TEMPLATE_SPECIALIZATION
 void CStateGroupAttackRunAbstract::finalize()
 {
 	inherited::finalize();
-	object->path().extrapolate_path(false);
+	this->object->path().extrapolate_path(false);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateGroupAttackRunAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	object->path().extrapolate_path(false);
+	this->object->path().extrapolate_path(false);
 }
 
 

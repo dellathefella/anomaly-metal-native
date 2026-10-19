@@ -248,6 +248,11 @@ int ps_r3_dyn_wet_surf_sm_res = 256; // 256
 
 u32 ps_steep_parallax = 0;
 int ps_r__detail_radius = 49;
+// p4: monolith tree-wind cvar definitions (see xrRender_console.h note)
+float ps_r__Tree_w_rot = 10.0f;
+float ps_r__Tree_w_speed = 1.00f;
+float ps_r__Tree_w_amp = 0.005f;
+Fvector ps_r__Tree_Wave = { .1f, .01f, .11f };
 
 u32 dm_size = 24;
 u32 dm_cache1_line = 12; //dm_size*2/dm_cache1_count

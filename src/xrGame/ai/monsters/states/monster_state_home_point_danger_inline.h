@@ -96,17 +96,17 @@ void CStateMonsterDangerMoveToHomePointAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStatePanic_HomePoint_Hide);
+		this->select_state(eStatePanic_HomePoint_Hide);
 		return;
 	}
 
 	if (prev_substate == eStatePanic_HomePoint_Hide)
 	{
-		select_state(eStatePanic_HomePoint_LookOpenPlace);
+		this->select_state(eStatePanic_HomePoint_LookOpenPlace);
 		return;
 	}
 
-	select_state(eStatePanic_HomePoint_Camp);
+	this->select_state(eStatePanic_HomePoint_Camp);
 }
 
 //////////////////////////////////////////////////////////////////////////

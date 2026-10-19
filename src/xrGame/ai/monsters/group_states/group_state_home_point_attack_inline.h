@@ -141,7 +141,7 @@ TEMPLATE_SPECIALIZATION
 bool CStateGroupAttackMoveToHomePointAbstract::check_completion()
 {
 	bool const in_camp_state = prev_substate != u32(-1) &&
-		prev_substate != eStateAttack_HomePoint_Hide;
+		this->prev_substate != eStateAttack_HomePoint_Hide;
 
 	if (m_skip_camp && in_camp_state)
 	{
@@ -176,11 +176,11 @@ void CStateGroupAttackMoveToHomePointAbstract::reselect_state()
 {
 	if (prev_substate == eStateAttack_HomePoint_Hide)
 	{
-		select_state(eStateAttack_HomePoint_LookOpenPlace);
+		this->select_state(eStateAttack_HomePoint_LookOpenPlace);
 		return;
 	}
 
-	select_state(eStateAttack_HomePoint_Hide);
+	this->select_state(eStateAttack_HomePoint_Hide);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -236,7 +236,7 @@ void CStateGroupAttackMoveToHomePointAbstract::setup_substates()
 		SStateDataLookToPoint data;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 
 		data.point.mad(object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;

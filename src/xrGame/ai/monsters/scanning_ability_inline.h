@@ -67,7 +67,7 @@ void CScanningAbilityAbstract::schedule_update()
 	// check if we end scanning
 	if (m_this_scan && !sound_scan._feedback())
 	{
-		object->can_scan = true;
+		this->object->can_scan = true;
 		m_this_scan = false;
 	}
 
@@ -111,7 +111,7 @@ void CScanningAbilityAbstract::schedule_update()
 					Actor()->Cameras().AddPPEffector(xr_new<CMonsterEffector>(
 						m_effector_info, m_effector_time, m_effector_time_attack, m_effector_time_release));
 
-					object->can_scan = false;
+					this->object->can_scan = false;
 					m_this_scan = true;
 				}
 			}

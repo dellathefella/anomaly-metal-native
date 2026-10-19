@@ -25,23 +25,23 @@ void CStateMonsterHearDangerousSoundAbstract::reselect_state()
 {
 	if (get_state(eStateHearDangerousSound_Home)->check_start_conditions())
 	{
-		select_state(eStateHearDangerousSound_Home);
+		this->select_state(eStateHearDangerousSound_Home);
 		return;
 	}
 
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStateHearDangerousSound_Hide);
+		this->select_state(eStateHearDangerousSound_Hide);
 		return;
 	}
 
 	if (prev_substate == eStateHearDangerousSound_Hide)
 	{
-		select_state(eStateHearDangerousSound_FaceOpenPlace);
+		this->select_state(eStateHearDangerousSound_FaceOpenPlace);
 		return;
 	}
 
-	select_state(eStateHearDangerousSound_StandScared);
+	this->select_state(eStateHearDangerousSound_StandScared);
 }
 
 TEMPLATE_SPECIALIZATION

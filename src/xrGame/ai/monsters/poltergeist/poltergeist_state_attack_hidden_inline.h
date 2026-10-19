@@ -22,7 +22,7 @@ TEMPLATE_SPECIALIZATION
 void CStatePoltergeistAttackHiddenAbstract::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 	m_fly_side_select_tick = 0;
 	m_fly_radius_factor = 1.f;
 }
@@ -118,28 +118,28 @@ void CStatePoltergeistAttackHiddenAbstract::execute()
 {
 	if (check_home_point())
 	{
-		select_state(eStateAttack_MoveToHomePoint);
+		this->select_state(eStateAttack_MoveToHomePoint);
 		get_state_current()->execute();
-		prev_substate = current_substate;
+		this->prev_substate = current_substate;
 		return;
 	}
 	else
 	{
 		current_substate = (u32)eStateUnknown;
-		prev_substate = current_substate;
+		this->prev_substate = current_substate;
 	}
 
 	select_target_for_move();
 
-	object->path().set_target_point(m_target, m_target_vertex);
-	object->path().set_rebuild_time(200);
-	object->path().set_distance_to_end(3.f);
-	object->path().set_use_covers(false);
+	this->object->path().set_target_point(m_target, m_target_vertex);
+	this->object->path().set_rebuild_time(200);
+	this->object->path().set_distance_to_end(3.f);
+	this->object->path().set_use_covers(false);
 
-	object->anim().m_tAction = ACT_RUN;
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
-	object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->anim().m_tAction = ACT_RUN;
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
 }
 
 #undef TEMPLATE_SPECIALIZATION

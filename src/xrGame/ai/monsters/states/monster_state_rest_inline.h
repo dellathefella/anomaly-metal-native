@@ -117,12 +117,12 @@ void CStateMonsterRestAbstract::execute()
 
 				if (monster_squad().get_squad(object)->GetCommand(object).type == SC_REST)
 				{
-					select_state(eStateSquad_Rest);
+					this->select_state(eStateSquad_Rest);
 					use_squad = true;
 				}
 				else if (monster_squad().get_squad(object)->GetCommand(object).type == SC_FOLLOW)
 				{
-					select_state(eStateSquad_RestFollow);
+					this->select_state(eStateSquad_RestFollow);
 					use_squad = true;
 				}
 
@@ -134,7 +134,7 @@ void CStateMonsterRestAbstract::execute()
 					else
 					{
 						time_idle_selected = time();
-						select_state(eStateRest_Idle);
+						this->select_state(eStateRest_Idle);
 					}
 				}
 			}
@@ -142,7 +142,7 @@ void CStateMonsterRestAbstract::execute()
 	}
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 }
 
 #undef TEMPLATE_SPECIALIZATION

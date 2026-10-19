@@ -40,7 +40,7 @@ void CBloodsuckerStateAttackHideAbstract::initialize()
 
 	m_target_node = u32(-1);
 
-	object->start_invisible_predator();
+	this->object->start_invisible_predator();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -48,11 +48,11 @@ void CBloodsuckerStateAttackHideAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStateAttack_HideInCover);
+		this->select_state(eStateAttack_HideInCover);
 		return;
 	}
 
-	select_state(eStateAttack_CampInCover);
+	this->select_state(eStateAttack_CampInCover);
 }
 
 TEMPLATE_SPECIALIZATION

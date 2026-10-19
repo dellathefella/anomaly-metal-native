@@ -22,12 +22,12 @@ void CStateBloodsuckerVampireHideAbstract::reselect_state()
 	{
 		if (get_state(eStatePredator)->check_start_conditions())
 		{
-			select_state(eStatePredator);
+			this->select_state(eStatePredator);
 			return;
 		}
 	}
 
-	select_state(eStateVampire_RunAway);
+	this->select_state(eStateVampire_RunAway);
 }
 
 TEMPLATE_SPECIALIZATION

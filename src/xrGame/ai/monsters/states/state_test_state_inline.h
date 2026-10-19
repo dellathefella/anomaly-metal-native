@@ -19,7 +19,7 @@ CStateMonsterTestStateAbstract::CStateMonsterTestState(_Object* obj) : inherited
 TEMPLATE_SPECIALIZATION
 void CStateMonsterTestStateAbstract::reselect_state()
 {
-	select_state(eStateCustom);
+	this->select_state(eStateCustom);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -98,9 +98,9 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterTestCoverAbstract::reselect_state()
 {
 	if (object->ai_location().level_vertex_id() != m_last_node)
-		select_state(eStateAttack_HideInCover);
+		this->select_state(eStateAttack_HideInCover);
 	else
-		select_state(eStateAttack_CampInCover);
+		this->select_state(eStateAttack_CampInCover);
 }
 
 TEMPLATE_SPECIALIZATION

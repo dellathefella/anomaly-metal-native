@@ -37,7 +37,7 @@ void CStateBloodsuckerPredatorAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->predator_start();
+	this->object->predator_start();
 
 	select_camp_point();
 }
@@ -47,23 +47,23 @@ void CStateBloodsuckerPredatorAbstract::reselect_state()
 {
 	if (prev_substate == u32(-1))
 	{
-		select_state(eStatePredator_MoveToCover);
+		this->select_state(eStatePredator_MoveToCover);
 		return;
 	}
 
 	if (prev_substate == eStatePredator_MoveToCover)
 	{
-		select_state(eStatePredator_LookOpenPlace);
+		this->select_state(eStatePredator_LookOpenPlace);
 		return;
 	}
 
 	if (prev_substate == eStatePredator_LookOpenPlace)
 	{
-		select_state(eStatePredator_Camp);
+		this->select_state(eStatePredator_Camp);
 		return;
 	}
 
-	select_state(eStatePredator_Camp);
+	this->select_state(eStatePredator_Camp);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -71,8 +71,8 @@ void CStateBloodsuckerPredatorAbstract::finalize()
 {
 	inherited::finalize();
 
-	object->predator_stop();
-	object->predator_unfreeze();
+	this->object->predator_stop();
+	this->object->predator_unfreeze();
 
 	CMonsterSquad* squad = monster_squad().get_squad(object);
 	squad->unlock_cover(m_target_node);
@@ -83,8 +83,8 @@ void CStateBloodsuckerPredatorAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
 
-	object->predator_stop();
-	object->predator_unfreeze();
+	this->object->predator_stop();
+	this->object->predator_unfreeze();
 
 	CMonsterSquad* squad = monster_squad().get_squad(object);
 	squad->unlock_cover(m_target_node);
@@ -103,7 +103,7 @@ bool CStateBloodsuckerPredatorAbstract::check_completion()
 	if (object->HitMemory.get_last_hit_time() > time_state_started) return true;
 	if (object->EnemyMan.get_enemy() && object->EnemyMan.see_enemy_now() && (object
 	                                                                         ->Position().distance_to(
-		                                                                         object->EnemyMan.get_enemy()->
+		                                                                         this->object->EnemyMan.get_enemy()->
 		                                                                                 Position()) < 4.f)) return
 		true;
 
@@ -118,12 +118,12 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 
 	if (current_substate == eStatePredator_Camp)
 	{
-		object->predator_freeze();
+		this->object->predator_freeze();
 		m_time_start_camp = time();
 	}
 	else
 	{
-		object->predator_unfreeze();
+		this->object->predator_unfreeze();
 	}
 
 	if (current_substate == eStatePredator_MoveToCover)
@@ -151,7 +151,7 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 		SStateDataLookToPoint data;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 
 		data.point.mad(object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;
@@ -189,7 +189,7 @@ void CStateBloodsuckerPredatorAbstract::check_force_state()
 		if (current_substate != u32(-1))
 			get_state_current()->critical_finalize();
 
-		prev_substate = u32(-1);
+		this->prev_substate = u32(-1);
 		current_substate = u32(-1);
 
 		CMonsterSquad* squad = monster_squad().get_squad(object);

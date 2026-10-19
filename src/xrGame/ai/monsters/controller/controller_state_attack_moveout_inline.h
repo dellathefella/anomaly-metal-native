@@ -14,7 +14,7 @@ void CStateControlMoveOutAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 	m_last_time_look_point_updated = 0;
 
 	m_state = eMoveToNodeEnemyLastSeen;
@@ -30,21 +30,21 @@ void CStateControlMoveOutAbstract::execute()
 {
 	update_target_point();
 
-	object->path().set_target_point(m_target_position, m_target_node);
-	object->path().set_rebuild_time(20000);
-	object->path().set_distance_to_end(0.f);
-	object->path().set_use_covers(false);
+	this->object->path().set_target_point(m_target_position, m_target_node);
+	this->object->path().set_rebuild_time(20000);
+	this->object->path().set_distance_to_end(0.f);
+	this->object->path().set_use_covers(false);
 
 
-	object->anim().m_tAction = ACT_STEAL;
-	object->anim().accel_deactivate();
-	object->anim().accel_set_braking(false);
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->anim().m_tAction = ACT_STEAL;
+	this->object->anim().accel_deactivate();
+	this->object->anim().accel_set_braking(false);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
 
 	// look into very open point where we go
 	update_look_point();
-	object->custom_dir().head_look_point(m_look_point);
-	object->custom_anim().set_body_state(CControllerAnimation::eTorsoSteal, CControllerAnimation::eLegsTypeStealMotion);
+	this->object->custom_dir().head_look_point(m_look_point);
+	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoSteal, CControllerAnimation::eLegsTypeStealMotion);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -61,7 +61,7 @@ bool CStateControlMoveOutAbstract::check_completion()
 	if (object->EnemyMan.see_enemy_now()) return true;
 	if (time_state_started + 10000 < time()) return true;
 	if (object->HitMemory.is_hit() &&
-		object->HitMemory.get_last_hit_time() > time_state_started)
+		this->object->HitMemory.get_last_hit_time() > time_state_started)
 		return true;
 
 	if (object->EnemyMan.get_enemy_position().distance_to(object->Position()) < 1.f) return true;

@@ -39,7 +39,7 @@ TEMPLATE_SPECIALIZATION
 void CMonsterStateManagerAbstract::force_script_state(EMonsterState state)
 {
 	// установить текущее состояние
-	select_state(state);
+	this->select_state(state);
 }
 
 TEMPLATE_SPECIALIZATION

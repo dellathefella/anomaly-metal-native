@@ -32,11 +32,11 @@ TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerVampireAbstract::initialize()
 {
 	inherited::initialize();
-	object->set_visibility_state(CAI_Bloodsucker::partial_visibility);
+	this->object->set_visibility_state(CAI_Bloodsucker::partial_visibility);
 
 	enemy = object->EnemyMan.get_enemy();
 
-	object->sound().play(CAI_Bloodsucker::eVampireStartHunt);
+	this->object->sound().play(CAI_Bloodsucker::eVampireStartHunt);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -65,7 +65,7 @@ void CStateBloodsuckerVampireAbstract::reselect_state()
 	// else just 
 	if (state_id == u32(-1)) state_id = eStateVampire_ApproachEnemy;
 
-	select_state(state_id);
+	this->select_state(state_id);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -85,7 +85,7 @@ void CStateBloodsuckerVampireAbstract::finalize()
 {
 	inherited::finalize();
 
-	object->set_visibility_state(CAI_Bloodsucker::full_visibility);
+	this->object->set_visibility_state(CAI_Bloodsucker::full_visibility);
 	CAI_Bloodsucker::m_time_last_vampire = Device.dwTimeGlobal;
 }
 
@@ -94,7 +94,7 @@ void CStateBloodsuckerVampireAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
 
-	object->set_visibility_state(CAI_Bloodsucker::full_visibility);
+	this->object->set_visibility_state(CAI_Bloodsucker::full_visibility);
 	CAI_Bloodsucker::m_time_last_vampire = Device.dwTimeGlobal;
 }
 
@@ -132,7 +132,7 @@ bool CStateBloodsuckerVampireAbstract::check_completion()
 
 	// если актера уже контролит другой кровосос
 	if ((current_substate != eStateVampire_Execute) &&
-		object->CControlledActor::is_controlling())
+		this->object->CControlledActor::is_controlling())
 		return true;
 
 	return false;

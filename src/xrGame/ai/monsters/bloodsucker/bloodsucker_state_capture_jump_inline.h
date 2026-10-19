@@ -25,10 +25,10 @@ TEMPLATE_SPECIALIZATION
 void CStateCaptureJumpBloodsuckerAbstract::execute()
 {
 	// check alife control
-	select_state(eStateCustom);
+	this->select_state(eStateCustom);
 
 	get_state_current()->execute();
-	prev_substate = current_substate;
+	this->prev_substate = current_substate;
 }
 
 TEMPLATE_SPECIALIZATION

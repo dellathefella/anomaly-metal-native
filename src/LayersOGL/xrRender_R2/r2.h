@@ -474,7 +474,7 @@ public:
         pcstr pFunctionName, pcstr pTarget, u32 Flags, void*& result); // p4: dev shader_compile overload (hides base)
 
     // Information
-    void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert) override;
+    void DumpStatistics(class CGameFont& font, class IPerformanceAlert* alert) override;
     ref_shader getShader(int id);
     IRenderVisual* getVisual(int id) override;
 

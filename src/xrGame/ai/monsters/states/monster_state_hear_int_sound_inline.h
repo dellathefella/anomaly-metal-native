@@ -21,13 +21,13 @@ void CStateMonsterHearInterestingSoundAbstract::reselect_state()
 	if (prev_substate == u32(-1))
 	{
 		if (get_state(eStateHearInterestingSound_MoveToDest)->check_start_conditions())
-			select_state(eStateHearInterestingSound_MoveToDest);
+			this->select_state(eStateHearInterestingSound_MoveToDest);
 		else
-			select_state(eStateHearInterestingSound_LookAround);
+			this->select_state(eStateHearInterestingSound_LookAround);
 		return;
 	}
 
-	select_state(eStateHearInterestingSound_LookAround);
+	this->select_state(eStateHearInterestingSound_LookAround);
 }
 
 TEMPLATE_SPECIALIZATION

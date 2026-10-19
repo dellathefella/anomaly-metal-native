@@ -65,17 +65,17 @@ void CStateMonsterRestIdleAbstract::reselect_state()
 {
 	if ((prev_substate == u32(-1)) && (m_target_node != u32(-1)))
 	{
-		select_state(eStateRest_WalkToCover);
+		this->select_state(eStateRest_WalkToCover);
 		return;
 	}
 
 	if ((prev_substate == eStateRest_WalkToCover) || (prev_substate == u32(-1)))
 	{
-		select_state(eStateRest_LookOpenPlace);
+		this->select_state(eStateRest_LookOpenPlace);
 		return;
 	}
 
-	select_state(eStateRest_Idle);
+	this->select_state(eStateRest_Idle);
 }
 
 TEMPLATE_SPECIALIZATION

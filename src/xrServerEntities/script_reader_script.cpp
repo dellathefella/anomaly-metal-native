@@ -34,7 +34,7 @@ void r_fvector3(IReader* self, Fvector* arg0)
 }
 
 #pragma optimize("s",on)
-void CScriptReader::script_register(lua_State* L)
+template<> void class_exporter<IReader>::script_register(lua_State* L)
 {
 	module(L)
 	[

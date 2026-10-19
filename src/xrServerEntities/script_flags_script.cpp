@@ -54,7 +54,7 @@ void one(T* self)
 }
 
 #pragma optimize("s",on)
-void CScriptFlags::script_register(lua_State* L)
+template<> void class_exporter<Flags32>::script_register(lua_State* L)
 {
 	module(L)
 	[

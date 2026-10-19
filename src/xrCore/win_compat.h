@@ -835,6 +835,25 @@ BOOL xr_SetFileAttributesA(LPCSTR path, unsigned long attr);
 #ifndef _strupr_l
 #define _strupr_l(s, l) strupr(s)
 #endif
+// _strupr_s: MSVC secure variant; template overload mirrors the MSVC header's
+// fixed-array overload (call sites pass char[N] with a single argument)
+#ifndef _strupr_s
+inline int _strupr_s(char* str, size_t) { strupr(str); return 0; }
+template <size_t size>
+inline int _strupr_s(char (&str)[size]) { strupr(str); return 0; }
+#endif
+// _itoa: integer to string in a given radix (call sites use radix 10)
+#ifndef _itoa
+inline char* _itoa(int value, char* buf, int radix)
+{
+	switch (radix) {
+	case 16: sprintf(buf, "%x", value); break;
+	case 8:  sprintf(buf, "%o", value); break;
+	default: sprintf(buf, "%d", value); break;
+	}
+	return buf;
+}
+#endif
 // 64-bit time (macOS time_t is already 64-bit)
 #ifndef _localtime64
 #define _localtime64 localtime

@@ -10,6 +10,17 @@ extern ENGINE_API Fvector2 g_current_font_scale;
 
 namespace xray::render::RENDER_NAMESPACE
 {
+// p4: dev's action-hint API (EGameActions, GAME_ACTION_MARK, kLASTACTION,
+// GetActionBinding) lives in dev's xrEngine; on the monolith those types sit
+// in xrGame (invisible to the renderer), and the monolith UI resolves hints
+// before handing strings to the font — monolith font strings never carry
+// GAME_ACTION_MARK (27). These local equivalents keep dev's expansion path
+// compiling (inert on monolith data).
+constexpr char GAME_ACTION_MARK = 27;
+constexpr u32 kLASTACTION = 1;
+typedef u8 EGameActions;
+inline pcstr GetActionBinding(EGameActions /*actionId*/) { return ""; }
+
 // p4: dev's CGameFont::get_actions_text_length lives here because the
 // monolith's CGameFont lacks it: the monolith resolves action hints in the
 // UI layer before handing strings to the font, and no monolith code embeds
@@ -101,7 +112,7 @@ void dxFontRender::OnRender(CGameFont& owner)
             CGameFont::String& PS = owner.strings[i];
             xr_wide_char wsStr[MAX_MB_CHARS];
 
-            const u16 len = owner.IsMultibyte() ? mbhMulti2Wide(wsStr, nullptr, MAX_MB_CHARS, PS.string) : xr_strlen(PS.string);
+            const u16 len = const_cast<CGameFont&>(owner).IsMultibyte() ? mbhMulti2Wide(wsStr, nullptr, MAX_MB_CHARS, PS.string) : xr_strlen(PS.string);
 
             if (len)
             {
@@ -112,7 +123,7 @@ void dxFontRender::OnRender(CGameFont& owner)
                 float fSize = 0;
 
                 if (PS.align)
-                    fSize = owner.IsMultibyte() ? owner.SizeOf_(wsStr) : owner.SizeOf_(PS.string);
+                    fSize = const_cast<CGameFont&>(owner).IsMultibyte() ? owner.SizeOf_(wsStr) : owner.SizeOf_(PS.string);
 
                 switch (PS.align)
                 {
@@ -140,11 +151,11 @@ void dxFontRender::OnRender(CGameFont& owner)
 
                 for (u16 j = 0; j < len; j++)
                 {
-                    if (owner.IsMultibyte())
+                    if (const_cast<CGameFont&>(owner).IsMultibyte())
                     {
                         if (wsStr[1 + j] == GAME_ACTION_MARK)
                         {
-                            static_assert(kLASTACTION < type_max<u8>, "Modify the code to have more than 255 actions.");
+                            static_assert(kLASTACTION < type_max(u8), "Modify the code to have more than 255 actions.");
                             ++j;
                             const EGameActions actionId = static_cast<EGameActions>(wsStr[1 + j]);
 
@@ -169,7 +180,7 @@ void dxFontRender::OnRender(CGameFont& owner)
                     {
                         if (PS.string[j] == GAME_ACTION_MARK)
                         {
-                            static_assert(kLASTACTION < type_max<u8>, "Modify the code to have more than 255 actions.");
+                            static_assert(kLASTACTION < type_max(u8), "Modify the code to have more than 255 actions.");
                             ++j;
                             const EGameActions actionId = static_cast<EGameActions>(PS.string[j]);
 
@@ -226,7 +237,7 @@ inline void dxFontRender::ImprintChar(Fvector l, const CGameFont& owner, FVF::TL
         v++;
     }
     X += scw * owner.vInterval.x;
-    if (owner.IsMultibyte())
+    if (const_cast<CGameFont&>(owner).IsMultibyte())
     {
         X -= 2;
         if (IsNeedSpaceCharacter(wsStr[1 + j]))

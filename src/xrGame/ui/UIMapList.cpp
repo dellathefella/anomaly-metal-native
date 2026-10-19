@@ -150,16 +150,11 @@ void CUIMapList::OnListItemClicked()
 	m_pMapInfo->InitMap(M.map_name.c_str(), M.map_ver.c_str());
 }
 
-// p4: the monolith left this as an MSVC tentative definition (size 0 — the
-// token lookups below read garbage on Windows too). Real names for the ids
-// queried in this file.
-xr_token g_GameModes[] = {
-	{ "deathmatch", eGameIDDeathmatch },
-	{ "team_deathmatch", eGameIDTeamDeathmatch },
-	{ "artefact_hunt", eGameIDArtefactHunt },
-	{ "capture_the_artefact", eGameIDCaptureTheArtefact },
-	{ nullptr, eGameIDNoGame }
-};
+// p4: upstream defines this array (localised "st_*" token names) in
+// ui/UIOptConCom.cpp; this file only references it. The original here was an
+// MSVC tentative definition (size 0), so an earlier wave briefly defined it
+// locally — now resolved to the canonical one via extern.
+extern xr_token g_GameModes[];
 
 void CUIMapList::OnModeChange()
 {

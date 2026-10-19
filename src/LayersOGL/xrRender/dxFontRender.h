@@ -3,6 +3,7 @@
 #include "Include/xrRender/FontRender.h"
 
 #include "xrEngine/GameFont.h"
+#include "xrCore/Text/StringConversion.hpp" // p4: xr_wide_char for ImprintChar
 
 namespace xray::render::RENDER_NAMESPACE
 {

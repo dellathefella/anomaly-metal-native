@@ -1,6 +1,13 @@
 #include "stdafx.h"
 #include "xr_dsa_signer.h"
 
+// p4: win_compat shims _time32/_ftime64 but not _time64; sole use is below
+// (local definition keeps the xrCore PCH header — and its full-rebuild cost —
+// untouched).
+#ifndef _time64
+static inline time_t _time64(time_t* t) { return time(t); }
+#endif
+
 xr_dsa_signer::xr_dsa_signer(u8 const p_number[crypto::xr_dsa::public_key_length],
                              u8 const q_number[crypto::xr_dsa::private_key_length],
                              u8 const g_number[crypto::xr_dsa::public_key_length]) :

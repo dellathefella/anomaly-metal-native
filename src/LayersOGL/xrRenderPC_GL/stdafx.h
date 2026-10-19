@@ -12,6 +12,9 @@
 
 // p4: dev's assert-with-recovery form; release builds strip the assert, so the
 // cure clause is a no-op here.
+#ifndef R_ASSERT1
+#define R_ASSERT1(expr) R_ASSERT(expr)
+#endif
 #ifndef R_ASSERT1_CURE
 #define R_ASSERT1_CURE(FUNC, CURE) R_ASSERT1(FUNC)
 #endif

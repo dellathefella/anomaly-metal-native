@@ -15,6 +15,7 @@ list(APPEND RGL_PC_SOURCES
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/FileCRC32.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Media/Image.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Media/ImageJPEG.cpp"
+    "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Text/StringConversion.cpp"
 )
 
 add_library(xrRender_GL SHARED

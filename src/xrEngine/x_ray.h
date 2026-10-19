@@ -2,6 +2,10 @@
 #define __X_RAY_H__
 
 // refs
+// p4: the ported GL renderer (LayersOGL) declares the same class inside
+// xray::render::render_gl; grant it the same friend access as the DX11 one.
+namespace xray::render::render_gl { class dxApplicationRender; }
+
 class ENGINE_API CGameFont;
 
 #include "../Include/xrRender/FactoryPtr.h"
@@ -13,6 +17,7 @@ class ENGINE_API CApplication :
 	public IEventReceiver
 {
 	friend class dxApplicationRender;
+	friend class xray::render::render_gl::dxApplicationRender; // p4
 
 	// levels
 	struct sLevelInfo

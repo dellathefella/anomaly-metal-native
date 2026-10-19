@@ -103,6 +103,15 @@ public:
 	};
 };
 
+// p4: the mailslot transport below is Windows-only (IDE script-debugger
+// integration). On POSIX the stubs keep CScriptDebugger compiling; it simply
+// never detects an attached IDE.
+#ifndef _WIN32
+inline HANDLE CreateMailSlotByName(LPSTR /*slotName*/) { return nullptr; }
+inline BOOL CheckExisting(LPSTR /*slotName*/) { return FALSE; }
+inline BOOL SendMailslotMessage(LPSTR /*slotName*/, CMailSlotMsg& /*msg*/) { return FALSE; }
+inline BOOL CheckMailslotMessage(HANDLE /*hSlot*/, CMailSlotMsg& /*msg*/) { return FALSE; }
+#else
 inline HANDLE CreateMailSlotByName(LPSTR slotName)
 {
 	HANDLE hSlot = CreateMailslot(slotName,
@@ -208,3 +217,4 @@ inline BOOL CheckMailslotMessage(HANDLE hSlot, CMailSlotMsg& msg)
 	CloseHandle(hEvent);
 	return fResult;
 }
+#endif // !_WIN32

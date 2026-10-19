@@ -15,7 +15,6 @@ list(APPEND RGL_PC_SOURCES
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/FileCRC32.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Media/Image.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Media/ImageJPEG.cpp"
-    "${XRAY_SOURCE_DIR}/src/LayersOGL/xrCore/Text/StringConversion.cpp"
 )
 
 add_library(xrRender_GL SHARED
@@ -386,6 +385,10 @@ find_package(JPEG QUIET)
 if(TARGET JPEG::JPEG)
     target_link_libraries(xrRender_GL PRIVATE JPEG::JPEG)
 endif()
+
+# p4: same cross-module model as the engine dylibs — symbols owned by xrGame
+# (loaded earlier by xr_3da) resolve at launch via two-level lookup fallback.
+target_link_options(xrRender_GL PRIVATE "-undefined" "dynamic_lookup")
 
 set_target_properties(xrRender_GL PROPERTIES OUTPUT_NAME "xrRender_GL" PREFIX "")
 

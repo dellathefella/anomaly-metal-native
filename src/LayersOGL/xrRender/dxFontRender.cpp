@@ -10,6 +10,32 @@ extern ENGINE_API Fvector2 g_current_font_scale;
 
 namespace xray::render::RENDER_NAMESPACE
 {
+// p4: dev's CGameFont::get_actions_text_length lives here because the
+// monolith's CGameFont lacks it: the monolith resolves action hints in the
+// UI layer before handing strings to the font, and no monolith code embeds
+// GAME_ACTION_MARK (27) into font strings, so the scan always yields {0, 0}.
+// Kept faithful for hypothetical marked strings.
+static std::pair<u32, u32> xr_actions_text_length(pcstr s)
+{
+    constexpr char xr_game_action_mark = 27;
+    u32 count = 0;
+    u32 length = 0;
+    while (s[0])
+    {
+        if (s[0] == xr_game_action_mark)
+        {
+            ++s;
+            if (s[0]) // action id byte; binding text is UI-resolved on monolith
+            {
+                ++count;
+                length += 2; // placeholder width for the resolved binding
+            }
+        }
+        ++s;
+    }
+    return { count, length };
+}
+
 dxFontRender::~dxFontRender()
 {
     pShader.destroy();
@@ -45,13 +71,13 @@ void dxFontRender::OnRender(CGameFont& owner)
         int count = 1;
 
         u32 length = owner.smart_strlen(owner.strings[i].string);
-        auto [actionsCount, actionsLength] = owner.get_actions_text_length(owner.strings[i].string);
+        auto [actionsCount, actionsLength] = xr_actions_text_length(owner.strings[i].string);
         length += actionsLength - actionsCount * 2;
 
         while ((i + count) < owner.strings.size())
         {
             u32 L = owner.smart_strlen(owner.strings[i + count].string);
-            auto [aC, aL] = owner.get_actions_text_length(owner.strings[i].string);
+            auto [aC, aL] = xr_actions_text_length(owner.strings[i].string);
             L += aL - aC * 2;
 
             if ((L + length) < MAX_MB_CHARS)

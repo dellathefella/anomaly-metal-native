@@ -392,6 +392,7 @@ public:
 public:
     // feature level
     GenerationLevel GetGeneration() const { return IRender::GENERATION_R2; } // p4: monolith base spells get_generation()
+    bool GenerationIsR2OrHigher() const { return GetGeneration() >= IRender::GENERATION_R2; } // p4: dev's IRender helper
 
     // p4: monolith IRender_interface surface that dev removed; the engine's
     // HUD/camera/particle paths (::Render->set_Transform + set_Object +

@@ -303,7 +303,9 @@ void dxEnvironmentRender::RenderClouds(CEnvironment& env)
 
     Fmatrix mXFORM, mScale;
     mScale.scale(10, 0.4f, 10);
-    mXFORM.rotateY(env.CurrentEnv->clouds_rotation);
+    // p4: the monolith's env mixer has no separate clouds_rotation — its own
+    // DX11 renderer rotates clouds with sky_rotation too.
+    mXFORM.rotateY(env.CurrentEnv->sky_rotation);
     mXFORM.mulB_43(mScale);
     mXFORM.translate_over(Device.vCameraPosition);
 

@@ -6,6 +6,10 @@
 #define ThunderboltH
 #pragma once
 
+// p4: the ported GL renderer (LayersOGL) declares the same class inside
+// xray::render::render_gl; grant it the same friend access as the DX11 one.
+namespace xray::render::render_gl { class dxThunderboltRender; }
+
 //refs
 class ENGINE_API IRender_DetailModel;
 class ENGINE_API CLAItem;
@@ -85,6 +89,7 @@ public:
 class ENGINE_API CEffect_Thunderbolt
 {
 	friend class dxThunderboltRender;
+	friend class xray::render::render_gl::dxThunderboltRender; // p4
 protected:
 	DEFINE_VECTOR(SThunderboltCollection*, CollectionVec, CollectionVecIt);
 	CollectionVec collection;

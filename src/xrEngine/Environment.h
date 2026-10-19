@@ -2,6 +2,10 @@
 #define EnvironmentH
 
 // refs
+// p4: the ported GL renderer (LayersOGL) declares the same class inside
+// xray::render::render_gl; grant it the same friend access as the DX11 one.
+namespace xray::render::render_gl { class dxEnvironmentRender; }
+
 class ENGINE_API IRender_Visual;
 class ENGINE_API CInifile;
 class ENGINE_API CEnvironment;
@@ -248,6 +252,7 @@ public:
 class ENGINE_API CEnvironment
 {
 	friend class dxEnvironmentRender;
+	friend class xray::render::render_gl::dxEnvironmentRender; // p4
 
 	struct str_pred /* : public std::binary_function<shared_str, shared_str, bool> (removed in C++17) */
 	{

@@ -6,6 +6,10 @@
 #include "../Include/xrRender/FactoryPtr.h"
 #include "../Include/xrRender/LensFlareRender.h"
 
+// p4: the ported GL renderer (LayersOGL) declares the same class inside
+// xray::render::render_gl; grant it the same friend access as the DX11 one.
+namespace xray::render::render_gl { class dxLensFlareRender; }
+
 class ENGINE_API CInifile;
 class ENGINE_API CEnvironment;
 
@@ -75,6 +79,7 @@ DEFINE_VECTOR(CLensFlareDescriptor*, LensFlareDescVec, LensFlareDescIt);
 class ENGINE_API CLensFlare
 {
 	friend class dxLensFlareRender;
+	friend class xray::render::render_gl::dxLensFlareRender; // p4
 public:
 	enum
 	{

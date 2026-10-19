@@ -18,15 +18,15 @@ void CStateMonsterRestMoveToHomePointAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterRestMoveToHomePointAbstract::execute()
 {
-	object->path().set_target_point(ai().level_graph().vertex_position(m_target_node), m_target_node);
-	object->anim().accel_activate(EAccelType(object->Home->is_aggressive() ? eAT_Aggressive : eAT_Calm));
-	object->anim().accel_set_braking(true);
-	object->path().set_rebuild_time(0);
-	object->path().set_distance_to_end(0.f);
-	object->path().set_use_covers(false);
+	this->object->path().set_target_point(ai().level_graph().vertex_position(m_target_node), m_target_node);
+	this->object->anim().accel_activate(EAccelType(object->Home->is_aggressive() ? eAT_Aggressive : eAT_Calm));
+	this->object->anim().accel_set_braking(true);
+	this->object->path().set_rebuild_time(0);
+	this->object->path().set_distance_to_end(0.f);
+	this->object->path().set_use_covers(false);
 
-	object->set_action(object->Home->is_aggressive() ? ACT_RUN : ACT_WALK_FWD);
-	object->set_state_sound(object->Home->is_aggressive()
+	this->object->set_action(object->Home->is_aggressive() ? ACT_RUN : ACT_WALK_FWD);
+	this->object->set_state_sound(object->Home->is_aggressive()
 		                        ? MonsterSound::eMonsterSoundAggressive
 		                        : MonsterSound::eMonsterSoundIdle);
 }

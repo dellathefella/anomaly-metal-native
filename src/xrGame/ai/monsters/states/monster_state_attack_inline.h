@@ -24,45 +24,45 @@
 TEMPLATE_SPECIALIZATION
 CStateMonsterAttackAbstract::CStateMonsterAttack(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<_Object>>(obj));
-	add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
-	add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
-	add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
-	add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
-	add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
-	add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
-	add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<_Object>>(obj));
+	this->add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
+	this->add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
+	this->add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
+	this->add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
+	this->add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
+	this->add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
 }
 
 // Lain: added 
 TEMPLATE_SPECIALIZATION
 CStateMonsterAttackAbstract::CStateMonsterAttack(_Object* obj, state_ptr state_move2home) : inherited(obj)
 {
-	add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<_Object>>(obj));
-	add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
-	add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
-	add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
-	add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
-	add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
-	add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
-	add_state(eStateAttack_MoveToHomePoint, state_move2home);
+	this->add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<_Object>>(obj));
+	this->add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
+	this->add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
+	this->add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
+	this->add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
+	this->add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
+	this->add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, state_move2home);
 }
 
 TEMPLATE_SPECIALIZATION
 CStateMonsterAttackAbstract::
 CStateMonsterAttack(_Object* obj, state_ptr state_run, state_ptr state_melee) : inherited(obj)
 {
-	add_state(eStateAttack_Run, state_run);
-	add_state(eStateAttack_Melee, state_melee);
-	add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
-	add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
-	add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
-	add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
-	add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
-	add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStateAttack_Run, state_run);
+	this->add_state(eStateAttack_Melee, state_melee);
+	this->add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
+	this->add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
+	this->add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
+	this->add_state(eStateAttack_Steal, xr_new<CStateMonsterSteal<_Object>>(obj));
+	this->add_state(eStateAttackCamp, xr_new<CStateMonsterAttackCamp<_Object>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -74,7 +74,7 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterAttackAbstract::initialize()
 {
 	inherited::initialize();
-	object->MeleeChecker.init_attack();
+	this->object->MeleeChecker.init_attack();
 
 	m_time_next_run_away = 0;
 	m_time_start_check_behinder = 0;

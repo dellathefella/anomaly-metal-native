@@ -11,8 +11,8 @@
 TEMPLATE_SPECIALIZATION
 CStateMonsterHearInterestingSoundAbstract::CStateMonsterHearInterestingSound(_Object* obj) : inherited(obj)
 {
-	add_state(eStateHearInterestingSound_MoveToDest, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
-	add_state(eStateHearInterestingSound_LookAround, xr_new<CStateMonsterCustomActionLook<_Object>>(obj));
+	this->add_state(eStateHearInterestingSound_MoveToDest, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
+	this->add_state(eStateHearInterestingSound_LookAround, xr_new<CStateMonsterCustomActionLook<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -62,7 +62,7 @@ void CStateMonsterHearInterestingSoundAbstract::setup_substates()
 		data.sound_delay = object->db().m_dwIdleSndDelay;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 		data.point.mad(object->Position(), dir, 10.f);
 
 		state->fill_data_with(&data, sizeof(SStateDataActionLook));

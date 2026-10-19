@@ -30,6 +30,14 @@ public:
 
     virtual void RenderSky(CEnvironment& env);
     virtual void RenderClouds(CEnvironment& env);
+    // p4: the monolith engine drives the env renderer through OnFrame/OnLoad/
+    // OnUnload (Environment.cpp: m_pRender->OnFrame(*this)). The monolith DX11
+    // OnFrame only primes DX11 VTF sky-texture slots; the GL path renders sky/
+    // clouds via CEnvironment::RenderSky/RenderClouds in the combine phase, so
+    // these are inert on the GL renderer.
+    virtual void OnFrame(CEnvironment& env) { (void)env; }
+    virtual void OnLoad() {}
+    virtual void OnUnload() {}
     virtual void OnDeviceCreate();
     virtual void OnDeviceDestroy();
     virtual void Clear();

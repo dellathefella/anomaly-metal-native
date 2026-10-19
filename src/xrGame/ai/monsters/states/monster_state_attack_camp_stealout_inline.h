@@ -16,15 +16,15 @@ void CStateMonsterAttackCampStealOutAbstract::execute()
 {
 	if (object->EnemyMan.get_my_vertex_enemy_last_seen() == u32(-1)) return;
 
-	object->path().set_target_point(object->EnemyMan.get_my_vertex_enemy_last_seen());
-	object->path().set_rebuild_time(0);
-	object->path().set_distance_to_end(0.f);
-	object->path().set_use_covers(false);
+	this->object->path().set_target_point(object->EnemyMan.get_my_vertex_enemy_last_seen());
+	this->object->path().set_rebuild_time(0);
+	this->object->path().set_distance_to_end(0.f);
+	this->object->path().set_use_covers(false);
 
-	object->set_action(ACT_STEAL);
-	object->anim().accel_deactivate();
-	object->anim().accel_set_braking(false);
-	object->set_state_sound(MonsterSound::eMonsterSoundSteal);
+	this->object->set_action(ACT_STEAL);
+	this->object->anim().accel_deactivate();
+	this->object->anim().accel_set_braking(false);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundSteal);
 }
 
 #define STATE_EXECUTE_TIME 8000

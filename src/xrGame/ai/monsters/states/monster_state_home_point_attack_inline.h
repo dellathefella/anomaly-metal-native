@@ -59,7 +59,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::select_target()
 	m_selected_target_time = current_time();
 
 	if (m_target_node == u32(-1))
-		object->control().path_builder().get_node_in_radius(self_node, 5, 25, 10, m_target_node);
+		this->object->control().path_builder().get_node_in_radius(self_node, 5, 25, 10, m_target_node);
 
 	if (m_target_node != u32(-1))
 	{
@@ -96,27 +96,27 @@ void CStateMonsterAttackMoveToHomePointAbstract::execute()
 
 	if (m_target_node == u32(-1))
 	{
-		object->set_action(ACT_STAND_IDLE);
-		object->path().set_target_point(object->EnemyMan.get_enemy()->Position(),
-		                                object->EnemyMan.get_enemy()->ai_location().level_vertex_id());
+		this->object->set_action(ACT_STAND_IDLE);
+		this->object->path().set_target_point(object->EnemyMan.get_enemy()->Position(),
+		                                this->object->EnemyMan.get_enemy()->ai_location().level_vertex_id());
 	}
 	else
 	{
-		object->set_action(ACT_RUN);
-		object->path().set_target_point(m_target_pos, m_target_node);
+		this->object->set_action(ACT_RUN);
+		this->object->path().set_target_point(m_target_pos, m_target_node);
 	}
 
-	object->path().set_rebuild_time(250);
-	object->path().set_distance_to_end(1);
-	object->path().set_use_covers();
-	object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
-	object->path().set_use_dest_orient(false);
+	this->object->path().set_rebuild_time(250);
+	this->object->path().set_distance_to_end(1);
+	this->object->path().set_use_covers();
+	this->object->path().set_cover_params(5.f, 30.f, 1.f, 30.f);
+	this->object->path().set_use_dest_orient(false);
 
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
 
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive,
-	                        object->db().m_dwAttackSndDelay == u32(-1));
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive,
+	                        this->object->db().m_dwAttackSndDelay == u32(-1));
 }
 
 TEMPLATE_SPECIALIZATION

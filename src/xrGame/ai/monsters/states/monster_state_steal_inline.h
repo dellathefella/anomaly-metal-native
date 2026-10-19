@@ -20,18 +20,18 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterStealAbstract::initialize()
 {
 	inherited::initialize();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterStealAbstract::execute()
 {
-	object->set_action(ACT_STEAL);
-	object->anim().accel_activate(eAT_Calm);
-	object->anim().accel_set_braking(false);
-	object->path().set_target_point(object->EnemyMan.get_enemy_position(), object->EnemyMan.get_enemy_vertex());
-	object->path().set_generic_parameters();
-	object->set_state_sound(MonsterSound::eMonsterSoundSteal);
+	this->object->set_action(ACT_STEAL);
+	this->object->anim().accel_activate(eAT_Calm);
+	this->object->anim().accel_set_braking(false);
+	this->object->path().set_target_point(object->EnemyMan.get_enemy_position(), object->EnemyMan.get_enemy_vertex());
+	this->object->path().set_generic_parameters();
+	this->object->set_state_sound(MonsterSound::eMonsterSoundSteal);
 }
 
 TEMPLATE_SPECIALIZATION

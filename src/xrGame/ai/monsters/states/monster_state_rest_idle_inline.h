@@ -16,9 +16,9 @@
 TEMPLATE_SPECIALIZATION
 CStateMonsterRestIdleAbstract::CStateMonsterRestIdle(_Object* obj) : inherited(obj)
 {
-	add_state(eStateRest_WalkToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateRest_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
-	add_state(eStateRest_Idle, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStateRest_WalkToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateRest_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStateRest_Idle, xr_new<CStateMonsterCustomAction<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -108,7 +108,7 @@ void CStateMonsterRestIdleAbstract::setup_substates()
 		SStateDataLookToPoint data;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 
 		data.point.mad(object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;

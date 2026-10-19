@@ -11,8 +11,8 @@
 TEMPLATE_SPECIALIZATION
 void CStateMonsterLookActorAbstract::execute()
 {
-	object->set_action(ACT_STAND_IDLE);
-	object->dir().face_target(Level().CurrentEntity()->Position(), 1200);
+	this->object->set_action(ACT_STAND_IDLE);
+	this->object->dir().face_target(Level().CurrentEntity()->Position(), 1200);
 }
 
 
@@ -27,8 +27,8 @@ void CStateMonsterTurnAwayFromActorAbstract::execute()
 	dir.normalize();
 	point.mad(object->Position(), dir, 2.f);
 
-	object->set_action(ACT_STAND_IDLE);
-	object->dir().face_target(point, 1200);
+	this->object->set_action(ACT_STAND_IDLE);
+	this->object->dir().face_target(point, 1200);
 }
 
 
@@ -37,7 +37,7 @@ void CStateMonsterTurnAwayFromActorAbstract::execute()
 TEMPLATE_SPECIALIZATION
 void CStateMonstertTestIdleAbstract::execute()
 {
-	object->set_action(ACT_STAND_IDLE);
+	this->object->set_action(ACT_STAND_IDLE);
 }
 
 #undef TEMPLATE_SPECIALIZATION

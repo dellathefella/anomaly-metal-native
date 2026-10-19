@@ -32,8 +32,8 @@ TEMPLATE_SIGNATURE
 void ATTACK_ON_RUN_STATE::initialize()
 {
 	inherited::initialize();
-	object->m_time_last_attack_success = 0;
-	object->path().prepare_builder();
+	this->object->m_time_last_attack_success = 0;
+	this->object->path().prepare_builder();
 
 	m_target_vertex = (u32)(-1);
 	m_attacking = false;
@@ -462,7 +462,7 @@ void ATTACK_ON_RUN_STATE::update_attack()
 			if (override_animation == eAnimAttackOnRunLeft ||
 				override_animation == eAnimAttackOnRunRight)
 			{
-				object->anim().clear_override_animation();
+				this->object->anim().clear_override_animation();
 			}
 		}
 	}
@@ -530,7 +530,7 @@ void ATTACK_ON_RUN_STATE::update_attack()
 
 		if (can_attack)
 		{
-			object->on_attack_on_run_hit();
+			this->object->on_attack_on_run_hit();
 			m_attacking = true;
 			m_reach_old_target = true;
 			m_reach_old_target_start_time = current_time();
@@ -550,7 +550,7 @@ void ATTACK_ON_RUN_STATE::update_attack()
 			VERIFY(got_animation_info);
 
 			m_attack_end_time = current_time() + TTime(1000 * attack_animation_length);
-			object->anim().set_override_animation(anim, m_animation_index[m_attack_side]);
+			this->object->anim().set_override_animation(anim, m_animation_index[m_attack_side]);
 		}
 	}
 
@@ -571,24 +571,24 @@ void ATTACK_ON_RUN_STATE::execute()
 	update_attack();
 	update_aim_side();
 
-	object->set_action(ACT_RUN);
+	this->object->set_action(ACT_RUN);
 
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
 
-	object->path().set_target_point(m_target, m_target_vertex);
-	object->path().set_rebuild_time(m_attacking ? 20 : 150); //object->get_attack_rebuild_time());
+	this->object->path().set_target_point(m_target, m_target_vertex);
+	this->object->path().set_rebuild_time(m_attacking ? 20 : 150); //object->get_attack_rebuild_time());
 
-	object->path().set_use_covers();
-	object->path().set_cover_params(0.1f, 30.f, 1.f, 30.f);
+	this->object->path().set_use_covers();
+	this->object->path().set_cover_params(0.1f, 30.f, 1.f, 30.f);
 
-	object->path().set_try_min_time(m_phaze == go_close);
+	this->object->path().set_try_min_time(m_phaze == go_close);
 
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
-	object->path().extrapolate_path(true);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->path().extrapolate_path(true);
 
 	// обработать squad инфо	
-	object->path().set_use_dest_orient(false);
+	this->object->path().set_use_dest_orient(false);
 
 	// 	CMonsterSquad *squad	= monster_squad().get_squad(object);
 	// 	if (squad && squad->SquadActive())
@@ -607,14 +607,14 @@ void ATTACK_ON_RUN_STATE::execute()
 TEMPLATE_SIGNATURE
 void ATTACK_ON_RUN_STATE::finalize()
 {
-	object->anim().set_override_animation();
+	this->object->anim().set_override_animation();
 	inherited::finalize();
 }
 
 TEMPLATE_SIGNATURE
 void ATTACK_ON_RUN_STATE::critical_finalize()
 {
-	object->anim().set_override_animation();
+	this->object->anim().set_override_animation();
 	inherited::critical_finalize();
 }
 

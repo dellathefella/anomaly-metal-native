@@ -24,7 +24,7 @@ void CStateMonsterDragAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->character_physics_support()->movement()->PHCaptureObject(
+	this->object->character_physics_support()->movement()->PHCaptureObject(
 		const_cast<CEntityAlive *>(object->CorpseMan.get_corpse()));
 
 	m_failed = false;
@@ -47,7 +47,7 @@ void CStateMonsterDragAbstract::initialize()
 
 	m_corpse_start_position = object->CorpseMan.get_corpse()->Position();
 
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -56,20 +56,20 @@ void CStateMonsterDragAbstract::execute()
 	if (m_failed) return;
 
 	// Установить параметры движения
-	object->set_action(ACT_DRAG);
-	object->anim().SetSpecParams(ASP_MOVE_BKWD);
+	this->object->set_action(ACT_DRAG);
+	this->object->anim().SetSpecParams(ASP_MOVE_BKWD);
 
 	if (m_cover_vertex_id != u32(-1))
 	{
-		object->path().set_target_point(m_cover_position, m_cover_vertex_id);
+		this->object->path().set_target_point(m_cover_position, m_cover_vertex_id);
 	}
 	else
 	{
-		object->path().set_retreat_from_point(object->CorpseMan.get_corpse()->Position());
+		this->object->path().set_retreat_from_point(object->CorpseMan.get_corpse()->Position());
 	}
 
-	object->path().set_generic_parameters();
-	object->anim().accel_activate(eAT_Calm);
+	this->object->path().set_generic_parameters();
+	this->object->anim().accel_activate(eAT_Calm);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -79,7 +79,7 @@ void CStateMonsterDragAbstract::finalize()
 
 	// бросить труп
 	if (object->character_physics_support()->movement()->PHCapture())
-		object->character_physics_support()->movement()->PHReleaseObject();
+		this->object->character_physics_support()->movement()->PHReleaseObject();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -89,7 +89,7 @@ void CStateMonsterDragAbstract::critical_finalize()
 
 	// бросить труп
 	if (object->character_physics_support()->movement()->PHCapture())
-		object->character_physics_support()->movement()->PHReleaseObject();
+		this->object->character_physics_support()->movement()->PHReleaseObject();
 }
 
 TEMPLATE_SPECIALIZATION

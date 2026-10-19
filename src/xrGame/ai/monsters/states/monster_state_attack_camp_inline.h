@@ -16,9 +16,9 @@
 TEMPLATE_SPECIALIZATION
 CStateMonsterAttackCampAbstract::CStateMonsterAttackCamp(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttackCamp_Hide, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateAttackCamp_Camp, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
-	add_state(eStateAttackCamp_StealOut, xr_new<CStateMonsterAttackCampStealOut<_Object>>(obj));
+	this->add_state(eStateAttackCamp_Hide, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateAttackCamp_Camp, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStateAttackCamp_StealOut, xr_new<CStateMonsterAttackCampStealOut<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -152,7 +152,7 @@ void CStateMonsterAttackCampAbstract::setup_substates()
 		SStateDataLookToPoint data;
 
 		Fvector dir;
-		object->CoverMan->less_cover_direction(dir);
+		this->object->CoverMan->less_cover_direction(dir);
 
 		data.point.mad(object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;

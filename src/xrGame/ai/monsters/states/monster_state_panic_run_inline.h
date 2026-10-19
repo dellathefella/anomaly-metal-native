@@ -14,18 +14,18 @@ void CStateMonsterPanicRunAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterPanicRunAbstract::execute()
 {
-	object->set_action(ACT_RUN);
-	object->set_state_sound(MonsterSound::eMonsterSoundPanic);
-	object->anim().accel_activate(eAT_Aggressive);
-	object->anim().accel_set_braking(false);
-	object->path().set_retreat_from_point(object->EnemyMan.get_enemy_position());
-	object->path().set_generic_parameters();
+	this->object->set_action(ACT_RUN);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundPanic);
+	this->object->anim().accel_activate(eAT_Aggressive);
+	this->object->anim().accel_set_braking(false);
+	this->object->path().set_retreat_from_point(object->EnemyMan.get_enemy_position());
+	this->object->path().set_generic_parameters();
 }
 
 TEMPLATE_SPECIALIZATION

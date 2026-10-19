@@ -25,16 +25,16 @@ void CStateMonsterLookToPointAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterLookToPointAbstract::execute()
 {
-	object->anim().m_tAction = data.action.action;
-	object->anim().SetSpecParams(data.action.spec_params);
-	object->dir().face_target(data.point, data.face_delay);
+	this->object->anim().m_tAction = data.action.action;
+	this->object->anim().SetSpecParams(data.action.spec_params);
+	this->object->dir().face_target(data.point, data.face_delay);
 
 	if (data.action.sound_type != u32(-1))
 	{
 		if (data.action.sound_delay != u32(-1))
-			object->sound().play(data.action.sound_type, 0, 0, data.action.sound_delay);
+			this->object->sound().play(data.action.sound_type, 0, 0, data.action.sound_delay);
 		else
-			object->sound().play(data.action.sound_type);
+			this->object->sound().play(data.action.sound_type);
 	}
 }
 

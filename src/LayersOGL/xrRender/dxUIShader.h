@@ -17,11 +17,11 @@ public:
     virtual bool inited() { return hShader; }
     virtual void destroy();
 
-    bool operator==(const IUIShader& other) const override;
+    bool operator==(const IUIShader& other) const;
 
     CTexture* GetBaseTexture() const;
-    bool GetBaseTextureResolution(Fvector2& res) override;
-    xrImTextureData GetImGuiTextureId() override;
+    bool GetBaseTextureResolution(Fvector2& res);
+    xrImTextureData GetImGuiTextureId();
 
 private:
     ref_shader hShader;

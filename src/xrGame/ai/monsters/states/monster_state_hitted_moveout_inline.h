@@ -13,7 +13,7 @@ void CStateMonsterHittedMoveOutAbstract::initialize()
 {
 	inherited::initialize();
 	select_target();
-	object->path().prepare_builder();
+	this->object->path().prepare_builder();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -27,18 +27,18 @@ void CStateMonsterHittedMoveOutAbstract::execute()
 	}
 
 	if (target.node != u32(-1))
-		object->path().set_target_point(target.position, target.node);
+		this->object->path().set_target_point(target.position, target.node);
 	else
-		object->path().set_target_point(object->HitMemory.get_last_hit_position());
+		this->object->path().set_target_point(object->HitMemory.get_last_hit_position());
 
 	float dist = object->HitMemory.get_last_hit_position().distance_to(object->Position());
 
 	if (dist > 10.f) object->set_action(ACT_WALK_FWD);
 	else object->set_action(ACT_STEAL);
 
-	object->anim().accel_deactivate();
-	object->anim().accel_set_braking(false);
-	object->set_state_sound(MonsterSound::eMonsterSoundIdle);
+	this->object->anim().accel_deactivate();
+	this->object->anim().accel_set_braking(false);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundIdle);
 }
 
 TEMPLATE_SPECIALIZATION

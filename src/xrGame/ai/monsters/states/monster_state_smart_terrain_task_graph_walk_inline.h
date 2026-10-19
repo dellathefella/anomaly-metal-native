@@ -50,10 +50,10 @@ bool CStateMonsterSmartTerrainTaskGraphWalkAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterSmartTerrainTaskGraphWalkAbstract::execute()
 {
-	object->set_action(ACT_WALK_FWD);
-	object->set_state_sound(MonsterSound::eMonsterSoundIdle);
+	this->object->set_action(ACT_WALK_FWD);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundIdle);
 
-	object->path().detour_graph_points(m_task->game_vertex_id());
+	this->object->path().detour_graph_points(m_task->game_vertex_id());
 }
 
 #undef TEMPLATE_SPECIALIZATION

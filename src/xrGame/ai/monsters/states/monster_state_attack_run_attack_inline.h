@@ -12,15 +12,15 @@ void CStateMonsterAttackRunAttackAbstract::initialize()
 {
 	inherited::initialize();
 
-	object->m_time_last_attack_success = 0;
+	this->object->m_time_last_attack_success = 0;
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterAttackRunAttackAbstract::execute()
 {
-	object->set_action(ACT_RUN);
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
-	object->anim().SetSpecParams(ASP_ATTACK_RUN);
+	this->object->set_action(ACT_RUN);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->anim().SetSpecParams(ASP_ATTACK_RUN);
 }
 
 TEMPLATE_SPECIALIZATION

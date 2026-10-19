@@ -23,8 +23,8 @@ void CStateMonsterHitObjectAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterHitObjectAbstract::execute()
 {
-	object->set_action(ACT_STAND_IDLE);
-	object->anim().SetSpecParams(ASP_CHECK_CORPSE);
+	this->object->set_action(ACT_STAND_IDLE);
+	this->object->anim().SetSpecParams(ASP_CHECK_CORPSE);
 
 	if (!m_hitted && (time_state_started + TIME_POINTBREAK < Device.dwTimeGlobal))
 	{
@@ -62,7 +62,7 @@ bool CStateMonsterHitObjectAbstract::check_start_conditions()
 		float my_h, my_p;
 		float h, p;
 
-		object->Direction().getHP(my_h, my_p);
+		this->object->Direction().getHP(my_h, my_p);
 		d.getHP(h, p);
 
 		float from = angle_normalize(my_h - TEST_ANGLE);

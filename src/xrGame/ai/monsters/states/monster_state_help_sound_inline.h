@@ -13,8 +13,8 @@
 TEMPLATE_SPECIALIZATION
 CStateMonsterHearHelpSoundAbstract::CStateMonsterHearHelpSound(_Object* obj) : inherited(obj)
 {
-	add_state(eStateHearHelpSound_MoveToDest, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateHearHelpSound_LookAround, xr_new<CStateMonsterCustomActionLook<_Object>>(obj));
+	this->add_state(eStateHearHelpSound_MoveToDest, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateHearHelpSound_LookAround, xr_new<CStateMonsterCustomActionLook<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -23,7 +23,7 @@ bool CStateMonsterHearHelpSoundAbstract::check_start_conditions()
 	if (!object->SoundMemory.hear_help_sound()) return false;
 	if (object->Home->has_home()) return object->Home->at_home(
 		ai().level_graph().vertex_position(
-			object->SoundMemory.hear_help_sound_node()));
+			this->object->SoundMemory.hear_help_sound_node()));
 
 	return true;
 }

@@ -41,15 +41,15 @@ void CStateMonsterRestFunAbstract::execute()
 	dir.normalize();
 	point.mad(object->CorpseMan.get_corpse_position(), dir, 2.0f);
 
-	object->set_action(ACT_RUN);
-	object->path().set_target_point(point);
-	object->path().set_rebuild_time(100 + u32(50.f * dist));
-	object->path().set_use_covers(false);
-	object->path().set_distance_to_end(0.5f);
-	object->anim().accel_activate(eAT_Calm);
-	object->anim().accel_set_braking(false);
+	this->object->set_action(ACT_RUN);
+	this->object->path().set_target_point(point);
+	this->object->path().set_rebuild_time(100 + u32(50.f * dist));
+	this->object->path().set_use_covers(false);
+	this->object->path().set_distance_to_end(0.5f);
+	this->object->anim().accel_activate(eAT_Calm);
+	this->object->anim().accel_set_braking(false);
 
-	object->set_state_sound(MonsterSound::eMonsterSoundIdle);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundIdle);
 
 	if ((dist < object->db().m_fDistToCorpse + 0.5f) && (time_last_hit + MIN_DELAY < Device.dwTimeGlobal))
 	{

@@ -20,21 +20,21 @@ CStateMonsterAttackMeleeAbstract::~CStateMonsterAttackMelee()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterAttackMeleeAbstract::execute()
 {
-	object->set_action(ACT_ATTACK);
+	this->object->set_action(ACT_ATTACK);
 	if (object->control().direction().is_face_target(object->EnemyMan.get_enemy(), PI_DIV_3))
-		object->dir().face_target(object->EnemyMan.get_enemy(), 800);
+		this->object->dir().face_target(object->EnemyMan.get_enemy(), 800);
 	else
-		object->dir().face_target(object->EnemyMan.get_enemy(), 0, deg(15));
+		this->object->dir().face_target(object->EnemyMan.get_enemy(), 0, deg(15));
 
-	object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
+	this->object->set_state_sound(MonsterSound::eMonsterSoundAggressive);
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterAttackMeleeAbstract::check_start_conditions()
 {
 	return (
-		object->MeleeChecker.can_start_melee(object->EnemyMan.get_enemy()) &&
-		object->EnemyMan.see_enemy_now()
+		this->object->MeleeChecker.can_start_melee(object->EnemyMan.get_enemy()) &&
+		this->object->EnemyMan.see_enemy_now()
 	);
 }
 

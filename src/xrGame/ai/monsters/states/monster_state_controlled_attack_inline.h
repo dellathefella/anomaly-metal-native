@@ -15,13 +15,13 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterControlledAttackAbstract::initialize()
 {
 	inherited::initialize();
-	object->EnemyMan.force_enemy(get_enemy());
+	this->object->EnemyMan.force_enemy(get_enemy());
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterControlledAttackAbstract::execute()
 {
-	object->EnemyMan.force_enemy(get_enemy());
+	this->object->EnemyMan.force_enemy(get_enemy());
 	inherited::execute();
 }
 
@@ -29,14 +29,14 @@ TEMPLATE_SPECIALIZATION
 void CStateMonsterControlledAttackAbstract::finalize()
 {
 	inherited::finalize();
-	object->EnemyMan.unforce_enemy();
+	this->object->EnemyMan.unforce_enemy();
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterControlledAttackAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	object->EnemyMan.unforce_enemy();
+	this->object->EnemyMan.unforce_enemy();
 }
 
 TEMPLATE_SPECIALIZATION

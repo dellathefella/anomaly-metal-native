@@ -73,8 +73,14 @@ public:
 	IC void r_clear() { CL.r_clear(); };
 	IC void r_clear_compact() { CL.r_clear_compact(); };
 
-	xrXRC();
+	// p4: dev's xrXRC carries an instance label for the stats overlay and
+	// exposes DumpStatistics; the overlay itself is not ported (no-op stub).
+	IC void DumpStatistics(class IGameFont& /*font*/, class IPerformanceAlert* /*alert*/) {}
+
+	xrXRC(const char* stat_name = nullptr);
 	~xrXRC();
+private:
+	const char* m_stat_name;
 };
 
 XRCDB_API extern xrXRC XRC;

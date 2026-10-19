@@ -19,7 +19,7 @@ CStatTimer	*cdb_clBOX		= &_clBOX;				// total: box query
 CStatTimer	*cdb_clFRUSTUM	= &_clFRUSTUM;			// total: frustum query
 #endif
 
-xrXRC::xrXRC()
+xrXRC::xrXRC(const char* stat_name) : m_stat_name(stat_name) // p4: dev label param
 {
 }
 

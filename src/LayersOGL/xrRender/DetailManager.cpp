@@ -402,7 +402,7 @@ void CDetailManager::Render(CBackend& cmd_list, const Fsphere* bounds)
 #ifndef _EDITOR
     if (nullptr == dtFS)
         return;
-    if (!psDeviceFlags.is(rsDrawDetails))
+    if (!psDeviceFlags.is(rsDetails))
         return;
 #endif
 
@@ -441,7 +441,7 @@ void CDetailManager::DispatchMTCalc()
             return; // possibly deleted
         if (nullptr == dtFS)
             return;
-        if (!psDeviceFlags.is(rsDrawDetails))
+        if (!psDeviceFlags.is(rsDetails))
             return;
 #endif
 

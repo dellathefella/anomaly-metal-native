@@ -242,8 +242,8 @@ add_library(xrRender_GL SHARED
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/blender_light_reflected.h
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/blender_light_spot.cpp
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/blender_light_spot.h
-    ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/Blender_Lm(EbB).cpp
-    ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/Blender_Lm(EbB).h
+    "${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/Blender_Lm(EbB).cpp"
+    "${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/Blender_Lm(EbB).h"
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/blender_luminance.cpp
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/blender_luminance.h
     ${XRAY_SOURCE_DIR}/src/Layers/xrRenderOGL_shared/blenders/Blender_Model_EbB_deferred.cpp

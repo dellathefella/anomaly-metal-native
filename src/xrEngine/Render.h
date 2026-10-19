@@ -362,4 +362,9 @@ protected:
 
 //extern ENGINE_API IRender_interface* Render;
 
+// p4 GL-renderer port: OpenXRay's staged renderer layers were written against
+// dev's xrEngine/render.h where IRender_interface is spelled IRender. The
+// monolith keeps IRender_interface; alias it for the ported sources.
+typedef IRender_interface IRender;
+
 #endif

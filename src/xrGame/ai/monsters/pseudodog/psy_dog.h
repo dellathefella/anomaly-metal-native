@@ -3,6 +3,7 @@
 #include "../../../../xrServerEntities/script_export_space.h"
 
 class CPsyDogPhantom;
+class CPsyDogAura; // p4: forward-decl (MSVC let the friend-declared name through as a type)
 
 class CPsyDog : public CAI_PseudoDog
 {
@@ -11,7 +12,7 @@ class CPsyDog : public CAI_PseudoDog
 	friend class CPsyDogPhantom;
 	friend class CPsyDogAura;
 
-	// эффектор у актера при нахождении в поле
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
 	CPsyDogAura* m_aura;
 
 	// enemy transfered from phantom

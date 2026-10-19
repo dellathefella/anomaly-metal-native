@@ -39,6 +39,8 @@ target_include_directories(xrGame PRIVATE
     "${XRAY_SOURCE_DIR}/src/xrParticles"
     "${XRAY_SOURCE_DIR}/src/3rd party"
     "${XRAY_SOURCE_DIR}/src/3rd party/luabind"
+    # monolith SDK headers (cs/lua_studio_backend etc. via lua_studio.h)
+    "${XRAY_SOURCE_DIR}/sdk/include"
 )
 
 target_compile_definitions(xrGame PRIVATE XRGAME_EXPORTS LUABIND_DONT_COPY_STRINGS)

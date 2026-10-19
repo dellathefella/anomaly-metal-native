@@ -18,6 +18,12 @@
 #ifndef R_ASSERT1_CURE
 #define R_ASSERT1_CURE(FUNC, CURE) R_ASSERT1(FUNC)
 #endif
+#ifndef R_ASSERT2_CURE
+#define R_ASSERT2_CURE(FUNC, E2, CURE) R_ASSERT2(FUNC, E2)
+#endif
+#ifndef R_ASSERT3_CURE
+#define R_ASSERT3_CURE(FUNC, E2, E3, CURE) R_ASSERT3(FUNC, E2, E3)
+#endif
 
 // p4: dev's Tracy profiling macros — no-op in the port (xrCore has no tracy).
 #ifndef ZoneScoped

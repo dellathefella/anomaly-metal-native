@@ -82,7 +82,7 @@ public:
 ICF Fmatrix xr_inv_view()
 {
 	Fmatrix m;
-	m.inv(Device.xfView);
+	m.invert(Device.mView); // 4x3 invert — view matrices are affine (dev mInvView use-sites)
 	return m;
 }
 

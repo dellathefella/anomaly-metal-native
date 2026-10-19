@@ -167,7 +167,7 @@ void CResourceManager::StoreNecessaryTextures()
         LPCSTR texture_name = mtex.first;
         if (strstr(texture_name, DELIMITER "levels" DELIMITER))
             continue;
-        if (!strchr(texture_name, DELIMITER))
+        if (!strchr(texture_name, 0x5C)) // p4: monolith DELIMITER is a string; dev _DELIMITER was the char
             continue;
 
         ref_texture T;

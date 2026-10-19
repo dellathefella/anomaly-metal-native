@@ -302,7 +302,6 @@ CMatrix* CResourceManager::_CreateMatrix(LPCSTR Name)
     {
         CMatrix* M = xr_new<CMatrix>();
         M->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-        M->ref_count = 1;
         m_matrices.emplace(M->set_name(Name), M);
         return M;
     }
@@ -342,7 +341,6 @@ CConstant* CResourceManager::_CreateConstant(LPCSTR Name)
     {
         CConstant* C = xr_new<CConstant>();
         C->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-        C->ref_count = 1;
         m_constants.emplace(C->set_name(Name), C);
         return C;
     }

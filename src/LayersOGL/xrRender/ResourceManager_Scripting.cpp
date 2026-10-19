@@ -320,7 +320,7 @@ BOOL CResourceManager::_lua_HasShader(LPCSTR s_shader)
 {
     string256 undercorated;
     for (int i = 0, l = xr_strlen(s_shader) + 1; i < l; i++)
-        undercorated[i] = (_DELIMITER == s_shader[i]) ? '_' : s_shader[i];
+        undercorated[i] = (0x5C == s_shader[i]) ? '_' : s_shader[i];
 
     ScopeLock scope(&ScriptEngineLock);
 #ifdef _EDITOR
@@ -339,7 +339,7 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
     // undecorate
     string256 undercorated;
     for (int i = 0, l = xr_strlen(d_shader) + 1; i < l; i++)
-        undercorated[i] = (_DELIMITER == d_shader[i]) ? '_' : d_shader[i];
+        undercorated[i] = (0x5C == d_shader[i]) ? '_' : d_shader[i];
     LPCSTR s_shader = undercorated;
 
     // Access to template

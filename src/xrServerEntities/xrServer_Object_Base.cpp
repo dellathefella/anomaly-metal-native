@@ -182,6 +182,7 @@ CSE_Motion* CSE_Abstract::motion()
 CInifile& CSE_Abstract::spawn_ini()
 {
 	if (!m_ini_file)
+	{ // p4: braces — upstream had a single-statement body; the hoisted decl needs a block
 #pragma warning(push)
 #pragma warning(disable:4238)
 		// clang: address-of-temporary — named local (CInifile is self-contained after ctor, as upstream relies on)
@@ -195,6 +196,7 @@ CInifile& CSE_Abstract::spawn_ini()
 			FS.get_path("$game_config$")->m_Path
 		);
 #pragma warning(pop)
+	}
 	return (*m_ini_file);
 }
 

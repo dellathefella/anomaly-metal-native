@@ -357,4 +357,5 @@ target_link_libraries(xrRender_GL
 
 set_target_properties(xrRender_GL PROPERTIES OUTPUT_NAME "xrRender_GL" PREFIX "")
 
-target_precompile_headers(xrRender_GL REUSE_FROM xrGame)
+# Renderer has its own stdafx (OpenXRay layout); do NOT reuse the xrGame PCH.
+target_precompile_headers(xrRender_GL PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/stdafx.h")

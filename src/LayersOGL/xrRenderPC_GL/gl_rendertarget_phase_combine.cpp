@@ -105,19 +105,19 @@ void CRenderTarget::phase_combine()
         const float minamb = 0.001f;
         Fvector4 ambclr =
         {
-            std::max(envdesc->ambient.x * 2.f, minamb),
-            std::max(envdesc->ambient.y * 2.f, minamb),
-            std::max(envdesc->ambient.z * 2.f, minamb),
+            std::max(envdesc.ambient.x * 2.f, minamb),
+            std::max(envdesc.ambient.y * 2.f, minamb),
+            std::max(envdesc.ambient.z * 2.f, minamb),
             0
         };
         ambclr.mul(ps_r2_sun_lumscale_amb);
 
-        Fvector4 envclr = { envdesc->hemi_color.x, envdesc->hemi_color.y, envdesc->hemi_color.z, 0.f }; // p4: monolith hemi_color // p4: monolith hemi_color (dev env_color)
+        Fvector4 envclr = { envdesc.hemi_color.x, envdesc.hemi_color.y, envdesc.hemi_color.z, 0.f }; // p4: monolith hemi_color // p4: monolith hemi_color (dev env_color)
         envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
 
-        Fvector4 fogclr = {envdesc->fog_color.x, envdesc->fog_color.y, envdesc->fog_color.z, 0};
+        Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
         Fvector4 sunclr, sundir;
 
         float fSSAONoise = 2.0f;

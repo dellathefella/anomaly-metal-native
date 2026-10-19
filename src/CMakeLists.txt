@@ -22,4 +22,8 @@ add_subdirectory(xrEngine)
 option(XRAY_RENDERER_GL "Build the ported OpenXRay GL renderer" OFF)
 if(XRAY_RENDERER_GL)
 	add_subdirectory("LayersOGL/xrRenderPC_GL")
+	# STATIC_RENDERER_R2 model: engine renderer calls are undefined symbols
+	# resolved via dynamic_lookup — loading xrRender_GL as a xr_3da dependency
+	# registers them at launch.
+	target_link_libraries(xr_3da PRIVATE xrRender_GL)
 endif()

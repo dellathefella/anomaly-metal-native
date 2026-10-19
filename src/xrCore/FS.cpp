@@ -4,10 +4,22 @@
 #include "fs_internal.h"
 
 #pragma warning(disable:4995)
+#ifdef XR_PLATFORM_WINDOWS
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
+#ifdef XR_PLATFORM_WINDOWS
 #include <direct.h>
+#else
+#include <unistd.h>
+#endif
 #include <fcntl.h>
+#ifdef XR_PLATFORM_WINDOWS
 #include <sys\stat.h>
+#else
+#include <sys/stat.h>
+#endif
 #pragma warning(default:4995)
 
 //typedef void DUMMY_STUFF (const void*,const u32&,void*);
@@ -334,7 +346,7 @@ void IWriter::w_printf(const char* format, ...)
 
 	va_start(mark, format);
 #ifndef _EDITOR
-	vsprintf_s(buf, format, mark);
+	vsprintf(buf, format, mark);
 #else
     vsprintf(buf, format, mark);
 #endif

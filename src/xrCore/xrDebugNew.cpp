@@ -4,13 +4,20 @@
 #include "xrdebug.h"
 #include "os_clipboard.h"
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <sal.h>
 #include <dxerr.h>
+#endif
 
 #pragma warning(push)
 #pragma warning(disable:4995)
+#ifdef XR_PLATFORM_WINDOWS
 #include <malloc.h>
 #include <direct.h>
+#else
+#include <malloc/malloc.h>
+#include <unistd.h>
+#endif
 #pragma warning(pop)
 
 #include "../build_config_defines.h"
@@ -27,9 +34,17 @@ static BOOL bException = TRUE;
 # define USE_BUG_TRAP
 #else
 #ifndef NO_BUG_TRAP
-# define USE_BUG_TRAP
+# if defined(XR_PLATFORM_WINDOWS)
+#  define USE_BUG_TRAP
+# else
+#  define NO_BUG_TRAP // POSIX: no BugTrap/dbghelp; use the simplified backend
+# endif
 #endif //-!NO_BUG_TRAP
-# define DEBUG_INVOKE __asm int 3
+# if defined(XR_PLATFORM_WINDOWS)
+#  define DEBUG_INVOKE __asm int 3
+# else
+#  define DEBUG_INVOKE __builtin_trap()
+# endif
 static BOOL bException = FALSE;
 #endif
 
@@ -39,11 +54,15 @@ static BOOL bException = FALSE;
 
 #ifndef _M_AMD64
 # ifndef __BORLANDC__
-# pragma comment(lib,"dxerr.lib")
+#  ifdef XR_PLATFORM_WINDOWS
+#   pragma comment(lib,"dxerr.lib")
+#  endif
 # endif
 #endif
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <dbghelp.h> // MiniDump flags
+#endif
 
 #ifdef USE_BUG_TRAP
 # include <BugTrap/source/BugTrap.h> // for BugTrap functionality
@@ -54,8 +73,11 @@ static BOOL bException = FALSE;
 #endif
 #endif // USE_BUG_TRAP
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <new.h> // for _set_new_mode
+#endif
 #include <signal.h> // for signals
+#include <cstdlib>
 
 #ifdef NO_BUG_TRAP //DEBUG
 # define USE_OWN_ERROR_MESSAGE_WINDOW
@@ -166,7 +188,11 @@ void xrDebug::gather_info(const char* expression, const char* description, const
     memory_monitor::flush_each_time(false);
 #endif //-USE_MEMORY_MONITOR
 
+#ifdef XR_PLATFORM_WINDOWS
 	if (!IsDebuggerPresent() && !strstr(GetCommandLine(), "-no_call_stack_assert"))
+#else
+	if (true)
+#endif
 	{
 		if (shared_str_initialized)
 			Msg("stack trace:\n");
@@ -338,9 +364,9 @@ void xrDebug::backend(const char* expression, const char* description, const cha
 
 LPCSTR xrDebug::error2string(long code)
 {
-	char* result = 0;
 	static string1024 desc_storage;
-
+#ifdef XR_PLATFORM_WINDOWS
+	char* result = 0;
 #ifdef _M_AMD64
 #else
 	WCHAR err_result[1024];
@@ -353,6 +379,10 @@ LPCSTR xrDebug::error2string(long code)
 		result = desc_storage;
 	}
 	return result;
+#else
+	snprintf(desc_storage, sizeof(desc_storage), "%s (code %ld)", strerror((int)code), code);
+	return desc_storage;
+#endif
 }
 
 void xrDebug::error(long hr, const char* expr, const char* file, int line, const char* function, bool& ignore_always)
@@ -596,13 +626,16 @@ void SetupExceptionHandler(const bool& dedicated)
 #endif //-USE_BUG_TRAP
 
 //extern void BuildStackTrace(struct _EXCEPTION_POINTERS* pExceptionInfo);
+#ifdef XR_PLATFORM_WINDOWS
 typedef LONG WINAPI UnhandledExceptionFilterType(struct _EXCEPTION_POINTERS* pExceptionInfo);
 typedef LONG (__stdcall* PFNCHFILTFN)(EXCEPTION_POINTERS* pExPtrs);
 extern "C" BOOL __stdcall SetCrashHandlerFilter(PFNCHFILTFN pFn);
 
 static UnhandledExceptionFilterType* previous_filter = 0;
+#endif // XR_PLATFORM_WINDOWS
 
 #ifdef USE_OWN_MINI_DUMP
+#ifdef XR_PLATFORM_WINDOWS
 typedef BOOL (WINAPI* MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType,
     CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
     CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
@@ -714,10 +747,12 @@ void save_mini_dump (_EXCEPTION_POINTERS* pExceptionInfo)
         szResult = "DBGHELP.DLL not found";
     }
 }
+#endif // XR_PLATFORM_WINDOWS
 #endif //-USE_OWN_MINI_DUMP
 
 void format_message(LPSTR buffer, const u32& buffer_size)
 {
+#ifdef XR_PLATFORM_WINDOWS
 	LPVOID message;
 	DWORD error_code = GetLastError();
 
@@ -740,13 +775,25 @@ void format_message(LPSTR buffer, const u32& buffer_size)
 
 	xr_sprintf(buffer, buffer_size, "[error][%8d] : %s", error_code, message);
 	LocalFree(message);
+#else
+	int error_code = xr_win_last_error ? xr_win_last_error : errno;
+	if (!error_code)
+	{
+		*buffer = 0;
+		return;
+	}
+	xr_sprintf(buffer, buffer_size, "[error][%8d] : %s", error_code, strerror(error_code));
+#endif
 }
 
 #ifndef _EDITOR
+# ifdef XR_PLATFORM_WINDOWS
 #include <errorrep.h>
-#pragma comment( lib, "faultrep.lib" )
+# pragma comment( lib, "faultrep.lib" )
+# endif
 #endif //-!_EDITOR
 
+#ifdef XR_PLATFORM_WINDOWS
 #ifdef NO_BUG_TRAP
 //AVO: simplify function
 LONG WINAPI UnhandledFilter(_EXCEPTION_POINTERS* pExceptionInfo)
@@ -906,6 +953,43 @@ LONG WINAPI UnhandledFilter(_EXCEPTION_POINTERS* pExceptionInfo)
     return (EXCEPTION_CONTINUE_SEARCH);
 }
 #endif //-NO_BUG_TRAP
+#endif // XR_PLATFORM_WINDOWS
+
+#ifdef XR_PLATFORM_POSIX
+// POSIX crash handler: log a native backtrace, then chain-exit.
+#include <execinfo.h>
+
+static void posix_log_backtrace()
+{
+	void* frames[64];
+	int depth = backtrace(frames, 64);
+	char** symbols = backtrace_symbols(frames, depth);
+	if (symbols)
+	{
+		for (int i = 0; i < depth; ++i)
+			Msg("  %s", symbols[i]);
+		free(symbols);
+	}
+}
+
+static void posix_crash_handler(int signal)
+{
+	const char* name = "fatal signal";
+	switch (signal)
+	{
+	case SIGSEGV: name = "segmentation fault (SIGSEGV)"; break;
+	case SIGBUS: name = "bus error (SIGBUS)"; break;
+	case SIGFPE: name = "floating point exception (SIGFPE)"; break;
+	case SIGILL: name = "illegal instruction (SIGILL)"; break;
+	case SIGABRT: name = "abort (SIGABRT)"; break;
+	default: break;
+	}
+	Msg("! X-Ray caught %s", name);
+	posix_log_backtrace();
+	FlushLog();
+	_exit(1);
+}
+#endif // XR_PLATFORM_POSIX
 
 //////////////////////////////////////////////////////////////////////
 #ifdef M_BORLAND
@@ -927,9 +1011,11 @@ void xrDebug::_initialize (const bool& dedicated)
     // ::SetUnhandledExceptionFilter (UnhandledFilter); // exception handler to all "unhandled" exceptions
 }
 #else
+#ifdef XR_PLATFORM_WINDOWS
 typedef int (__cdecl* _PNH)(size_t);
 _CRTIMP int __cdecl _set_new_mode(int);
 //_CRTIMP _PNH __cdecl _set_new_handler(_PNH);
+#endif
 
 #ifdef LEGACY_CODE
 #ifndef USE_BUG_TRAP
@@ -990,6 +1076,7 @@ static void handler_base(LPCSTR reason_string)
 	);
 }
 
+#ifdef XR_PLATFORM_WINDOWS
 static void invalid_parameter_handler(
 	const wchar_t* expression,
 	const wchar_t* function,
@@ -1052,6 +1139,7 @@ static void invalid_parameter_handler(
 		ignore_always
 	);
 }
+#endif // XR_PLATFORM_WINDOWS
 
 static void pure_call_handler()
 {
@@ -1098,6 +1186,7 @@ void debug_on_thread_spawn()
 	//std::set_terminate (_terminate);
 #endif // USE_BUG_TRAP
 
+#ifdef XR_PLATFORM_WINDOWS
 	_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 	signal(SIGABRT, abort_handler);
 	signal(SIGABRT_COMPAT, abort_handler);
@@ -1114,6 +1203,22 @@ void debug_on_thread_spawn()
 	// std::set_new_handler (&std_out_of_memory_handler);
 
 	_set_purecall_handler(&pure_call_handler);
+#else
+	signal(SIGABRT, abort_handler);
+	signal(SIGFPE, floating_point_handler);
+	signal(SIGILL, illegal_instruction_handler);
+	signal(SIGINT, 0);
+	signal(SIGTERM, termination_handler);
+	signal(SIGSEGV, posix_crash_handler);
+	signal(SIGBUS, posix_crash_handler);
+	std::set_new_handler(+[]() {
+		out_of_memory_handler(0);
+	});
+	std::set_terminate(+[]() {
+		handler_base("unexpected termination");
+		std::_Exit(1);
+	});
+#endif
 
 #if 0// should be if we use exceptions
     std::set_unexpected(_terminate);
@@ -1131,7 +1236,11 @@ void xrDebug::_initialize(const bool& dedicated)
 #ifdef USE_BUG_TRAP
     SetupExceptionHandler(is_dedicated);
 #endif // USE_BUG_TRAP
+#ifdef XR_PLATFORM_WINDOWS
 	previous_filter = ::SetUnhandledExceptionFilter(UnhandledFilter); // exception handler to all "unhandled" exceptions
+#else
+	(void)is_dedicated;
+#endif
 
 #if 0
     struct foo

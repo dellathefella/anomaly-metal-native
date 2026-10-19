@@ -38,7 +38,7 @@ public:
     xr_vector() : std::vector<T>() {}
     xr_vector(size_t _count, const T& _value) : std::vector<T>(_count, _value) {}
     explicit xr_vector(size_t _count) : std::vector<T>(_count) {}
-    void clear() { erase(begin(), end()); }
+    void clear() { inherited::erase(inherited::begin(), inherited::end()); }
     void clear_and_free() { std::vector<T>::clear(); }
     void clear_not_free() { erase(begin(), end()); }
     ICF const_reference operator[] (size_type _Pos) const { {VERIFY(_Pos < size()); } return (*(begin() + _Pos)); }
@@ -54,7 +54,7 @@ public:
     xr_vector<T>(size_t _count, const T& _value) : std::vector<T>(_count, _value) {}
     explicit xr_vector<T>(size_t _count) : std::vector<T>(_count) {}
     u32 size() const { return (u32)std::vector<T>::size(); }
-    void clear() { erase(begin(), end()); }
+    void clear() { inherited::erase(inherited::begin(), inherited::end()); }
 };
 
 #else
@@ -102,8 +102,8 @@ public:
 	char* _charalloc(size_type n) { return (char*)allocate(n); }
 	void deallocate(pointer p, size_type n) const { xr_free(p); }
 	void deallocate(void* p, size_type n) const { xr_free(p); }
-	void construct(pointer p, const T& _Val) { std::_Construct(p, _Val); }
-	void destroy(pointer p) { std::_Destroy(p); }
+	void construct(pointer p, const T& _Val) { new (p) T(_Val); }
+	void destroy(pointer p) { p->~T(); }
 
 	size_type max_size() const
 	{
@@ -153,6 +153,17 @@ private:
 
 public:
 	typedef allocator allocator_type;
+
+	// Dependent base lookups: MSVC resolved these implicitly; standard C++
+	// requires explicit using-declarations/typedefs.
+	using inherited::begin;
+	using inherited::end;
+	using inherited::erase;
+	using inherited::capacity;
+	using inherited::reserve;
+	typedef typename inherited::size_type size_type;
+	typedef typename inherited::reference reference;
+	typedef typename inherited::const_reference const_reference;
 
 public:
 	xr_vector() : inherited()
@@ -219,7 +230,7 @@ private:
 
 public:
 	u32 size() const { return (u32)inherited::size(); }
-	void clear() { erase(begin(), end()); }
+	void clear() { inherited::erase(inherited::begin(), inherited::end()); }
 };
 
 template <typename allocator>
@@ -230,7 +241,7 @@ private:
 
 public:
 	u32 size() const { return (u32)inherited::size(); }
-	void clear() { erase(begin(), end()); }
+	void clear() { inherited::erase(inherited::begin(), inherited::end()); }
 };
 
 // deque
@@ -299,21 +310,52 @@ public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-template <typename K, class V, class P = std::less<K>, typename allocator = xalloc<std::pair<K, V>>>
+template <typename K, class V, class P = std::less<K>, typename allocator = xalloc<std::pair<const K, V>>>
 class xr_map : public std::map<K, V, P, allocator>
 {
 public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-template <typename K, class V, class P = std::less<K>, typename allocator = xalloc<std::pair<K, V>>>
+template <typename K, class V, class P = std::less<K>, typename allocator = xalloc<std::pair<const K, V>>>
 class xr_multimap : public std::multimap<K, V, P, allocator>
 {
 public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-#ifdef STLPORT
+#if defined(XR_PLATFORM_POSIX)
+#include <unordered_map>
+#include <unordered_set>
+
+template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> >
+class xr_hash_set : public std::unordered_set<V, _HashFcn, _EqualKey, allocator>
+{
+public:
+	u32 size() const { return (u32)__super::size(); }
+};
+
+template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> >
+class xr_hash_multiset : public std::unordered_multiset<V, _HashFcn, _EqualKey, allocator>
+{
+public:
+	u32 size() const { return (u32)__super::size(); }
+};
+
+template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<K, V> > >
+class xr_hash_map : public std::unordered_map<K, V, _HashFcn, _EqualKey, allocator>
+{
+public:
+	u32 size() const { return (u32)__super::size(); }
+};
+
+template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<K, V> > >
+class xr_hash_multimap : public std::unordered_multimap<K, V, _HashFcn, _EqualKey, allocator>
+{
+public:
+	u32 size() const { return (u32)__super::size(); }
+};
+#elif defined(STLPORT)
 template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> > class xr_hash_set : public std::hash_set < V, _HashFcn, _EqualKey, allocator > { public: u32 size() const { return (u32)__super::size(); } };
 template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> > class xr_hash_multiset : public std::hash_multiset < V, _HashFcn, _EqualKey, allocator > { public: u32 size() const { return (u32)__super::size(); } };
 
@@ -331,15 +373,27 @@ public:
 
 #endif
 
+template <class T>
+struct xr_binary_function {
+	typedef T first_argument_type_unused;
+};
+
+template <typename _Arg1, typename _Arg2, typename _Result>
+struct xr_binary_function2 {
+	typedef _Arg1 first_argument_type;
+	typedef _Arg2 second_argument_type;
+	typedef _Result result_type;
+};
+
 template <class _Ty1, class _Ty2>
 inline std::pair<_Ty1, _Ty2> mk_pair(_Ty1 _Val1, _Ty2 _Val2) { return (std::pair<_Ty1, _Ty2>(_Val1, _Val2)); }
 
-struct pred_str : public std::binary_function<char*, char*, bool>
+struct pred_str : public xr_binary_function2<char*, char*, bool>
 {
 	IC bool operator()(const char* x, const char* y) const { return xr_strcmp(x, y) < 0; }
 };
 
-struct pred_stri : public std::binary_function<char*, char*, bool>
+struct pred_stri : public xr_binary_function2<char*, char*, bool>
 {
 	IC bool operator()(const char* x, const char* y) const { return stricmp(x, y) < 0; }
 };

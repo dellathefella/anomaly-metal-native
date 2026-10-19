@@ -3,14 +3,26 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <mmsystem.h>
 #include <objbase.h>
+#else
+#include <mach-o/dyld.h>
+#include <unistd.h>
+#include <limits.h>
+#endif
 #include "xrCore.h"
 
+#ifdef XR_PLATFORM_WINDOWS
 #pragma comment(lib,"winmm.lib")
+#endif
 
 #ifdef DEBUG
-# include <malloc.h>
+# ifdef XR_PLATFORM_WINDOWS
+#  include <malloc.h>
+# else
+#  include <malloc/malloc.h>
+# endif
 #endif // DEBUG
 
 #include<fstream>
@@ -20,6 +32,46 @@
 XRCORE_API xrCore Core;
 extern XRCORE_API u32 build_id;
 extern XRCORE_API LPCSTR build_date;
+
+#ifndef XR_PLATFORM_WINDOWS
+// On Windows these live in xrEngine (x_ray.cpp) and are computed before
+// Core._initialize. The base library carries its own copy on POSIX so xrCore
+// is self-contained; the xrEngine port reuses these exported symbols.
+XRCORE_API LPCSTR build_date = __DATE__;
+XRCORE_API u32 build_id = 0;
+
+namespace
+{
+struct BuildIdInit
+{
+	BuildIdInit()
+	{
+		static const char* month_id[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+		static const int days_in_month[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+		const int start_day = 31, start_month = 1, start_year = 1999;
+
+		char month[16] = { 0 };
+		int days = 0, years = 0, months = 0;
+		sscanf(__DATE__, "%s %d %d", month, &days, &years);
+		for (int i = 0; i < 12; ++i)
+			if (0 == _stricmp(month_id[i], month))
+			{
+				months = i;
+				break;
+			}
+
+		u32 id = u32((years - start_year) * 365 + days - start_day);
+		for (int i = 0; i < months; ++i)
+			id += days_in_month[i];
+		for (int i = 0; i < start_month - 1; ++i)
+			id -= days_in_month[i];
+		build_id = id;
+	}
+};
+BuildIdInit g_build_id_init;
+}
+#endif // !XR_PLATFORM_WINDOWS
 
 namespace CPU
 {
@@ -47,9 +99,13 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 		// Init COM so we can use CoCreateInstance
 		// HRESULT co_res =
 		Params = xr_strdup(GetCommandLine());
+		fprintf(stderr, "[xp] after strdup\n");
 		xr_strlwr(Params);
+		fprintf(stderr, "[xp] after strlwr\n");
+#ifdef XR_PLATFORM_WINDOWS
 		if (!strstr(Params, "-editor"))
 			CoInitializeEx(NULL, COINIT_MULTITHREADED);
+#endif
 
 		string_path fn, dr, di;
 
@@ -108,14 +164,22 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 		std::ifstream cmdlineTxt;
 		char path_A[MAX_PATH];
 		strcpy(path_A, Core.ApplicationPath);
+#ifdef XR_PLATFORM_WINDOWS
 		strcat(path_A, "\\..\\commandline.txt");
+#else
+		strcat(path_A, "/../commandline.txt");
+#endif
 		cmdlineTxt.open(path_A);
 		
 		if (!cmdlineTxt)
 		{
 			cmdlineTxt.close();
 			strcpy(path_A, Core.WorkingPath);
+#ifdef XR_PLATFORM_WINDOWS
 			strcat(path_A, "\\commandline.txt");
+#else
+			strcat(path_A, "/commandline.txt");
+#endif
 			cmdlineTxt.open(path_A);
 		}
 
@@ -196,6 +260,9 @@ void xrCore::_destroy()
 
 #ifndef XRCORE_STATIC
 
+// DLL entry points are a Windows concept; on macOS library init happens via
+// explicit Core._initialize() from the SDL main.
+#ifdef XR_PLATFORM_WINDOWS
 //. why ???
 #ifdef _EDITOR
 BOOL WINAPI DllEntryPoint(HINSTANCE hinstDLL, DWORD ul_reason_for_call, LPVOID lpvReserved)
@@ -231,4 +298,5 @@ BOOL DllMainXrCore(HANDLE hinstDLL, DWORD ul_reason_for_call, LPVOID lpvReserved
 	}
 	return TRUE;
 }
+#endif // XR_PLATFORM_WINDOWS
 #endif // XRCORE_STATIC

@@ -117,14 +117,19 @@ IC float _sin(float x) { return sinf(x); }
 IC float _cos(float x) { return cosf(x); }
 IC BOOL _valid(const float x)
 {
-	// check for: Signaling NaN, Quiet NaN, Negative infinity ( –INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
+#ifdef XR_PLATFORM_WINDOWS
+	// check for: Signaling NaN, Quiet NaN, Negative infinity ( ï¿½INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
 	int cls = _fpclass(double(x));
 	if (cls & (_FPCLASS_SNAN + _FPCLASS_QNAN + _FPCLASS_NINF + _FPCLASS_PINF + _FPCLASS_ND + _FPCLASS_PD))
 		return false;
+#else
+	if (!std::isfinite(double(x)) || FP_SUBNORMAL == std::fpclassify(double(x)))
+		return false;
+#endif
 
 	/* *****other cases are*****
 	_FPCLASS_NN Negative normalized non-zero
-	_FPCLASS_NZ Negative zero ( – 0)
+	_FPCLASS_NZ Negative zero ( ï¿½ 0)
 	_FPCLASS_PZ Positive 0 (+0)
 	_FPCLASS_PN Positive normalized non-zero
 	*/
@@ -139,14 +144,19 @@ IC double _sin(double x) { return sin(x); }
 IC double _cos(double x) { return cos(x); }
 IC BOOL _valid(const double x)
 {
-	// check for: Signaling NaN, Quiet NaN, Negative infinity ( –INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
+#ifdef XR_PLATFORM_WINDOWS
+	// check for: Signaling NaN, Quiet NaN, Negative infinity ( ï¿½INF), Positive infinity (+INF), Negative denormalized, Positive denormalized
 	int cls = _fpclass(x);
 	if (cls & (_FPCLASS_SNAN + _FPCLASS_QNAN + _FPCLASS_NINF + _FPCLASS_PINF + _FPCLASS_ND + _FPCLASS_PD))
 		return false;
+#else
+	if (!std::isfinite(x) || FP_SUBNORMAL == std::fpclassify(x))
+		return false;
+#endif
 
 	/* *****other cases are*****
 	_FPCLASS_NN Negative normalized non-zero
-	_FPCLASS_NZ Negative zero ( – 0)
+	_FPCLASS_NZ Negative zero ( ï¿½ 0)
 	_FPCLASS_PZ Positive 0 (+0)
 	_FPCLASS_PN Positive normalized non-zero
 	*/
@@ -196,7 +206,17 @@ IC u32 xr_strlen(const char* S)
 
 IC char* xr_strlwr(char* S)
 {
+#ifdef XR_PLATFORM_WINDOWS
 	return strlwr(S);
+#else
+	// BSD/macOS has no strlwr(). Compiler.inl maps xr_strlwr -> strlwr on
+	// POSIX, so this inline also provides the `strlwr` symbol used by other
+	// call sites. ASCII-only lowering (matches MSVC CRT for paths/config).
+	for (char* p = S; *p != 0; ++p)
+		if (*p >= 'A' && *p <= 'Z')
+			*p = char(*p - 'A' + 'a');
+	return S;
+#endif
 }
 
 #ifdef BREAK_AT_STRCMP

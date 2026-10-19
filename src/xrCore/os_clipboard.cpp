@@ -3,11 +3,15 @@
 // Created : 21.02.2008
 // Author : Evgeniy Sokolov
 // Description : os clipboard class implementation
+//
+// POSIX branch uses the SDL2 clipboard API (platform port).
 ////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
 #pragma hdrstop
 #include "os_clipboard.h"
+
+#ifdef XR_PLATFORM_WINDOWS
 
 void os_clipboard::copy_to_clipboard(LPCSTR buf)
 {
@@ -47,7 +51,7 @@ void os_clipboard::paste_from_clipboard(LPSTR buffer, u32 const& buffer_size)
 	for (u32 i = 0; i < strlen(buffer); ++i)
 	{
 		char c = buffer[i];
-		if (((isprint(c) == 0) && (c != char(-1))) || c == '\t' || c == '\n') // "ÿ" = -1
+		if (((isprint(c) == 0) && (c != char(-1))) || c == '\t' || c == '\n') // "Ñ" = -1
 		{
 			buffer[i] = ' ';
 		}
@@ -89,3 +93,78 @@ void os_clipboard::update_clipboard(LPCSTR string)
     xr_free (buffer);
 #endif // #ifdef _EDITOR
 }
+
+#else // POSIX
+
+#include <SDL.h>
+
+void os_clipboard::copy_to_clipboard(LPCSTR buf)
+{
+	const int result = SDL_SetClipboardText(buf);
+	if (result < 0)
+	{
+		Msg("! Failed to copy text to the clipboard: %s", SDL_GetError());
+	}
+}
+
+void os_clipboard::paste_from_clipboard(LPSTR buffer, u32 const& buffer_size)
+{
+	VERIFY(buffer);
+	VERIFY(buffer_size > 0);
+
+	if (!SDL_HasClipboardText())
+		return;
+
+	char* clipdata = SDL_GetClipboardText();
+	if (!clipdata)
+	{
+		Msg("! Failed to paste text from the clipboard: %s", SDL_GetError());
+		return;
+	}
+
+	strncpy_s(buffer, buffer_size, clipdata, buffer_size - 1);
+	buffer[buffer_size - 1] = 0;
+	for (u32 i = 0; i < strlen(buffer); ++i)
+	{
+		char c = buffer[i];
+		if (((isprint(c) == 0) && (c != char(-1))) || c == '\t' || c == '\n')
+		{
+			buffer[i] = ' ';
+		}
+	}
+
+	SDL_free(clipdata);
+}
+
+void os_clipboard::update_clipboard(LPCSTR string)
+{
+	if (!string)
+	{
+		Msg("! Why are you trying to copy nullptr to the clipboard?!");
+		return;
+	}
+
+	if (!SDL_HasClipboardText())
+	{
+		copy_to_clipboard(string);
+		return;
+	}
+
+	char* clipdata = SDL_GetClipboardText();
+	if (!clipdata)
+	{
+		copy_to_clipboard(string);
+		return;
+	}
+
+	const size_t buffer_size = (xr_strlen(clipdata) + xr_strlen(string) + 1) * sizeof(char);
+	LPSTR buffer = (LPSTR)xr_alloc<char>(static_cast<u32>(buffer_size));
+	xr_strcpy(buffer, buffer_size, clipdata);
+	xr_strcat(buffer, buffer_size, string);
+	SDL_free(clipdata);
+
+	copy_to_clipboard(buffer);
+	xr_free(buffer);
+}
+
+#endif // XR_PLATFORM_WINDOWS

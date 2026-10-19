@@ -4,7 +4,12 @@
 #include "xrsharedmem.h"
 #include "xrMemory_pure.h"
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <malloc.h>
+#else
+#include <malloc/malloc.h>
+#include <cstdlib>
+#endif
 
 xrMemory Memory;
 BOOL mem_initialized = FALSE;

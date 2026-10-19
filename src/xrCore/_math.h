@@ -31,7 +31,12 @@ namespace CPU
 	XRCORE_API extern u64 QPC();
 
 #ifdef M_VISUAL
-#ifndef _M_AMD64
+#if defined(XR_PLATFORM_POSIX)
+IC u64 GetCLK(void)
+{
+	return QPC();
+}
+#elif !defined(_M_AMD64)
 #pragma warning(push)
 #pragma warning(disable:4035)
 IC u64 GetCLK(void)
@@ -46,6 +51,13 @@ IC u64 GetCLK(void)
 		return __rdtsc();
 	}
 #endif
+#else
+#if defined(XR_PLATFORM_POSIX)
+IC u64 GetCLK(void)
+{
+	return QPC();
+}
+#endif
 #endif
 
 #ifdef M_BORLAND
@@ -57,10 +69,10 @@ extern XRCORE_API void _initialize_cpu();
 extern XRCORE_API void _initialize_cpu_thread();
 
 // threading
-typedef void thread_t(void*);
+typedef void xr_thread_proc_t(void*);
 extern XRCORE_API void thread_name(const char* name);
 extern XRCORE_API void thread_spawn(
-	thread_t* entry,
+	xr_thread_proc_t* entry,
 	const char* name,
 	unsigned stack,
 	void* arglist

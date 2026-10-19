@@ -80,8 +80,14 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <math.h>
+#include <cmath>
+#include "math_constants.h"
 #include <string.h>
+#ifdef XR_PLATFORM_WINDOWS
 #include <typeinfo.h>
+#else
+#include <typeinfo>
+#endif
 #include <thread>
 //#include <process.h>
 
@@ -159,9 +165,15 @@
 #define _RC_NEAR RC_NEAR
 #define _MCW_EM MCW_EM
 #else
+#ifdef XR_PLATFORM_WINDOWS
 #define ALIGN(a) __declspec(align(a))
 #include <sys\utime.h>
 #define MODULE_NAME "xrCore.dll"
+#else
+#define ALIGN(a) __attribute__((aligned(a)))
+#include <utime.h>
+#define MODULE_NAME "xrCore.dylib"
+#endif
 #endif
 
 
@@ -194,8 +206,10 @@
 #include <map>
 
 #ifndef _EDITOR
-# include <hash_map>
-# include <hash_set>
+# ifdef XR_PLATFORM_WINDOWS
+#  include <hash_map>
+#  include <hash_set>
+# endif
 #endif
 
 #include <string>

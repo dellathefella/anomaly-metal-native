@@ -8,12 +8,36 @@
 
 #pragma warning(push)
 #pragma warning(disable:4995)
+#ifdef XR_PLATFORM_WINDOWS
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
 #pragma warning(pop)
 
 #include "LocatorAPI_defs.h"
 
 class XRCORE_API CStreamReader;
+
+#ifdef XR_PLATFORM_POSIX
+#include <stdint.h>
+#ifndef _A_HIDDEN
+#define _A_HIDDEN 0x02
+#endif
+#ifndef _A_SUBDIR
+#define _A_SUBDIR 0x00000010
+#endif
+struct _finddata64i32_t
+{
+    unsigned attrib;
+    int64_t time_create;
+    int64_t time_access;
+    int64_t time_write;
+    unsigned long size;
+    char name[FILENAME_MAX];
+};
+#define _finddata_t _finddata64i32_t
+#endif
 
 class XRCORE_API CLocatorAPI
 {
@@ -51,7 +75,7 @@ public:
 	void LoadArchive(archive& A, LPCSTR entrypoint = NULL);
 
 private:
-	struct file_pred : public std::binary_function<file&, file&, bool>
+	struct file_pred : public xr_binary_function2<file&, file&, bool>
 	{
 		IC bool operator()(const file& x, const file& y) const
 		{

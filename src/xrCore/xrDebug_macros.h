@@ -23,7 +23,13 @@
 
 # define CHECK_OR_EXIT(expr,message) do {if (!(expr)) ::Debug.do_exit(message);} while (0)
 
+#ifdef XR_PLATFORM_POSIX
+// MSVC tolerates extra macro arguments (warning C4002); clang does not. Some
+// call sites pass a message as a second arg to R_ASSERT — accept and ignore it.
+# define R_ASSERT(expr, ...) do {static bool ignore_always = false; if (!ignore_always && !(expr)) ::Debug.fail(_TRE(#expr),DEBUG_INFO,ignore_always);} while(0)
+#else
 # define R_ASSERT(expr) do {static bool ignore_always = false; if (!ignore_always && !(expr)) ::Debug.fail(_TRE(#expr),DEBUG_INFO,ignore_always);} while(0)
+#endif
 # define R_ASSERT2(expr,e2) do {static bool ignore_always = false; if (!ignore_always && !(expr)) ::Debug.fail(_TRE(#expr),_TRE(e2),DEBUG_INFO,ignore_always);} while(0)
 # define R_ASSERT3(expr,e2,e3) do {static bool ignore_always = false; if (!ignore_always && !(expr)) ::Debug.fail(_TRE(#expr),_TRE(e2),_TRE(e3),DEBUG_INFO,ignore_always);} while(0)
 # define R_ASSERT4(expr,e2,e3,e4) do {static bool ignore_always = false; if (!ignore_always && !(expr)) ::Debug.fail(_TRE(#expr),_TRE(e2),_TRE(e3),_TRE(e4),DEBUG_INFO,ignore_always);} while(0)

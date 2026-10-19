@@ -28,6 +28,80 @@ int _cpuid ( _processor_info *pinfo )
     pinfo->feature = _CPU_FEATURE_MMX | _CPU_FEATURE_SSE;
     return pinfo->feature;
 }
+#elif defined(XR_PLATFORM_POSIX)
+
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <mach/host_info.h>
+#include <mach/mach.h>
+
+static unsigned int posix_cpu_count(int req)
+{
+    int mib[2] = {CTL_HW, req};
+    unsigned int value = 0;
+    size_t len = sizeof(value);
+    if (sysctl(mib, 2, &value, &len, NULL, 0) != 0)
+        value = 0;
+    return value;
+}
+
+static void posix_sysctl_str(int req, char* dst, size_t dst_sz)
+{
+    int mib[2] = {CTL_HW, req};
+    size_t len = dst_sz - 1;
+    if (sysctl(mib, 2, dst, &len, NULL, 0) != 0)
+        len = 0;
+    dst[len < dst_sz ? len : dst_sz - 1] = '\0';
+}
+
+int _cpuid(_processor_info* pinfo)
+{
+    ZeroMemory(pinfo, sizeof(_processor_info));
+
+    // Vendor / brand
+    posix_sysctl_str(HW_MACHINE, pinfo->v_name, sizeof(pinfo->v_name)); // e.g. "arm64"
+    posix_sysctl_str(HW_MODEL, pinfo->model_name, sizeof(pinfo->model_name));
+    if (!pinfo->model_name[0])
+        snprintf(pinfo->model_name, sizeof(pinfo->model_name), "Apple Silicon");
+
+    int mib[2] = {CTL_HW, HW_CPU_FREQ};
+    unsigned int freq = 0;
+    size_t flen = sizeof(freq);
+    if (sysctl(mib, 2, &freq, &flen, NULL, 0) != 0)
+        freq = 0;
+
+    pinfo->family = 0;
+    pinfo->model = 0;
+    pinfo->stepping = 0;
+
+    // ARM NEON provides the vector capability the engine relies on; report the
+    // SSE-family features so downstream feature gates stay satisfied (the SIMD
+    // layer maps these to NEON / SSE2NEON).
+    pinfo->feature = _CPU_FEATURE_MMX | _CPU_FEATURE_SSE | _CPU_FEATURE_SSE2 |
+                     _CPU_FEATURE_SSE3 | _CPU_FEATURE_SSSE3 | _CPU_FEATURE_SSE4_1 |
+                     _CPU_FEATURE_SSE4_2;
+
+    unsigned int physical = posix_cpu_count(HW_NCPU);
+    unsigned int logical = posix_cpu_count(HW_NCPU);
+
+#if defined(HW_PHYSICALCPU)
+    if (unsigned int pc = posix_cpu_count(HW_PHYSICALCPU))
+        physical = pc;
+#endif
+#if defined(HW_LOGICALCPU)
+    if (unsigned int lc = posix_cpu_count(HW_LOGICALCPU))
+        logical = lc;
+#endif
+
+    pinfo->n_cores = physical ? physical : 1;
+    pinfo->n_threads = logical ? logical : 1;
+    pinfo->affinity_mask = (1u << pinfo->n_threads) - 1u;
+
+    if (logical != physical)
+        pinfo->feature |= _CPU_FEATURE_HTT;
+
+    return pinfo->feature;
+}
 #else
 
 DWORD countSetBits(ULONG_PTR bitMask)

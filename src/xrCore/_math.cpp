@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <process.h>
 
 // mmsystem.h
@@ -10,13 +11,33 @@
 #define MMNOMIXER
 #define MMNOJOY
 #include <mmsystem.h>
+#endif // XR_PLATFORM_WINDOWS
 
 // Initialized on startup
 XRCORE_API Fmatrix Fidentity;
 XRCORE_API Dmatrix Didentity;
 XRCORE_API CRandom Random;
 
-#ifdef _M_AMD64
+#if defined(XR_PLATFORM_POSIX)
+u16 getFPUsw() { return 0; }
+
+namespace FPU
+{
+	// No x87 control word on ARM64: all scalar FP runs through IEEE-754
+	// (NEON/SSE-equivalent), so precision-mode switches are no-ops.
+	XRCORE_API void m24(void) {}
+	XRCORE_API void m24r(void) {}
+	XRCORE_API void m53(void) {}
+	XRCORE_API void m53r(void) {}
+	XRCORE_API void m64(void) {}
+	XRCORE_API void m64r(void) {}
+
+	void initialize()
+	{
+		::Random.seed(u32(CPU::GetCLK() % (u64(1) << 32)));
+	}
+};
+#elif defined(_M_AMD64)
 u16 getFPUsw() { return 0; }
 
 namespace FPU
@@ -182,6 +203,20 @@ u64 __fastcall GetCLK(void)
 			abort();
 		}
 
+#if defined(XR_PLATFORM_POSIX)
+		// No RDTSC on ARM64: use the monotonic QPC clock (ns) as the tick
+		// source; skip the rdtsc calibration loop entirely.
+		QueryPerformanceFrequency((PLARGE_INTEGER)&qpc_freq);
+		qpc_overhead = 0;
+		qpc_counter = 0;
+		clk_per_second = qpc_freq;
+		clk_overhead = 0;
+		clk_per_milisec = clk_per_second / 1000;
+		clk_per_microsec = clk_per_milisec / 1000;
+		clk_to_seconds = float(1.0 / double(clk_per_second));
+		clk_to_milisec = float(1000.0 / double(clk_per_second));
+		clk_to_microsec = float(1000000.0 / double(clk_per_second));
+#else
 		// Timers & frequency
 		u64 start, end;
 		u32 dwStart, dwTest;
@@ -235,6 +270,7 @@ u64 __fastcall GetCLK(void)
 		a = 1000000;
 		b = double(clk_per_second);
 		clk_to_microsec = float(double(a / b));
+#endif // XR_PLATFORM_POSIX
 	}
 };
 
@@ -294,6 +330,18 @@ void _initialize_cpu_thread()
 }
 #else
 // per-thread initialization
+#ifdef XR_PLATFORM_POSIX
+void debug_on_thread_spawn();
+void _initialize_cpu_thread()
+{
+#ifndef XRCORE_STATIC
+	FPU::m24r();
+#endif
+	// ARM64: no MXCSR flush-to-zero / denormals-zero control.
+	debug_on_thread_spawn();
+}
+#elif !defined(M_BORLAND)
+// per-thread initialization
 #include <xmmintrin.h>
 #define _MM_DENORMALS_ZERO_MASK 0x0040
 #define _MM_DENORMALS_ZERO_ON 0x0040
@@ -330,6 +378,7 @@ void _initialize_cpu_thread()
 	}
 }
 #endif
+#endif
 // threading API
 #pragma pack(push,8)
 struct THREAD_NAME
@@ -340,6 +389,16 @@ struct THREAD_NAME
 	DWORD dwFlags;
 };
 
+#ifdef XR_PLATFORM_POSIX
+void thread_name(const char* name)
+{
+#if defined(XR_PLATFORM_APPLE)
+	pthread_setname_np(name);
+#else
+	pthread_setname_np(pthread_self(), name);
+#endif
+}
+#else
 void thread_name(const char* name)
 {
 	THREAD_NAME tn;
@@ -355,11 +414,12 @@ void thread_name(const char* name)
 	{
 	}
 }
+#endif // XR_PLATFORM_POSIX
 #pragma pack(pop)
 
 struct THREAD_STARTUP
 {
-	thread_t* entry;
+	xr_thread_proc_t* entry;
 	char* name;
 	void* args;
 };
@@ -369,7 +429,7 @@ void __cdecl thread_entry(void* _params)
 	// initialize
 	THREAD_STARTUP* startup = (THREAD_STARTUP*)_params;
 	thread_name(startup->name);
-	thread_t* entry = startup->entry;
+	xr_thread_proc_t* entry = startup->entry;
 	void* arglist = startup->args;
 	xr_delete(startup);
 	_initialize_cpu_thread();
@@ -378,7 +438,7 @@ void __cdecl thread_entry(void* _params)
 	entry(arglist);
 }
 
-void thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arglist)
+void thread_spawn(xr_thread_proc_t* entry, const char* name, unsigned stack, void* arglist)
 {
 	Debug._initialize(false);
 
@@ -386,7 +446,23 @@ void thread_spawn(thread_t* entry, const char* name, unsigned stack, void* argli
 	startup->entry = entry;
 	startup->name = (char*)name;
 	startup->args = arglist;
+#ifdef XR_PLATFORM_POSIX
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	if (stack >= 64u * 1024u)
+		pthread_attr_setstacksize(&attr, stack);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_t handle;
+	const int rc = pthread_create(&handle, &attr, +[](void* params) -> void* {
+		thread_entry(params);
+		return nullptr;
+	}, startup);
+	pthread_attr_destroy(&attr);
+	if (rc != 0)
+		xr_delete(startup);
+#else
 	_beginthread(thread_entry, stack, startup);
+#endif
 }
 
 //void spline1(float t, Fvector* p, Fvector* ret)

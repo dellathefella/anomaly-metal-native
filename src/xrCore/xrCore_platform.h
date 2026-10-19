@@ -2,6 +2,10 @@
 #define XRCORE_PLATFORM_H
 #pragma once
 
+#include "Common/Platform.hpp"
+
+#ifdef XR_PLATFORM_WINDOWS
+
 #define VC_EXTRALEAN // Exclude rarely-used stuff from Windows headers
 #define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers
 #ifndef STRICT
@@ -46,5 +50,35 @@
 #include <windowsx.h>
 #endif
 #pragma warning(pop)
+
+#else // POSIX
+
+#include <cstdint>
+#include <cstddef>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#include "win_compat.h"
+
+#ifndef MAX_PATH
+# define MAX_PATH PATH_MAX
+#endif
+#ifndef _MAX_PATH
+# define _MAX_PATH MAX_PATH
+#endif
+
+#ifndef NOMINMAX
+# define NOMINMAX
+#endif
+
+#include <algorithm>
+
+#endif // XR_PLATFORM_WINDOWS
 
 #endif

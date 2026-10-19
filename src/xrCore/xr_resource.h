@@ -95,6 +95,14 @@ class resptr_core : public C
 protected:
 	typedef resptr_core this_type;
 	typedef resptr_core<T, C> self;
+
+	// Dependent base lookups (implicit under MSVC, explicit under standard C++)
+	using C::p_;
+	using C::_inc;
+	using C::_dec;
+	using C::_set;
+	using C::_get;
+	using C::_clear;
 public:
 	// construction
 	resptr_core() { p_ = 0; }

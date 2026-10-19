@@ -6,15 +6,135 @@
 #pragma hdrstop
 
 #pragma warning(disable:4995)
+#ifdef XR_PLATFORM_WINDOWS
 #include <direct.h>
+#else
+#include <unistd.h>
+#endif
 #include <fcntl.h>
+#ifdef XR_PLATFORM_WINDOWS
 #include <sys\stat.h>
+#else
+#include <sys/stat.h>
+#endif
+#ifdef XR_PLATFORM_WINDOWS
 #include <experimental\filesystem>
+namespace xray_fs = xray_fs;
+#else
+#include <filesystem>
+namespace xray_fs = std::filesystem;
+#endif
 #pragma warning(default:4995)
 
 #include "FS_internal.h"
 #include "stream_reader.h"
 #include "file_stream_reader.h"
+
+#ifndef XR_PLATFORM_WINDOWS
+// POSIX directory scan shim (glob-based) for the _findfirst/_findnext/_findclose
+// pattern used by CLocatorAPI::Recurse.
+#include <glob.h>
+#include <mutex>
+#include <vector>
+
+struct FindHandle
+{
+    glob_t results;
+    size_t next;
+};
+
+namespace {
+std::mutex g_find_lock;
+std::vector<FindHandle*> g_find_slots;
+}
+
+static FindHandle* find_get(intptr_t h)
+{
+    return (h >= 0 && (size_t)h < g_find_slots.size()) ? g_find_slots[h] : nullptr;
+}
+
+// Fills entry from slot->next, advancing it. Assumes g_find_lock is held.
+static int find_fill(FindHandle* fh, _finddata_t* entry)
+{
+    glob_t* buf = &fh->results;
+    while (fh->next < buf->gl_pathc)
+    {
+        const char* full = buf->gl_pathv[fh->next++];
+        const char* name = strrchr(full, '/');
+        name = name ? name + 1 : full;
+        if ((name[0] == '.' && name[1] == '\0') || (name[0] == '.' && name[1] == '.' && name[2] == '\0'))
+            continue;
+
+        struct stat st{};
+        stat(full, &st);
+        entry->attrib = S_ISDIR(st.st_mode) ? _A_SUBDIR : 0;
+        entry->size = (unsigned long long)st.st_size;
+#ifdef XR_PLATFORM_APPLE
+        entry->time_create = st.st_ctimespec.tv_sec;
+        entry->time_access = st.st_atimespec.tv_sec;
+        entry->time_write = st.st_mtimespec.tv_sec;
+#else
+        entry->time_create = st.st_ctim.tv_sec;
+        entry->time_access = st.st_atim.tv_sec;
+        entry->time_write = st.st_mtim.tv_sec;
+#endif
+        snprintf(entry->name, sizeof(entry->name), "%s", name);
+        return 0;
+    }
+    return -1;
+}
+
+intptr_t _findfirst(const char* pattern, _finddata_t* entry)
+{
+    char conv[XR_WIN_PATH_BUF];
+    xr_win_conv_path(conv, pattern);
+
+    // Windows "*.*" matches every entry; POSIX glob("*.*") would miss
+    // extension-less names, so map a trailing "*.*" to "*".
+    size_t len = strlen(conv);
+    if (len >= 3 && 0 == strcmp(conv + len - 3, "*.*"))
+        conv[len - 2] = '\0';
+
+    FindHandle* fh = new FindHandle;
+    memset(&fh->results, 0, sizeof(glob_t));
+    fh->next = 0;
+    if (0 != glob(conv, GLOB_NOSORT, NULL, &fh->results))
+    {
+        delete fh;
+        return -1;
+    }
+
+    std::lock_guard<std::mutex> guard(g_find_lock);
+    g_find_slots.push_back(fh);
+    intptr_t handle = (intptr_t)g_find_slots.size() - 1;
+    if (0 != find_fill(fh, entry))
+    {
+        // Empty match set: still return a valid handle so _findclose works.
+        return handle;
+    }
+    return handle;
+}
+
+int _findnext(intptr_t handle, _finddata_t* entry)
+{
+    std::lock_guard<std::mutex> guard(g_find_lock);
+    FindHandle* fh = find_get(handle);
+    return fh ? find_fill(fh, entry) : -1;
+}
+
+int _findclose(intptr_t handle)
+{
+    std::lock_guard<std::mutex> guard(g_find_lock);
+    FindHandle* fh = find_get(handle);
+    if (fh)
+    {
+        globfree(&fh->results);
+        delete fh;
+        g_find_slots[handle] = nullptr;
+    }
+    return 0;
+}
+#endif // XR_PLATFORM_WINDOWS
 
 const u32 BIG_FILE_READER_WINDOW_SIZE = 1024 * 1024;
 
@@ -23,7 +143,7 @@ const u32 BIG_FILE_READER_WINDOW_SIZE = 1024 * 1024;
 
 # pragma warning(push)
 # pragma warning(disable:4995)
-# include <malloc.h>
+# include <malloc/malloc.h>
 # pragma warning(pop)
 
 CLocatorAPI* xr_FS = NULL;
@@ -34,7 +154,7 @@ CLocatorAPI* xr_FS = NULL;
 # define FSLTX "fsgame.ltx"
 #endif
 
-std::experimental::filesystem::path fsRoot;
+xray_fs::path fsRoot;
 
 struct _open_file
 {
@@ -225,7 +345,7 @@ void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real
 	//Msg("Register[%d] [%s]",vfs,name);
 	string256 temp_file_name;
 	xr_strcpy(temp_file_name, sizeof(temp_file_name), name);
-	xr_strlwr(temp_file_name);
+	xr_fs_strlwr(temp_file_name);
 
 	// Register file
 	file desc;
@@ -539,7 +659,7 @@ void CLocatorAPI::ProcessOne(LPCSTR path, const _finddata_t& entry)
 	string_path N;
 	xr_strcpy(N, sizeof(N), path);
 	xr_strcat(N, entry.name);
-	xr_strlwr(N);
+	xr_fs_strlwr(N);
 
 	if (entry.attrib & _A_HIDDEN) return;
 
@@ -601,7 +721,9 @@ bool CLocatorAPI::Recurse(const char* path)
 	xr_strcpy(scanPath, sizeof(scanPath), path);
 	xr_strcat(scanPath, ".xrignore");
 	struct stat buffer;
-	if (!stat(scanPath, &buffer))
+	char conv[XR_WIN_PATH_BUF];
+	xr_win_conv_path(conv, scanPath);
+	if (!stat(conv, &buffer))
 		return true;
 	xr_strcpy(scanPath, sizeof(scanPath), path);
 	xr_strcat(scanPath, "*.*");
@@ -677,18 +799,18 @@ static void searchForFsltx(const char* fs_name, string_path& fsltxPath)
 	}
 
 	//try in working dir
-	if (std::experimental::filesystem::exists(realFsltxName))
+	if (xray_fs::exists(realFsltxName))
 	{
 		xr_strcpy(fsltxPath, realFsltxName);
 		return;
 	}
 
-	auto tryPathFunc = [realFsltxName](std::experimental::filesystem::path possibleLocationFsltx,
+	auto tryPathFunc = [realFsltxName](xray_fs::path possibleLocationFsltx,
 	                                   string_path& fsltxPath) -> bool
 	{
 		possibleLocationFsltx.append(realFsltxName);
 
-		if (std::experimental::filesystem::exists(possibleLocationFsltx))
+		if (xray_fs::exists(possibleLocationFsltx))
 		{
 			xr_strcpy(fsltxPath, possibleLocationFsltx.generic_string().c_str());
 			return true;
@@ -703,7 +825,7 @@ static void searchForFsltx(const char* fs_name, string_path& fsltxPath)
 	if (tryPathFunc(Core.ApplicationPath, fsltxPath)) return;
 
 	//parent directory again
-	std::experimental::filesystem::path test_path;
+	xray_fs::path test_path;
 	test_path.assign(Core.ApplicationPath);
 	test_path.append("../");
 
@@ -717,9 +839,11 @@ IReader* CLocatorAPI::setup_fs_ltx(LPCSTR fs_name)
 	searchForFsltx(fs_name, fs_path);
 	CHECK_OR_EXIT(fs_path[0] != 0,
 	              make_string("Cannot find fsltx file: \"%s\"\nCheck your working directory", fs_name));
+#ifdef XR_PLATFORM_WINDOWS
 	xr_strlwr(fs_path);
+#endif
 	fsRoot = fs_path;
-	fsRoot = std::experimental::filesystem::absolute(fsRoot);
+	fsRoot = xray_fs::absolute(fsRoot);
 	fsRoot = fsRoot.parent_path();
 
 	Msg("using fs-ltx %s", fs_path);
@@ -809,8 +933,8 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 			_GetItem(temp, 5, capt, _delimiter);
 			xr_strlwr(id);
 
-			xr_strlwr(root);
-			lp_add = (cnt >= 4) ? xr_strlwr(add) : nullptr;
+			xr_fs_strlwr(root);
+			lp_add = (cnt >= 4) ? xr_fs_strlwr(add) : nullptr;
 			lp_def = (cnt >= 5) ? def : nullptr;
 			lp_capt = (cnt >= 6) ? capt : nullptr;
 
@@ -935,7 +1059,7 @@ xr_vector<char*>* CLocatorAPI::file_list_open(const char* _path, u32 flags)
 {
 	R_ASSERT(_path);
 	VERIFY(flags);
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	string_path N;
@@ -997,7 +1121,7 @@ int CLocatorAPI::file_list(FS_FileSet& dest, LPCSTR path, u32 flags, LPCSTR mask
 {
 	R_ASSERT(path);
 	VERIFY(flags);
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	string_path N;
@@ -1316,12 +1440,12 @@ void CLocatorAPI::copy_file_to_build(T*& r, LPCSTR source_name)
 
 bool CLocatorAPI::check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname, const file*& desc)
 {
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	// correct path
 	xr_strcpy(fname, _fname);
-	xr_strlwr(fname);
+	xr_fs_strlwr(fname);
 	if (path && path[0])
 		update_path(fname, path, fname);
 
@@ -1402,7 +1526,7 @@ IWriter* CLocatorAPI::w_open(LPCSTR path, LPCSTR _fname)
 {
 	string_path fname;
 	xr_strcpy(fname, _fname);
-	xr_strlwr(fname); //,".$");
+	xr_fs_strlwr(fname); //,".$");
 	if (path && path[0]) update_path(fname, path, fname);
 	CFileWriter* W = xr_new<CFileWriter>(fname, false);
 #ifdef _EDITOR
@@ -1415,7 +1539,7 @@ IWriter* CLocatorAPI::w_open_ex(LPCSTR path, LPCSTR _fname)
 {
 	string_path fname;
 	xr_strcpy(fname, _fname);
-	xr_strlwr(fname); //,".$");
+	xr_fs_strlwr(fname); //,".$");
 	if (path && path[0]) update_path(fname, path, fname);
 	CFileWriter* W = xr_new<CFileWriter>(fname, true);
 #ifdef _EDITOR
@@ -1445,7 +1569,7 @@ void CLocatorAPI::w_close(IWriter*& S)
 
 CLocatorAPI::files_it CLocatorAPI::file_find_it(LPCSTR fname)
 {
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	file desc_f;
@@ -1563,12 +1687,15 @@ void CLocatorAPI::file_rename(LPCSTR src, LPCSTR dest, bool bOwerwrite)
 		xr_free(str);
 		m_files.erase(S);
 		// insert updated item
-		new_desc.name = xr_strlwr(xr_strdup(dest));
+		new_desc.name = xr_fs_strlwr(xr_strdup(dest));
 		m_files.insert(new_desc);
 
 		// physically rename file
 		VerifyPath(dest);
-		rename(src, dest);
+		char csrc[XR_WIN_PATH_BUF], cdest[XR_WIN_PATH_BUF];
+		xr_win_conv_path(csrc, src);
+		xr_win_conv_path(cdest, dest);
+		rename(csrc, cdest);
 	}
 }
 
@@ -1615,7 +1742,7 @@ return get_path(initial)->_update(dest,src);
 
 u32 CLocatorAPI::get_file_age(LPCSTR nm)
 {
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	files_it I = file_find_it(nm);
@@ -1624,7 +1751,7 @@ u32 CLocatorAPI::get_file_age(LPCSTR nm)
 
 void CLocatorAPI::set_file_age(LPCSTR nm, u32 age)
 {
-	// проверить нужно ли пересканировать пути
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	check_pathes();
 
 	// set file

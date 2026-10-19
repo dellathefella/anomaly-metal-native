@@ -5,9 +5,11 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#ifdef XR_PLATFORM_WINDOWS
 #include "cderr.h"
 #include "commdlg.h"
 #include "vfw.h"
+#endif
 
 EFS_Utils* xr_EFS = NULL;
 //----------------------------------------------------
@@ -117,6 +119,7 @@ void MakeFilter(string1024& dest, LPCSTR info, LPCSTR ext)
 // start_flt_ext = -1-all 0..n-indices
 //------------------------------------------------------------------------------
 
+#ifdef XR_PLATFORM_WINDOWS
 // Vista uses this hook for old-style save dialog
 UINT_PTR CALLBACK OFNHookProcOldStyle(HWND, UINT, WPARAM, LPARAM)
 {
@@ -286,6 +289,13 @@ bool EFS_Utils::GetSaveName(LPCSTR initial, string_path& buffer, LPCSTR offset, 
 }
 
 //----------------------------------------------------
+#else // XR_PLATFORM_WINDOWS
+// Native file dialogs are editor-only tooling; the runtime engine never calls
+// these on macOS. Provide link-compatible stubs.
+bool EFS_Utils::GetOpenNameInternal(LPCSTR, LPSTR, int, bool, LPCSTR, int) { return false; }
+bool EFS_Utils::GetSaveName(LPCSTR, string_path&, LPCSTR, int) { return false; }
+#endif // XR_PLATFORM_WINDOWS
+
 LPCSTR EFS_Utils::AppendFolderToName(LPSTR tex_name, u32 const tex_name_size, int depth, BOOL full_name)
 {
 	string256 _fn;

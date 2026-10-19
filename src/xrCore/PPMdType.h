@@ -10,7 +10,11 @@
 
 #include <stdio.h>
 
+#ifdef XR_PLATFORM_WINDOWS
 #define _WIN32_ENVIRONMENT_
+#else
+#define _POSIX_ENVIRONMENT_
+#endif
 //#define _DOS32_ENVIRONMENT_
 //#define _POSIX_ENVIRONMENT_
 //#define _UNKNOWN_ENVIRONMENT_
@@ -26,7 +30,8 @@ typedef int   BOOL;
 #define TRUE  1
 typedef unsigned char  BYTE;
 typedef unsigned short WORD;
-typedef unsigned long  DWORD;
+#include <cstdint>
+typedef uint32_t       DWORD;
 typedef unsigned int   UINT;
 #endif /* defined(_WIN32_ENVIRONMENT_)  */
 

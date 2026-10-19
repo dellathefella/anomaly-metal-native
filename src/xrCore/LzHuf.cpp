@@ -4,9 +4,17 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#ifdef XR_PLATFORM_WINDOWS
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
 #include <fcntl.h>
+#ifdef XR_PLATFORM_WINDOWS
 #include <sys\stat.h>
+#else
+#include <sys/stat.h>
+#endif
 
 #define MODULE
 

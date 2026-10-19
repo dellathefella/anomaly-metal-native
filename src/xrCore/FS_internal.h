@@ -3,10 +3,30 @@
 #pragma once
 
 #include "lzhuf.h"
+#ifdef XR_PLATFORM_WINDOWS
+#ifdef XR_PLATFORM_WINDOWS
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
+#else
+#include <unistd.h>
+#endif
 #include <fcntl.h>
+#ifdef XR_PLATFORM_WINDOWS
+#ifdef XR_PLATFORM_WINDOWS
 #include <sys\stat.h>
+#else
+#include <sys/stat.h>
+#endif
+#else
+#include <sys/stat.h>
+#endif
+#ifdef XR_PLATFORM_WINDOWS
+#ifdef XR_PLATFORM_WINDOWS
 #include <share.h>
+#endif
+#endif
 
 void* FileDownload(LPCSTR fn, u32* pdwSize = NULL);
 void FileCompress(const char* fn, const char* sign, void* data, u32 size);

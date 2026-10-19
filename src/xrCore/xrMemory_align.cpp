@@ -2,7 +2,12 @@
 #pragma hdrstop
 
 #include <errno.h>
+#ifdef XR_PLATFORM_WINDOWS
 #include <malloc.h>
+#else
+#include <malloc/malloc.h>
+#include <cstdlib>
+#endif
 
 #include "xrMemory_align.h"
 

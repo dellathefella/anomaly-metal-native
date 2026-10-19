@@ -58,6 +58,7 @@ namespace xray
 				}
 			} // namespace strconcat_error
 
+#ifdef XR_PLATFORM_WINDOWS
 			int stack_overflow_exception_filter(int exception_code)
 			{
 				if (exception_code == EXCEPTION_STACK_OVERFLOW)
@@ -84,6 +85,11 @@ namespace xray
 					_resetstkoflw();
 				}
 			}
+			#else // POSIX: no SEH; the concatenation helpers abort via R_ASSERT
+			void check_stack_overflow(u32 /*stack_increment*/)
+			{
+			}
+			#endif // XR_PLATFORM_WINDOWS
 
 			void string_tupples::error_process() const
 			{

@@ -8,13 +8,13 @@
 #endif // XRGAME_EXPORTS
 
 
-//T_ID    - уникальный текстовый идентификатор (аттрибут id в XML файле)
-//T_INDEX - уникальный числовой индекс 
-//T_INIT -  класс где определена статическая InitXmlIdToIndex
-//          функция инициализации file_str и tag_name
+//T_ID    - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ id пїЅ XML пїЅпїЅпїЅпїЅпїЅ)
+//T_INDEX - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
+//T_INIT -  пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ InitXmlIdToIndex
+//          пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ file_str пїЅ tag_name
 
-//структура хранит строковый id элемента 
-//файл и позицию, где этот элемент находится
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ id пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+//пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 struct ITEM_DATA
 {
 	shared_str id;
@@ -39,10 +39,10 @@ private:
 	static T_VECTOR* m_pItemDataVector;
 
 protected:
-	//имена xml файлов (разделенных запятой) из которых 
-	//производить загрузку элементов
+	//пїЅпїЅпїЅпїЅпїЅ xml пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	static LPCSTR file_str;
-	//имена тегов
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	static LPCSTR tag_name;
 public:
 	CXML_IdToIndex();
@@ -53,7 +53,7 @@ public:
 	static const ITEM_DATA* GetById(const shared_str& str_id, bool no_assert = false);
 	static const ITEM_DATA* GetByIndex(int index, bool no_assert = false);
 
-	static const int IdToIndex(const shared_str& str_id, int default_index = T_INDEX(-1), bool no_assert = false)
+	static const int IdToIndex(const shared_str& str_id, int default_index = -1 /* was T_INDEX(-1): identifier never defined; MSVC never instantiated this member */, bool no_assert = false)
 	{
 		const ITEM_DATA* item = GetById(str_id, no_assert);
 		return item ? item->index : default_index;
@@ -67,7 +67,7 @@ public:
 
 	static const int GetMaxIndex() { return m_pItemDataVector->size() - 1; }
 
-	//удаление статичекого массива
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	static void DeleteIdToIndexData();
 };
 
@@ -98,7 +98,8 @@ const typename ITEM_DATA* CSXML_IdToIndex::GetById(const shared_str& str_id, boo
 {
 	T_INIT::InitXmlIdToIndex();
 
-	for (T_VECTOR::iterator it = m_pItemDataVector->begin();
+	T_VECTOR::iterator it; // clang: hoisted (MSVC leaked `it` out of the for-scope; used below)
+	for (it = m_pItemDataVector->begin();
 	     m_pItemDataVector->end() != it; ++it)
 	{
 		if ((*it).id == str_id)
@@ -139,7 +140,7 @@ void CSXML_IdToIndex::DeleteIdToIndexData()
 }
 
 TEMPLATE_SPECIALIZATION
-typename void CSXML_IdToIndex::InitInternal()
+void CSXML_IdToIndex::InitInternal() // "typename void" was an MSVC-only quirk
 {
 	VERIFY(!m_pItemDataVector);
 	T_INIT::InitXmlIdToIndex();
@@ -162,7 +163,7 @@ typename void CSXML_IdToIndex::InitInternal()
 		xml_file_full += ".xml";
 		uiXml->Load(CONFIG_PATH, "gameplay", xml_file_full.c_str());
 
-		//общий список
+		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		int items_num = uiXml->GetNodesNum(uiXml->GetRoot(), tag_name);
 
 		for (int i = 0; i < items_num; ++i)
@@ -174,7 +175,7 @@ typename void CSXML_IdToIndex::InitInternal()
 			R_ASSERT2(item_name, buf);
 
 
-			//проверетить ID на уникальность
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			T_VECTOR::iterator t_it = m_pItemDataVector->begin();
 			for (; m_pItemDataVector->end() != t_it; ++t_it)
 			{

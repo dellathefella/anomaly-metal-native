@@ -1,6 +1,8 @@
 #include "StdAfx.h"
 #include "RegistryFuncs.h"
 
+#ifdef _WIN32
+
 #define REGISTRY_BASE	HKEY_LOCAL_MACHINE
 #define REGISTRY_PATH	"Software\\GSC Game World\\STALKER-Anomaly\\"
 
@@ -176,3 +178,19 @@ void WriteRegistry_BinaryValue(LPCSTR rKeyName, u8 const* buffer_src, u32 const 
 
 	RegCloseKey(hKey);
 }
+
+#else // _WIN32
+
+// No Win32 registry on macOS. Every in-tree caller is commented out (Anomaly stores
+// this data in gamedata ini files); keep the API as honest no-ops so any remaining
+// reference still compiles and behaves like "key not found".
+bool ReadRegistry_StrValue(LPCSTR /*rKeyName*/, char* /*value*/) { return false; }
+void WriteRegistry_StrValue(LPCSTR /*rKeyName*/, const char* /*value*/) {}
+
+u32 const ReadRegistry_BinaryValue(LPCSTR /*rKeyName*/, u8* /*buffer_dest*/, u32 const /*buffer_size*/) { return 0; }
+void WriteRegistry_BinaryValue(LPCSTR /*rKeyName*/, u8 const* /*buffer_src*/, u32 const /*buffer_size*/) {}
+
+void ReadRegistry_DWValue(LPCSTR /*rKeyName*/, DWORD& /*value*/) {}
+void WriteRegistry_DWValue(LPCSTR /*rKeyName*/, const DWORD& /*value*/) {}
+
+#endif // _WIN32

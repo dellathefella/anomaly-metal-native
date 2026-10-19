@@ -21,7 +21,7 @@
 		typename _data_storage\
 	>
 
-#define CHashFixedVertexManager	CVertexManagerHashFixed<_path_id_type,_index_type,hash_size,fix_size>::CDataStorage<_vertex,_index_vertex,_data_storage>
+#define CHashFixedVertexManager	CVertexManagerHashFixed<_path_id_type,_index_type,hash_size,fix_size>::template CDataStorage<_vertex,_index_vertex,_data_storage> // ::template: dependent qualified member template
 
 TEMPLATE_SPECIALIZATION
 IC CHashFixedVertexManager::CDataStorage(const u32 vertex_count) :

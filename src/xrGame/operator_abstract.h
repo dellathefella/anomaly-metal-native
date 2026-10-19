@@ -12,12 +12,13 @@
 
 template <
 	typename _world_property,
-	typename _edge_value_type
+	typename _edge_value_type_ // renamed: the member typedef below shadows an
+	// enclosing template parameter (CWG 718 gap); name re-exposed via typedef
 >
 class COperatorAbstract
 {
 public:
-	typedef _edge_value_type _edge_value_type;
+	typedef _edge_value_type_ _edge_value_type;
 
 protected:
 	typedef CConditionState<_world_property> inherited;

@@ -324,13 +324,14 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	{
 #pragma warning(push)
 #pragma warning(disable:4238)
-		m_ini_file = xr_new<CInifile>(
-			&IReader(
-				(void*)(*(O->m_ini_string)),
-				O->m_ini_string.size()
-			),
-			FS.get_path("$game_config$")->m_Path
-		);
+		// clang: cannot take the address of a temporary (MSVC extension); named local
+		{
+			IReader reader((void*)(*(O->m_ini_string)), O->m_ini_string.size());
+			m_ini_file = xr_new<CInifile>(
+				&reader,
+				FS.get_path("$game_config$")->m_Path
+			);
+		}
 #pragma warning(pop)
 	}
 
@@ -858,7 +859,7 @@ void CGameObject::DestroyObject()
 
 void CGameObject::shedule_Update(u32 dt)
 {
-	//уничтожить
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if (NeedToDestroyObject())
 	{
 #ifndef MASTER_GOLD
@@ -879,7 +880,7 @@ BOOL CGameObject::net_SaveRelevant()
 	return (CScriptBinder::net_SaveRelevant());
 }
 
-//игровое имя объекта
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 LPCSTR CGameObject::Name() const
 {
 	return (*cName());

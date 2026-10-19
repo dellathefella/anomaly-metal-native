@@ -9,12 +9,15 @@
 #pragma once
 
 template <
-	typename _path_id_type,
-	typename _index_type,
-	u8 mask
+	typename _path_id_type_, // renamed: clang rejects nested self-typedefs shadowing
+	typename _index_type_,   // enclosing template parameters (CWG 718 gap);
+	u8 mask                  // original names re-exposed as class-scope typedefs below
 >
 struct CVertexManagerFixed
 {
+	typedef _path_id_type_ _path_id_type;
+	typedef _index_type_ _index_type;
+
 	template <template <typename _T> class T1>
 	struct VertexManager
 	{
@@ -38,15 +41,15 @@ struct CVertexManagerFixed
 	};
 
 	template <
-		template <typename _T> class _vertex = CEmptyClassTemplate,
-		template <typename _T1, typename _T2> class _index_vertex = CEmptyClassTemplate2,
-		typename _data_storage = CBuilderAllocatorConstructor
+		template <typename _T> class _vertex, // defaults dropped: clang rejects
+		template <typename _T1, typename _T2> class _index_vertex, // a defaulted parameter followed
+		typename _data_storage // by a non-defaulted one (all callers pass all three)
 	>
-	class CDataStorage : public _data_storage::template CDataStorage<VertexManager<_vertex>::_vertex>
+	class CDataStorage : public _data_storage::template CDataStorage<VertexManager<_vertex>::template _vertex> // ::template disambiguator required by clang
 	{
 	public:
 		typedef typename _data_storage::template CDataStorage<
-			VertexManager<_vertex>::_vertex
+			VertexManager<_vertex>::template _vertex
 		> inherited;
 		typedef typename inherited::CGraphVertex CGraphVertex;
 		typedef typename CGraphVertex::_index_type _index_type;

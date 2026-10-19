@@ -19,11 +19,13 @@ IC bool compare_safe(const luabind::object& o1, const luabind::object& o2)
 	return (o1 == o2);
 }
 
-#define comma						,
-#define concatenizer(a,b)			a##b
-#define left_comment				concatenizer(/,*)
-#define right_comment				concatenizer(*,/)
-#define param_generator(a,b,c,d)	a##b##c d##b
+// Callback invocation body. The Windows build generated N=0..8 typed
+// operator() overloads via token-pasting macros that synthesize /* */
+// comments (script_callback_ex_generators.h) — an MSVC-only preprocessor
+// practice clang rejects. The variadic-template rewrite in
+// script_callback_ex_nonvoid/_void.h covers all arities with identical
+// by-value semantics; this macro carries the shared try/catch body.
+// Callers define macros_return_operator(x) before use.
 
 #if XRAY_EXCEPTIONS
 #	define process_error \
@@ -37,36 +39,28 @@ IC bool compare_safe(const luabind::object& o1, const luabind::object& o2)
 #	define process_error
 #endif
 
-#define function_body_ex(_1,_2,_3,_4,_c,_5,_6) \
-	_1 _3 _2\
-	IC return_type operator() (_4) _c\
-	{\
-		try {					\
-			try {				\
-				if (m_functor) {\
-					VERIFY		(m_functor.is_valid());\
-					if (m_object.is_valid()) {\
-						VERIFY	(m_object.is_valid());\
-						macros_return_operator (m_functor(m_object _5 _6));\
-					}\
-					else\
-						macros_return_operator (m_functor(_6));\
+#define SCRIPT_CALLBACK_EX_BODY \
+	try {					\
+		try {				\
+			if (this->m_functor) {\
+				VERIFY		(this->m_functor.is_valid());\
+				if (this->m_object.is_valid()) {\
+					VERIFY	(this->m_object.is_valid());\
+					macros_return_operator (this->m_functor(this->m_object, _params...));\
 				}\
-			}\
-			process_error\
-			catch(std::exception &) {\
-				ai().script_engine().print_output(ai().script_engine().lua(),"",LUA_ERRRUN);\
+				else\
+					macros_return_operator (this->m_functor(_params...));\
 			}\
 		}\
-		catch (...) {\
-			const_cast<CScriptCallbackEx<return_type>*>(this)->clear();\
-		}			\
-		macros_return_operator (0);\
-	}
-
-#define function_body(_1,_2,_3,_4,_5,_6) \
-	function_body_ex(_1,_2,_3,_4,const,_5,_6)\
-	function_body_ex(_1,_2,_3,_4,,_5,_6)
+		process_error\
+		catch(std::exception &) {\
+			ai().script_engine().print_output(ai().script_engine().lua(),"",LUA_ERRRUN);\
+		}\
+	}\
+	catch (...) {\
+		const_cast<CScriptCallbackEx*>(this)->clear();\
+	}			\
+	macros_return_operator (0);
 
 template <typename _return_type>
 class CScriptCallbackEx_
@@ -107,11 +101,5 @@ public:
 #include "script_callback_ex_nonvoid.h"
 #include "script_callback_ex_void.h"
 
-#undef comma
-#undef concatenizer
-#undef left_comment
-#undef right_comment
-#undef param_generator
-#undef function_body_ex
-#undef function_body
 #undef process_error
+#undef SCRIPT_CALLBACK_EX_BODY

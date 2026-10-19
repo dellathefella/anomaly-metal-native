@@ -145,7 +145,7 @@ public:
 
 
 public:
-	enum EMentalState
+	enum EMentalState : u32
 	{
 		eStateIdle,
 		eStateDanger

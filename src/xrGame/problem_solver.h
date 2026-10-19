@@ -16,9 +16,9 @@ template <
 	typename _operator,
 	typename _condition_evaluator,
 	typename _operator_id_type,
-	bool _reverse_search = false,
-	typename _operator_ptr = _operator*,
-	typename _condition_evaluator_ptr = _condition_evaluator*>
+	bool _reverse_search, // default dropped: clang rejects a defaulted parameter
+	typename _operator_ptr_, // followed by non-defaulted ones (all callers pass all 8)
+	typename _condition_evaluator_ptr_> // template parameters (CWG 718 gap)
 class CProblemSolver
 {
 public:
@@ -35,8 +35,8 @@ private:
 		_condition_evaluator,
 		_operator_id_type,
 		_reverse_search,
-		_operator_ptr,
-		_condition_evaluator_ptr
+		_operator_ptr_,
+		_condition_evaluator_ptr_
 	> self_type;
 
 public:
@@ -44,8 +44,8 @@ public:
 	typedef _operator COperator;
 	typedef _condition_state CState;
 	typedef _condition_evaluator CConditionEvaluator;
-	typedef _operator_ptr _operator_ptr;
-	typedef _condition_evaluator_ptr _condition_evaluator_ptr;
+	typedef _operator_ptr_ _operator_ptr;
+	typedef _condition_evaluator_ptr_ _condition_evaluator_ptr;
 	typedef typename _operator_condition::_condition_type _condition_type;
 	typedef typename _operator_condition::_value_type _value_type;
 	typedef typename _operator::_edge_value_type _edge_value_type;
@@ -57,9 +57,11 @@ public:
 		_operator_id_type m_operator_id;
 		_operator_ptr m_operator;
 
-		IC SOperator(const _operator_id_type& operator_id, _operator_ptr _operator) :
+		// param renamed: a function param named _operator would redeclare the
+		// enclosing template parameter (ill-formed; MSVC extension)
+		IC SOperator(const _operator_id_type& operator_id, _operator_ptr opr) :
 			m_operator_id(operator_id),
-			m_operator(_operator)
+			m_operator(opr)
 		{
 		}
 
@@ -149,7 +151,7 @@ public:
 	IC _edge_value_type estimate_edge_weight(const _index_type& vertex_index) const;
 
 	// operator interface
-	IC virtual void add_operator(const _edge_type& operator_id, _operator_ptr _operator);
+	IC virtual void add_operator(const _edge_type& operator_id, _operator_ptr opr); // param renamed: cannot shadow template parameter
 	IC virtual void remove_operator(const _edge_type& operator_id);
 	IC _operator_ptr get_operator(const _operator_id_type& operator_id);
 	IC const OPERATOR_VECTOR& operators() const;

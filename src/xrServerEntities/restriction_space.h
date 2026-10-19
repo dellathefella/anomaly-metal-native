@@ -25,7 +25,7 @@ namespace RestrictionSpace
 		}
 	};
 
-	enum ERestrictorTypes
+	enum ERestrictorTypes : int // fixed underlying type: matches the opaque fwd decls
 	{
 		eDefaultRestrictorTypeNone = u8(0),
 		eDefaultRestrictorTypeOut = u8(1),

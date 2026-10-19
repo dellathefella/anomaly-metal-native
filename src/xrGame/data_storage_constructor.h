@@ -31,13 +31,15 @@ template <
 		typename _2
 	>
 	class _builder_allocator_constructor = CBuilderAllocatorConstructor,
+	// nested template-template parameter names carry a trailing underscore:
+	// clang rejects reusing an enclosing template parameter's name (CWG 718 gap)
 	template <
 		typename _1,
 		typename _2,
 		typename _3,
 		template <
-			typename _1,
-			typename _2
+			typename _1_,
+			typename _2_
 		>
 		class _4
 	>

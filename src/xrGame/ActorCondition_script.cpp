@@ -7,7 +7,9 @@ using namespace luabind;
 
 void BoosterForEach(CActorCondition* conditions, const luabind::functor<bool> &funct)
 {
-	CEntityCondition::BOOSTER_MAP& cur_booster_influences = conditions->GetCurBoosterInfluences();
+	// getter returns by value: bind by copy (MSVC tolerated binding the
+	// temporary to a non-const lvalue reference)
+	CEntityCondition::BOOSTER_MAP cur_booster_influences = conditions->GetCurBoosterInfluences();
 	CEntityCondition::BOOSTER_MAP::const_iterator it = cur_booster_influences.begin();
 	CEntityCondition::BOOSTER_MAP::const_iterator it_e = cur_booster_influences.end();
 	for (; it != it_e; ++it)
@@ -24,7 +26,9 @@ bool ApplyBooster_script(CActorCondition* cond, const SBooster& B, LPCSTR sect)
 
 void ClearAllBoosters(CActorCondition* conditions)
 {
-	CEntityCondition::BOOSTER_MAP& cur_booster_influences = conditions->GetCurBoosterInfluences();
+	// getter returns by value: bind by copy (MSVC tolerated binding the
+	// temporary to a non-const lvalue reference)
+	CEntityCondition::BOOSTER_MAP cur_booster_influences = conditions->GetCurBoosterInfluences();
 	CEntityCondition::BOOSTER_MAP::const_iterator it = cur_booster_influences.begin();
 	CEntityCondition::BOOSTER_MAP::const_iterator it_e = cur_booster_influences.end();
 	for (; it != it_e; ++it)

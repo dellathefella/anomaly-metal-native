@@ -100,7 +100,7 @@ protected:
 	u32 m_current_travel_point;
 
 private:
-	enum EDirectionType
+	enum EDirectionType : u32
 	{
 		eDirectionTypeFP = u32(0),
 		eDirectionTypeFN = u32(1),

@@ -7,7 +7,9 @@
 #include "ui/UICDkey.h"
 #include "secure_messaging.h"
 
-#include <shellapi.h>
+#ifdef _WIN32
+#include <shellapi.h> // Win32; ShellExecute call sites are commented out on POSIX
+#endif
 
 //#pragma comment(lib, "shell32.lib")
 

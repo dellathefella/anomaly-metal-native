@@ -158,9 +158,9 @@ namespace Loki
         >
         ::Result TList;
 
-        template <typename T> struct Rebind
+        template <typename T2> struct Rebind // T2: clang rejects shadowing outer T
         {
-            typedef Unit<T> Result;
+            typedef Unit<T2> Result;
         };
     };
 

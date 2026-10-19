@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////
-// alife_registry_wrapper.h - обертка для реестра, предусматривающая работу
-//							  без alife()
+// alife_registry_wrapper.h - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+//							  пїЅпїЅпїЅ alife()
 ////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -25,10 +25,10 @@ public:
 	const typename _registry_type::_data* objects_ptr(u16 id);
 
 private:
-	//id - владельца реестра
+	//id - пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	u16 holder_id;
 
-	//реестр на случай, если нет ALife (для отладки)
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ ALife (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	//	typename _registry_type::_data	local_registry;
 	typename _registry_type::OBJECT_REGISTRY local_registry;
 };
@@ -43,7 +43,7 @@ const typename _registry_type::_data* CALifeRegistryWrapper<_registry_type>::obj
 		if (I == local_registry.end())
 		{
 			typename _registry_type::_data new_registry;
-			std::pair<_registry_type::iterator, bool> p = local_registry.insert(std::make_pair(id, new_registry));
+			std::pair<typename _registry_type::iterator, bool> p = local_registry.insert(std::make_pair(id, new_registry)); // inner typename required
 			VERIFY(p.second);
 			return &(*local_registry.find(id)).second;
 		}
@@ -66,7 +66,7 @@ typename _registry_type::_data& CALifeRegistryWrapper<_registry_type>::objects(u
 		if (I == local_registry.end())
 		{
 			typename _registry_type::_data new_registry;
-			std::pair<_registry_type::iterator, bool> p = local_registry.insert(std::make_pair(id, new_registry));
+			std::pair<typename _registry_type::iterator, bool> p = local_registry.insert(std::make_pair(id, new_registry)); // inner typename required
 			VERIFY(p.second);
 			return (*local_registry.find(id)).second;
 		}

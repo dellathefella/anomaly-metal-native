@@ -20,7 +20,7 @@
 		typename _data_storage\
 	>
 
-#define CFixedVertexManager	CVertexManagerFixed<_path_id_type,_index_type,mask>::CDataStorage<_vertex,_index_vertex,_data_storage>
+#define CFixedVertexManager	CVertexManagerFixed<_path_id_type,_index_type,mask>::template CDataStorage<_vertex,_index_vertex,_data_storage> // ::template: dependent qualified member template
 
 TEMPLATE_SPECIALIZATION
 IC CFixedVertexManager::CDataStorage(const u32 vertex_count) :

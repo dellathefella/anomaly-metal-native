@@ -188,18 +188,21 @@ void CCustomDevice::OnStateSwitch(u32 S, u32 oldState)
 	{
 		m_bZoomed = true;
 
-		HudAnimationExist(m_bOldZoom ? "anm_zoom_in" : "anm_zoom")
-			? PlayHUDMotion(m_bOldZoom ? "anm_zoom_in" : "anm_zoom", TRUE, this, GetState())
-			: SwitchState(eIdleZoom);
+		// clang: ternary with mismatched (u32/void) operand types — MSVC extension
+		if (HudAnimationExist(m_bOldZoom ? "anm_zoom_in" : "anm_zoom"))
+			PlayHUDMotion(m_bOldZoom ? "anm_zoom_in" : "anm_zoom", TRUE, this, GetState());
+		else
+			SwitchState(eIdleZoom);
 		SetPending(FALSE);
 	}
 	break;
 	case eIdleZoomOut:
 	{
 		m_bZoomed = false;
-		HudAnimationExist(m_bOldZoom ? "anm_zoom_out" : "anm_zoom")
-			? PlayHUDMotion(m_bOldZoom ? "anm_zoom_out" : "anm_zoom", TRUE, this, GetState())
-			: SwitchState(eIdle);
+		if (HudAnimationExist(m_bOldZoom ? "anm_zoom_out" : "anm_zoom"))
+			PlayHUDMotion(m_bOldZoom ? "anm_zoom_out" : "anm_zoom", TRUE, this, GetState());
+		else
+			SwitchState(eIdle); // clang: ternary with mismatched (u32/void) operands
 		SetPending(FALSE);
 	}
 	break;

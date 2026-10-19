@@ -15,15 +15,17 @@
 namespace AStar
 {
 	template <
-		typename _dist_type,
-		template <typename _T> class T1
+		typename _dist_type_, // renamed: clang rejects the nested self-typedef shadowing
+		template <typename _T> class T1 // an enclosing template parameter (CWG 718 gap)
 	>
 	struct _Vertex
 	{
+		typedef _dist_type_ _dist_type;
+
 		template <typename T2>
 		struct _vertex : public T1<T2>
 		{
-			typedef _dist_type _dist_type;
+			typedef _dist_type_ _dist_type; // explicit: see dijkstra.h note
 
 			_dist_type _g;
 			_dist_type _h;
@@ -54,13 +56,15 @@ template <
 		typename _2
 	>
 	class _builder_allocator_constructor = CBuilderAllocatorConstructor,
+	// nested template-template parameter names carry a trailing underscore:
+	// clang rejects reusing an enclosing template parameter's name (CWG 718 gap)
 	template <
 		typename _1,
 		typename _2,
 		typename _3,
 		template <
-			typename _1,
-			typename _2
+			typename _1_,
+			typename _2_
 		>
 		class _4
 	>
@@ -70,23 +74,23 @@ template <
 		typename _manager,
 		typename _builder,
 		typename _allocator,
-		template <typename _T> class _vertex,
+		template <typename _T> class _vertex_,
 		template <
-			typename _1,
-			typename _2
+			typename _1_,
+			typename _2_
 		>
-		class _builder_allocator_constructor = CBuilderAllocatorConstructor,
+		class _builder_allocator_constructor_ = CBuilderAllocatorConstructor,
 		template <
-			typename _1,
-			typename _2,
-			typename _3,
+			typename _1__,
+			typename _2__,
+			typename _3__,
 			template <
-				typename _1,
-				typename _2
+				typename _1___,
+				typename _2___
 			>
-			class _4
+			class _4_
 		>
-		class _manager_builder_allocator_constructor = CManagerBuilderAllocatorConstructor
+		class _manager_builder_allocator_constructor_ = CManagerBuilderAllocatorConstructor
 	>
 	class _data_storage_constructor = CDataStorageConstructor,
 	typename _iteration_type = u32
@@ -98,7 +102,7 @@ class CAStar : public CDijkstra<
 		_vertex_allocator,
 		euclidian_heuristics,
 		_data_storage_base,
-		AStar::_Vertex<_dist_type, _vertex>::_vertex,
+		AStar::_Vertex<_dist_type, _vertex>::template _vertex,
 		_builder_allocator_constructor,
 		_manager_builder_allocator_constructor,
 		_data_storage_constructor,
@@ -113,14 +117,15 @@ protected:
 		_vertex_allocator,
 		euclidian_heuristics,
 		_data_storage_base,
-		AStar::_Vertex<_dist_type, _vertex>::_vertex,
+		AStar::_Vertex<_dist_type, _vertex>::template _vertex,
 		_builder_allocator_constructor,
 		_manager_builder_allocator_constructor,
 		_data_storage_constructor,
 		_iteration_type
 	> inherited;
-	typedef typename CDataStorage::CGraphVertex CGraphVertex;
-	typedef typename CGraphVertex::_dist_type _dist_type;
+	typedef typename inherited::CDataStorage::CGraphVertex CGraphVertex; // qualified: dependent base (MSVC lookup leak)
+	// self-shadowing "typedef typename CGraphVertex::_dist_type _dist_type;" removed:
+	// CAStar's _dist_type template parameter is the same type and remains visible
 	typedef typename CGraphVertex::_index_type _index_type;
 
 protected:

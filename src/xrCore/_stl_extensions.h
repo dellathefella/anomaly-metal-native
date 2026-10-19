@@ -342,14 +342,15 @@ public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<K, V> > >
+// libc++ requires Allocator::value_type == pair<const K,V> for unordered_map
+template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<const K, V> > >
 class xr_hash_map : public std::unordered_map<K, V, _HashFcn, _EqualKey, allocator>
 {
 public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<K, V> > >
+template <typename K, class V, class _HashFcn = std::hash<K>, class _EqualKey = std::equal_to<K>, typename allocator = xalloc<std::pair<const K, V> > >
 class xr_hash_multimap : public std::unordered_multimap<K, V, _HashFcn, _EqualKey, allocator>
 {
 public:

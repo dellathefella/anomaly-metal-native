@@ -114,13 +114,13 @@ public:
 	float fPHBounceStartVelocity; // ?
 	float fPHBouncing; // ?
 	// shoot&bounce&visibility&flotation
-	float fFlotationFactor; // 0.f - 1.f (1.f-полностью проходимый)
-	float fShootFactor; // 0.f - 1.f (1.f-полностью простреливаемый)
-	float fShootFactorMP; // 0.f - 1.f (1.f-полностью простреливаемый)
+	float fFlotationFactor; // 0.f - 1.f (1.f-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	float fShootFactor; // 0.f - 1.f (1.f-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	float fShootFactorMP; // 0.f - 1.f (1.f-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	float fBounceDamageFactor; // 0.f - 100.f
-	float fInjuriousSpeed; // 0.f - ... (0.f-не отбирает здоровье (скорость уменьшения здоровья))
-	float fVisTransparencyFactor; // 0.f - 1.f (1.f-полностью прозрачный)
-	float fSndOcclusionFactor; // 0.f - 1.f (1.f-полностью слышен)
+	float fInjuriousSpeed; // 0.f - ... (0.f-пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ))
+	float fVisTransparencyFactor; // 0.f - 1.f (1.f-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+	float fSndOcclusionFactor; // 0.f - 1.f (1.f-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 	float fDensityFactor;
 public:
 	SGameMtl()
@@ -392,11 +392,11 @@ public:
 
 #ifdef DEBUG
 #define CLONE_MTL_SOUND_CHECK(_res_, _mtl_pair_, _a_vector_)\
- { VERIFY2(!_mtl_pair_##->_a_vector_.empty(),_mtl_pair_->dbg_Name()); }
+ { VERIFY2(!_mtl_pair_->_a_vector_.empty(),_mtl_pair_->dbg_Name()); } // ## before -> is invalid (MSVC tolerated it)
 #endif
 
 #define CLONE_MTL_SOUND_DO(_res_, _mtl_pair_, _a_vector_)\
- { _res_.clone(GET_RANDOM(_mtl_pair_##->_a_vector_),st_Effect,sg_SourceType); }
+ { _res_.clone(GET_RANDOM(_mtl_pair_->_a_vector_),st_Effect,sg_SourceType); } // ## before -> is invalid (MSVC tolerated it)
 
 extern MTL_EXPORT_API CGameMtlLibrary GMLib;
 

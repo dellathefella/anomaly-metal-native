@@ -20,8 +20,10 @@
 
 #include "ui/UICDkey.h"
 
+#ifdef _WIN32
 #include <shellapi.h>
 #pragma comment(lib, "shell32.lib")
+#endif
 
 #include "object_broker.h"
 
@@ -891,5 +893,11 @@ demo_info const* CMainMenu::GetDemoInfo(LPCSTR file_name)
 void open_originals_link()
 {
 	LPCSTR params = "/C start https://www.stalker-game.com/en/available-on";
+#ifdef _WIN32
 	ShellExecute(0, "open", "cmd.exe", params, NULL, SW_SHOW);
+#else
+	// macOS: open the URL in the default browser (params prefix is cmd.exe-specific)
+	(void)params;
+	std::system("open https://www.stalker-game.com/en/available-on");
+#endif
 }

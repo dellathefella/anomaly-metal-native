@@ -14,9 +14,11 @@ template <
 	typename _manager,
 	typename _builder,
 	typename _allocator,
+	// inner names carry a trailing underscore: clang rejects reusing the
+	// enclosing template parameter names (CWG 718 gap)
 	template <
-		typename _builder,
-		typename _allocator
+		typename _builder_,
+		typename _allocator_
 	>
 	class _builder_allocator_constructor = CBuilderAllocatorConstructor
 >

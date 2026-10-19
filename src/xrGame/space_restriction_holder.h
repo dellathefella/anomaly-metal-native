@@ -17,7 +17,7 @@ class intrusive_ptr;
 namespace RestrictionSpace
 {
 	struct CTimeIntrusiveBase;
-	enum ERestrictorTypes;
+	enum ERestrictorTypes : int; // opaque: never defined in-tree, used by reference only
 };
 
 namespace SpaceRestrictionHolder

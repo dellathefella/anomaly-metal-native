@@ -134,6 +134,9 @@ public:
 	}
 };
 
+class TProperties; // fwd: PropItem below only introduces it via `friend`, which
+                   // ordinary lookup cannot see (MSVC tolerated the use anyway)
+
 class PropItem
 {
 	friend class CPropHelper;
@@ -564,6 +567,10 @@ typedef CustomValue<Fcolor> ColorValue;
 template <class T>
 class NumericValue : public CustomValue<T>
 {
+public:
+	// clang: bring the dependent base's members into scope for unqualified use
+	using CustomValue<T>::value;
+	using CustomValue<T>::init_value;
 public:
 	T lim_mn;
 	T lim_mx;

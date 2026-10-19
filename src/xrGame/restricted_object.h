@@ -16,7 +16,7 @@ class CGameObject;
 
 namespace RestrictionSpace
 {
-	enum ERestrictorTypes;
+	enum ERestrictorTypes : int; // opaque: never defined in-tree, used by reference only
 };
 
 template <bool add>

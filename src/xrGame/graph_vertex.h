@@ -10,15 +10,18 @@
 
 #include "object_broker.h"
 
+// Parameter renamed with trailing underscore: clang rejects the member
+// typedef shadowing a template parameter (CWG 718 gap); the typedef below
+// keeps the original name working for all qualified uses.
 template <
 	typename _data_type,
-	typename _vertex_id_type,
+	typename _vertex_id_type_,
 	typename _graph_type
 >
 class CVertex
 {
 public:
-	typedef _vertex_id_type _vertex_id_type;
+	typedef _vertex_id_type_ _vertex_id_type;
 	typedef typename _graph_type::CEdge _edge_type;
 	typedef typename _edge_type::_edge_weight_type _edge_weight_type;
 	typedef xr_vector<_edge_type> EDGES;

@@ -255,7 +255,7 @@ struct parameters_tuple4
 		return *this;
 	}
 
-	bool operator ==(parameters_tuple3 const& right) const
+	bool operator ==(parameters_tuple4 const& right) const // original said tuple3 (MSVC never instantiated it)
 	{
 		return (m_t1 == right.m_t1) &&
 			(m_t2 == right.m_t2) &&

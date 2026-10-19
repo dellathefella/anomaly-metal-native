@@ -20,15 +20,15 @@ class CScriptGameObject;
 template <
 	typename _object_type,
 	bool _reverse_search = false,
-	typename _world_operator = CActionBase<_object_type>,
-	typename _condition_evaluator = CPropertyEvaluator<_object_type>,
-	typename _world_operator_ptr = _world_operator*,
+	typename _world_operator_ = CActionBase<_object_type>, // renamed: the member
+	typename _condition_evaluator = CPropertyEvaluator<_object_type>, // typedef below shadows this
+	typename _world_operator_ptr = _world_operator_*,     // template parameter (CWG 718 gap)
 	typename _condition_evaluator_ptr = _condition_evaluator*>
 class CActionPlanner :
 	public CProblemSolver<
 		GraphEngineSpace::CWorldProperty,
 		GraphEngineSpace::CWorldState,
-		_world_operator,
+		_world_operator_,
 		_condition_evaluator,
 		u32,
 		_reverse_search,
@@ -40,7 +40,7 @@ public:
 	typedef CProblemSolver<
 		GraphEngineSpace::CWorldProperty,
 		GraphEngineSpace::CWorldState,
-		_world_operator,
+		_world_operator_,
 		_condition_evaluator,
 		u32,
 		_reverse_search,
@@ -51,7 +51,7 @@ public:
 	typedef typename inherited::_edge_type _action_id_type;
 	typedef GraphEngineSpace::CWorldProperty CWorldProperty;
 	typedef GraphEngineSpace::CWorldState CWorldState;
-	typedef _world_operator _world_operator;
+	typedef _world_operator_ _world_operator; // re-exposed original name
 
 protected:
 	bool m_initialized;

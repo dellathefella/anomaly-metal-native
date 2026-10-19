@@ -12,8 +12,8 @@
 #include "data_storage_constructor.h"
 
 template <
-	typename _dist_type,
-	typename _priority_queue,
+	typename _dist_type_, // renamed: nested/member typedefs below shadow the
+	typename _priority_queue, // enclosing template parameter (CWG 718 gap);
 	typename _vertex_manager,
 	typename _vertex_allocator,
 	bool euclidian_heuristics = true,
@@ -24,13 +24,15 @@ template <
 		typename _2
 	>
 	class _builder_allocator_constructor = CBuilderAllocatorConstructor,
+	// nested template-template parameter names carry a trailing underscore:
+	// clang rejects reusing an enclosing template parameter's name (CWG 718 gap)
 	template <
 		typename _1,
 		typename _2,
 		typename _3,
 		template <
-			typename _1,
-			typename _2
+			typename _1_,
+			typename _2_
 		>
 		class _4
 	>
@@ -40,23 +42,23 @@ template <
 		typename _manager,
 		typename _builder,
 		typename _allocator,
-		template <typename _T> class _vertex,
+		template <typename _T> class _vertex_,
 		template <
-			typename _1,
-			typename _2
+			typename _1_,
+			typename _2_
 		>
-		class _builder_allocator_constructor = CBuilderAllocatorConstructor,
+		class _builder_allocator_constructor_ = CBuilderAllocatorConstructor,
 		template <
-			typename _1,
-			typename _2,
-			typename _3,
+			typename _1_,
+			typename _2_,
+			typename _3_,
 			template <
-				typename _1,
-				typename _2
+				typename _1__,
+				typename _2__
 			>
-			class _4
+			class _4_
 		>
-		class _manager_builder_allocator_constructor = CManagerBuilderAllocatorConstructor
+		class _manager_builder_allocator_constructor_ = CManagerBuilderAllocatorConstructor
 	>
 	class _data_storage_constructor = CDataStorageConstructor,
 	typename _iteration_type = u32
@@ -64,10 +66,13 @@ template <
 class CDijkstra
 {
 public:
+	typedef _dist_type_ _dist_type; // re-expose original name for class body + nested typedefs
+
 	template <typename T1>
 	struct _Vertex : public _vertex<T1>
 	{
-		typedef _dist_type _dist_type;
+	// explicit _dist_type_ initializer: enclosing class now has a same-named typedef
+		typedef _dist_type_ _dist_type;
 
 		_dist_type _f;
 		T1* _back;

@@ -29,7 +29,7 @@ typedef u32 CLBits;
 struct dMass;
 
 
-enum motion_history_state
+enum motion_history_state : u32 // fixed underlying type: matches opaque fwd decl in imotion_position.h
 {
 	mh_clear = 0,
 	mh_unspecified,

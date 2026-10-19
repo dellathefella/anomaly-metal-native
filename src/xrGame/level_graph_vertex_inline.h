@@ -358,7 +358,7 @@ IC void CLevelGraph::intersect(SSegment& tSegment, const SContour& tContour0, co
 
 IC float CLevelGraph::nearest(Fvector& Dest, const Fvector& P, const Fvector& A, const Fvector& B) const
 {
-	// Determine t (the length of the xr_vector from ‘a’ to ‘p’)
+	// Determine t (the length of the xr_vector from ï¿½aï¿½ to ï¿½pï¿½)
 	Fvector c;
 	c.sub(P, A);
 	Fvector V;
@@ -369,7 +369,7 @@ IC float CLevelGraph::nearest(Fvector& Dest, const Fvector& P, const Fvector& A,
 	V.div(d);
 	float t = V.dotproduct(c);
 
-	// Check to see if ‘t’ is beyond the extents of the line segment
+	// Check to see if ï¿½tï¿½ is beyond the extents of the line segment
 	if (t <= 0.0f)
 	{
 		Dest.set(A);
@@ -381,7 +381,7 @@ IC float CLevelGraph::nearest(Fvector& Dest, const Fvector& P, const Fvector& A,
 		return P.distance_to_sqr(Dest);
 	}
 
-	// Return the point between ‘a’ and ‘b’
+	// Return the point between ï¿½aï¿½ and ï¿½bï¿½
 	// set length of V to t. V is normalized so this is easy
 	Dest.mad(A, V, t);
 	return P.distance_to_sqr(Dest);
@@ -394,7 +394,7 @@ IC void CLevelGraph::contour(CLevelGraph::SContour& _contour, u32 vertex_id) con
 
 IC void CLevelGraph::contour(CLevelGraph::SContour& _contour, const CLevelGraph::CVertex* vertex) const
 {
-	Fvector vertex_position = this->vertex_position(vertex->p);
+	Fvector vertex_position = this->vertex_position(vertex->position()); // via accessor: p is private-inherited
 
 	// decompress plane
 	Fplane plane;

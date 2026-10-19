@@ -290,7 +290,7 @@ void item_respawn_manager::add_new_rpoint(shared_str profile_sect, RPoint const&
 void item_respawn_manager::check_to_delete(u16 item_id)
 {
 	respawn_iter temp_iter = std::find_if(m_respawns.begin(), m_respawns.end(),
-	                                      std::bind2nd(search_by_id_predicate(), item_id));
+	                                      [&](spawn_item const& s) { return search_by_id_predicate()(s, item_id); }); // std::bind2nd removed in C++17
 
 	if (temp_iter != m_respawns.end())
 	{

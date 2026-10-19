@@ -296,7 +296,7 @@ struct CLoader
 	template <typename T>
 	IC static void load_data(T& data, M& stream, const P& p)
 	{
-		CHelper4<T>::load_data < object_type_traits::is_stl_container<T>::value > (data, stream, p);
+		CHelper4<T>::template load_data < object_type_traits::is_stl_container<T>::value > (data, stream, p);
 	}
 };
 

@@ -606,6 +606,18 @@ inline BOOL ScreenToClient(HWND hwnd, LPPOINT p)
     return TRUE;
 }
 
+inline BOOL ClientToScreen(HWND hwnd, LPPOINT p) // inverse of ScreenToClient above
+{
+    if (!hwnd)
+        return TRUE;
+    int x = 0, y = 0;
+    if (SDL_Window* win = xr_sdl_window_of(hwnd))
+        SDL_GetWindowPosition(win, &x, &y);
+    p->x += x;
+    p->y += y;
+    return TRUE;
+}
+
 inline BOOL AdjustWindowRect(LPRECT r, unsigned long /*style*/, BOOL /*menu*/)
 {
     // SDL sizes are client sizes; add a nominal title-bar allowance so the

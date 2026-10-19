@@ -37,15 +37,15 @@
 #include "antirad.h"
 #include "BottleItem.h"
 
-enum EPdaMsg;
-enum ESoundTypes;
-enum ETaskState;
+enum EPdaMsg : u32;
+enum ESoundTypes : u32;
+enum ETaskState : u32;
 
-namespace ALife { enum ERelationType; }
-namespace ScriptEntity { enum EActionType; }
-namespace MovementManager { enum EPathType; }
-namespace DetailPathManager { enum EDetailPathType; }
-namespace SightManager { enum ESightType; }
+namespace ALife { enum ERelationType : u32; }
+namespace ScriptEntity { enum EActionType : u32; }
+namespace MovementManager { enum EPathType : u32; }
+namespace DetailPathManager { enum EDetailPathType : u32; }
+namespace SightManager { enum ESightType : u32; }
 namespace smart_cover { class object; }
 namespace doors { class door; }
 
@@ -53,8 +53,8 @@ class NET_Packet;
 class CGameTask;
 
 namespace PatrolPathManager {
-	enum EPatrolStartType;
-	enum EPatrolRouteType;
+	enum EPatrolStartType : u32;
+	enum EPatrolRouteType : u32;
 };
 
 namespace MemorySpace {
@@ -66,25 +66,25 @@ namespace MemorySpace {
 };
 
 namespace MonsterSpace {
-	enum EBodyState;
-	enum EMovementType;
-	enum EMovementDirection;
-	enum EDirectionType;
-	enum EPathState;
-	enum EObjectAction;
-	enum EMentalState;
-	enum EScriptMonsterMoveAction;
-	enum EScriptMonsterSpeedParam;
-	enum EScriptMonsterAnimAction;
-	enum EScriptMonsterGlobalAction;
-	enum EScriptSoundAnim;
-	enum EMonsterSounds;
-	enum EMonsterHeadAnimType;
+	enum EBodyState : u32;
+	enum EMovementType : u32;
+	enum EMovementDirection : u32;
+	enum EDirectionType : u32;
+	enum EPathState : u32;
+	enum EObjectAction : u32;
+	enum EMentalState : u32;
+	enum EScriptMonsterMoveAction : u32;
+	enum EScriptMonsterSpeedParam : u32;
+	enum EScriptMonsterAnimAction : u32;
+	enum EScriptMonsterGlobalAction : u32;
+	enum EScriptSoundAnim : u32;
+	enum EMonsterSounds : u32;
+	enum EMonsterHeadAnimType : u32;
 	struct SBoneRotation;
 };
 
 namespace GameObject {
-	enum ECallbackType;
+	enum ECallbackType : u32;
 };
 
 class CGameObject;
@@ -140,7 +140,7 @@ class CScriptGameObject;
 
 namespace SightManager
 {
-	enum ESightType;
+	enum ESightType : u32;
 }
 
 struct CSightParams
@@ -343,7 +343,7 @@ public:
 	bool inv_box_can_take(bool status);
 	bool inv_box_can_take_status();
 
-	//передача порции информации InventoryOwner
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ InventoryOwner
 	bool GiveInfoPortion(LPCSTR info_id);
 	bool DisableInfoPortion(LPCSTR info_id);
 	void GiveGameNews(LPCSTR caption, LPCSTR news, LPCSTR texture_name, int delay, int show_time);
@@ -353,10 +353,10 @@ public:
 	{
 	};
 	void AddIconedTalkMessage(LPCSTR caption, LPCSTR text, LPCSTR texture_name, LPCSTR templ_name);
-	//предикаты наличия/отсутствия порции информации у персонажа
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	bool HasInfo(LPCSTR info_id);
 	bool DontHasInfo(LPCSTR info_id);
-	//работа с заданиями
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ETaskState GetGameTaskState(LPCSTR task_id);
 	void SetGameTaskState(ETaskState state, LPCSTR task_id);
 	void GiveTaskToActor(CGameTask* t, u32 dt, bool bCheckExisting, u32 t_timer);

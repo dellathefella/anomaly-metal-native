@@ -12,7 +12,7 @@
 #include "../ik_limb_state_predict.h"
 
 class IKinematics;
-class CDB::TRI;
+namespace CDB { class TRI; } // fwd-decl for CDB::TRI (MSVC accepted `class CDB::TRI;`)
 struct SCalculateData;
 struct SIKCollideData;
 class CGameObject;

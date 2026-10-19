@@ -43,12 +43,12 @@
 
 namespace MonsterSpace
 {
-	enum EMovementDirection;
+	enum EMovementDirection : u32;
 };
 
 namespace StalkerSpace
 {
-	enum EBodyAction;
+	enum EBodyAction : u32;
 };
 
 namespace smart_cover
@@ -62,7 +62,7 @@ namespace smart_cover
 	};
 };
 
-enum ECriticalWoundType;
+enum ECriticalWoundType : u32;
 
 class CALifeSimulator;
 class CCharacterPhysicsSupport;

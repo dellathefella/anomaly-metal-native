@@ -27,8 +27,8 @@
 			typename _2,\
 			typename _3,\
 			template <\
-				typename _1,\
-				typename _2\
+				typename _1_,\
+				typename _2_\
 			>\
 			class	 _4\
 		>\
@@ -38,23 +38,23 @@
 			typename _manager,\
 			typename _builder,\
 			typename _allocator,\
-			template <typename _T> class _vertex,\
+			template <typename _T> class _vertex_,\
 			template <\
-				typename _1,\
-				typename _2\
+				typename _1_,\
+				typename _2_\
 			>\
-			class	 _builder_allocator_constructor,\
+			class	 _builder_allocator_constructor_,\
 			template <\
-				typename _1,\
-				typename _2,\
-				typename _3,\
+				typename _1__,\
+				typename _2__,\
+				typename _3__,\
 				template <\
-					typename _1,\
-					typename _2\
+					typename _1___,\
+					typename _2___\
 				>\
-				class	 _4\
+				class	 _4_\
 			>\
-			class	 _manager_builder_allocator_constructor\
+			class	 _manager_builder_allocator_constructor_\
 		>\
 		class _data_storage_constructor,\
 		typename _iteration_type\

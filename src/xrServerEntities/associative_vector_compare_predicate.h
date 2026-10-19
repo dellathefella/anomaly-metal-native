@@ -19,9 +19,8 @@ private:
 	typedef _compare_predicate_type inherited;
 
 public:
-	typedef _key_type _key_type;
-	typedef _data_type _data_type;
-	typedef _compare_predicate_type _compare_predicate_type;
+	// (self-aliases of the template parameters dropped: clang rejects the
+	//  shadowing redecls; the parameter names are member types anyway)
 
 public:
 	typedef std::pair<_key_type, _data_type> value_type;

@@ -147,6 +147,12 @@ typedef LARGE_INTEGER* PLARGE_INTEGER;
 
 typedef HANDLE* LPHANDLE;
 
+// MSVC's <combaseapi.h> defines `interface` as `struct` (used by X-Ray's
+// COM-ish interface declarations).
+#ifndef interface
+#define interface struct
+#endif
+
 #ifndef INFINITE
 #define INFINITE 0xFFFFFFFF
 #endif

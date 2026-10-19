@@ -11,7 +11,7 @@
 #include "actor.h"
 
 
-//загрузка из XML файла
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ XML пїЅпїЅпїЅпїЅпїЅ
 void CDialogScriptHelper::Load(CUIXml* uiXml, XML_NODE* phrase_node)
 {
 	LoadSequence(uiXml, phrase_node, "precondition", m_Preconditions);
@@ -41,7 +41,8 @@ bool CDialogScriptHelper::CheckInfo(const CInventoryOwner* pOwner) const
 {
 	THROW(pOwner);
 
-	for (u32 i = 0; i < m_HasInfo.size(); ++i)
+	u32 i; // clang: hoisted (MSVC leaked `i` out of the for-scope; used by the loop below)
+	for (i = 0; i < m_HasInfo.size(); ++i)
 	{
 		if (!Actor()->HasInfo(m_HasInfo[i]))
 		{
@@ -72,7 +73,8 @@ void CDialogScriptHelper::TransferInfo(const CInventoryOwner* pOwner) const
 {
 	THROW(pOwner);
 
-	for (u32 i = 0; i < m_GiveInfo.size(); ++i)
+	u32 i; // clang: hoisted (MSVC leaked `i` out of the for-scope; used by the loop below)
+	for (i = 0; i < m_GiveInfo.size(); ++i)
 		Actor()->TransferInfo(m_GiveInfo[i], true);
 
 	for (i = 0; i < m_DisableInfo.size(); ++i)

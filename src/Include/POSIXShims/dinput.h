@@ -206,6 +206,22 @@ typedef struct HINSTANCE__* LPDIRECTINPUT_VERSION_UNUSED; // keep HINSTANCE-styl
 #define DIK_MULTIPLY 0x37
 #define DIK_LMENU 0x38
 #define DIK_SPACE 0x39
+// international/JIS keys (values from the DirectInput scancode set; exposed to
+// Lua in key_binding_registrator_script.cpp and xr_level_controller.cpp)
+#define DIK_KANA 0x70
+#define DIK_CONVERT 0x79
+#define DIK_NOCONVERT 0x7B
+#define DIK_YEN 0x7D
+#define DIK_NUMPADEQUALS 0x8E
+#define DIK_CIRCUMFLEX 0x90
+#define DIK_AT 0x91
+#define DIK_COLON 0x92
+#define DIK_UNDERLINE 0x93
+#define DIK_KANJI 0x94
+#define DIK_STOP 0x95
+#define DIK_AX 0x96
+#define DIK_UNLABELED 0x97
+#define DIK_CAPSLOCK 0x3A
 #define DIK_CAPITAL 0x3A
 #define DIK_F1 0x3B
 #define DIK_F2 0x3C

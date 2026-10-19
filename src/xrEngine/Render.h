@@ -3,6 +3,7 @@
 
 #include "../xrCDB/frustum.h"
 #include "vis_common.h"
+#include "../xrCore/FTimer.h" // p4: CStatTimer for IRender_interface::RenderStatistics
 //#include "IRenderDetailModel.h"
 
 #include "../Include/xrAPI/xrAPI.h"
@@ -177,6 +178,16 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 // definition (Renderer)
+
+// p4 GL-renderer port: OpenXRay's device-state enum (its render.h spells the
+// renderer interface IRender; see the typedef at the bottom of this header).
+enum class DeviceState
+{
+	Normal = 0,
+	Lost,
+	NeedReset
+};
+
 class ENGINE_API IRender_interface
 {
 public:
@@ -203,6 +214,114 @@ public:
 		SM_forcedword = u32(-1)
 	};
 
+	// p4 GL-renderer port: nested types from OpenXRay's IRender. Layout-safe
+	// (no new virtuals); ScopedContext is a no-op because the SDL port keeps a
+	// single current GL context per thread that renders.
+	enum class BackendAPI : u32
+	{
+		D3D9,
+		D3D10,
+		D3D11,
+		OpenGL
+	};
+
+	enum RenderContext
+	{
+		NoContext = -1,
+		PrimaryContext,
+		HelperContext
+	};
+
+	class ScopedContext
+	{
+		RenderContext previousContext;
+
+	public:
+		ScopedContext(RenderContext context) : previousContext(context) {}
+		~ScopedContext() {}
+	};
+
+	// p4 GL-renderer port: OpenXRay's per-frame stats block (D3DXRenderBase
+	// holds one; the monolith CStatTimer in xrCore/FTimer.h is compatible).
+	struct RenderStatistics
+	{
+		CStatTimer Culling; // portal traversal, frustum culling, entities "renderable_Render"
+		CStatTimer Animation; // skeleton calculation
+		CStatTimer Primitives; // actual primitive rendering
+		CStatTimer Wait; // ...waiting something back (queries results, etc.)
+		CStatTimer WaitS; // ...frame-limit sync
+		CStatTimer RenderTargets; // ...render-targets
+		CStatTimer Skinning; // ...skinning
+		CStatTimer DetailVisibility; // ...details visibility detection
+		CStatTimer DetailRender; // ...details rendering
+		CStatTimer DetailCache; // ...details slot cache access
+		u32 DetailCount; // ...number of DT-elements
+		CStatTimer Wallmarks; // ...wallmark sorting, rendering
+		u32 StaticWMCount; // ...number of static wallmark
+		u32 DynamicWMCount; // ...number of dynamic wallmark
+		u32 WMTriCount; // ...number of wallmark tri
+		CStatTimer HUD; // ...hud rendering
+		CStatTimer Glows; // ...glows vis-testing,sorting,render
+		CStatTimer Lights; // ...d-lights building/rendering
+		CStatTimer Projectors; // ...projectors building
+		CStatTimer ShadowsCalc; // ...shadows building
+		CStatTimer ShadowsRender; // ...render shadow
+		u32 OcclusionQueries;
+		u32 OcclusionCulled;
+
+		void FrameStart()
+		{
+			Culling.FrameStart();
+			Animation.FrameStart();
+			Primitives.FrameStart();
+			Wait.FrameStart();
+			WaitS.FrameStart();
+			RenderTargets.FrameStart();
+			Skinning.FrameStart();
+			DetailVisibility.FrameStart();
+			DetailRender.FrameStart();
+			DetailCache.FrameStart();
+			DetailCount = 0;
+			Wallmarks.FrameStart();
+			StaticWMCount = 0;
+			DynamicWMCount = 0;
+			WMTriCount = 0;
+			HUD.FrameStart();
+			Glows.FrameStart();
+			Lights.FrameStart();
+			Projectors.FrameStart();
+			ShadowsCalc.FrameStart();
+			ShadowsRender.FrameStart();
+			OcclusionQueries = 0;
+			OcclusionCulled = 0;
+		}
+
+		void FrameEnd()
+		{
+			Culling.FrameEnd();
+			Animation.FrameEnd();
+			Primitives.FrameEnd();
+			Wait.FrameEnd();
+			WaitS.FrameEnd();
+			RenderTargets.FrameEnd();
+			Skinning.FrameEnd();
+			DetailVisibility.FrameEnd();
+			DetailRender.FrameEnd();
+			DetailCache.FrameEnd();
+			Wallmarks.FrameEnd();
+			HUD.FrameEnd();
+			Glows.FrameEnd();
+			Lights.FrameEnd();
+			Projectors.FrameEnd();
+			ShadowsCalc.FrameEnd();
+			ShadowsRender.FrameEnd();
+		}
+	};
+
+	// p4 GL-renderer port: device state query (OpenXRay IRender). Safe to add
+	// here: every dylib is rebuilt from this header (no shipped renderer).
+	virtual DeviceState GetDeviceState() = 0;
+
 	enum RRT
 	{
 		rtPDA = 1,
@@ -213,6 +332,8 @@ public:
 public:
 	// options
 	s32 m_skinning;
+	// p4 GL-renderer port: OpenXRay high-quality skinning toggle
+	bool m_hq_skinning{ true };
 	s32 m_MSAASample;
 
 	BENCH_SEC_SCRAMBLEMEMBER1

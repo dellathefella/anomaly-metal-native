@@ -9,7 +9,9 @@
 // Platform{Apple,Linux,BSD}.inl's `typedef uint32_t DWORD;` coexists fine.
 #include <cstdint>
 #ifndef _WIN32
+typedef uint16_t WORD;
 typedef uint32_t DWORD;
+typedef int32_t LONG;
 #endif
 
 /* Macro to deal with LP64 <=> LLP64 differences in numeric constants with 'l' modifier */

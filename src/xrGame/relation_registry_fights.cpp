@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////
-// relation_registry_fights.cpp:	реестр для хранения данных об отношении персонажа к 
-//									другим персонажам
+// relation_registry_fights.cpp:	пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ 
+//									пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -28,7 +28,8 @@ void RELATION_REGISTRY::FightRegister(u16 attacker, u16 defender, ALife::ERelati
 	UpdateFightRegister();
 
 	FIGHT_VECTOR& fights = fight_registry();
-	for (FIGHT_VECTOR_IT it = fights.begin(); it != fights.end(); it++)
+	FIGHT_VECTOR_IT it = fights.begin(); // clang: used after the loop (MSVC for-scope leak)
+	for (; it != fights.end(); it++)
 	{
 		FIGHT_DATA& fight_data = *it;
 		if (attacker == fight_data.attacker && defender == fight_data.defender)
@@ -55,7 +56,8 @@ void RELATION_REGISTRY::FightRegister(u16 attacker, u16 defender, ALife::ERelati
 RELATION_REGISTRY::FIGHT_DATA* RELATION_REGISTRY::FindFight(u16 object_id, bool by_attacker)
 {
 	FIGHT_VECTOR& fights = fight_registry();
-	for (FIGHT_VECTOR_IT it = fights.begin(); it != fights.end(); it++)
+	FIGHT_VECTOR_IT it = fights.begin(); // clang: used after the loop (MSVC for-scope leak)
+	for (; it != fights.end(); it++)
 	{
 		FIGHT_DATA& fight_data = *it;
 		u16 id_to_find = by_attacker ? fight_data.attacker : fight_data.defender;
@@ -71,7 +73,7 @@ RELATION_REGISTRY::FIGHT_DATA* RELATION_REGISTRY::FindFight(u16 object_id, bool 
 
 bool fight_time_pred(RELATION_REGISTRY::FIGHT_DATA& fight_data)
 {
-	//(c) время которое про драку помнит реестр (иначе считать неактуальным)
+	//(c) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	static u32 fight_remember_time = u32(1000.f * pSettings->r_float(ACTIONS_POINTS_SECT, "fight_remember_time"));
 
 	u32 time_delta = Device.dwTimeGlobal - fight_data.time;

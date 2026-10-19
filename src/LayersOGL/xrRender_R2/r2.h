@@ -392,6 +392,29 @@ public:
 public:
     // feature level
     GenerationLevel GetGeneration() const { return IRender::GENERATION_R2; } // p4: monolith base spells get_generation()
+
+    // p4: monolith IRender_interface surface that dev removed; the engine's
+    // HUD/camera/particle paths (::Render->set_Transform + set_Object +
+    // add_Visual + set_HUD) need it. State feeds the per-context dsgraph the
+    // way dev's add_leafs_dynamic does.
+    GenerationLevel get_generation() override { return IRender_interface::GENERATION_R2; }
+    HRESULT shader_compile(LPCSTR name, DWORD const* pSrcData, UINT SrcDataLen, LPCSTR pFunctionName, LPCSTR pTarget, DWORD Flags, void*& result) override;
+    IRender_Sector* getSector(int id) override;
+    IRender_Sector* detectSector(const Fvector& P) override;
+    IRender_Target* getTarget() override { return Target; }
+    void set_Transform(Fmatrix* M) override { m_p4_xform = M; }
+    void set_HUD(BOOL V) override { m_p4_hud = (V != FALSE); }
+    BOOL get_HUD() override { return m_p4_hud ? TRUE : FALSE; }
+    void set_Invisible(BOOL V) override { m_p4_invisible = (V != FALSE); }
+    void flush() override;
+    void set_Object(IRenderable* O) override { m_p4_object = O; }
+    void add_Occluder(Fbox2& bb_screenspace) override { (void)bb_screenspace; } // p4: dev HOM has no manual occlusion
+    void add_Visual(IRenderVisual* V) override;
+
+    Fmatrix* m_p4_xform{ nullptr };
+    bool m_p4_hud{ false };
+    bool m_p4_invisible{ false };
+    IRenderable* m_p4_object{ nullptr };
     bool is_sun_static() override { return o.sunstatic; }
 
 #if defined(USE_DX11)

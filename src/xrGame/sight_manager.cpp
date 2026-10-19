@@ -286,8 +286,10 @@ void CSightManager::update()
 
 void CSightManager::remove_links(CObject* object)
 {
-	setup_actions::iterator I = actions().begin();
-	setup_actions::iterator E = actions().end();
+	// p4: base's `setup_actions` typedef is private (MSVC let it slide);
+	// deduce from the protected accessor instead.
+	auto I = actions().begin();
+	auto E = actions().end();
 	for (; I != E; ++I)
 		(*I).second->remove_links(object);
 }

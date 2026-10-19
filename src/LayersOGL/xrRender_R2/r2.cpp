@@ -758,6 +758,42 @@ IRender_Glow* CRender::glow_create() { return xr_new<CGlow>(); }
 BOOL CRender::occ_visible(vis_data& P) { return HOM.visible(P); }
 BOOL CRender::occ_visible(sPoly& P) { return HOM.visible(P); }
 BOOL CRender::occ_visible(Fbox& P) { return HOM.visible(P); }
+
+// p4: monolith IRender_interface surface (see r2.h block). HUD path:
+// set_Transform/set_Object/set_HUD then add_Visual feeds the dsgraph.
+HRESULT CRender::shader_compile(LPCSTR name, DWORD const* pSrcData, UINT SrcDataLen, LPCSTR pFunctionName, LPCSTR pTarget, DWORD Flags, void*& result)
+{
+    // p4: no engine caller in the monolith tree (dev compiles GLSL through
+    // shader_compile above); refuse rather than fake a D3D blob.
+    (void)name; (void)pSrcData; (void)SrcDataLen; (void)pFunctionName; (void)pTarget; (void)Flags; (void)result;
+    return (HRESULT)0x80004001L; // E_NOTIMPL
+}
+
+IRender_Sector* CRender::getSector(int id)
+{
+    return get_context(R_dsgraph_structure::IMM_CTX_ID).get_sector(id);
+}
+
+IRender_Sector* CRender::detectSector(const Fvector& P)
+{
+    R_dsgraph_structure& ctx = get_context(R_dsgraph_structure::IMM_CTX_ID);
+    const IRender_Sector::sector_id_t id = ctx.detect_sector(P);
+    return id == IRender_Sector::INVALID_SECTOR_ID ? nullptr : ctx.get_sector(id);
+}
+
+void CRender::flush()
+{
+    get_context(R_dsgraph_structure::IMM_CTX_ID).render_graph(0);
+}
+
+void CRender::add_Visual(IRenderVisual* V)
+{
+    // p4: monolith immediate path — root/transform come from set_Object/
+    // set_Transform (HUDManager/player_hud/ParticlesObject).
+    if (!V || !m_p4_object || !m_p4_xform)
+        return;
+    get_context(R_dsgraph_structure::IMM_CTX_ID).add_leafs_dynamic(m_p4_object, (dxRender_Visual*)V, *m_p4_xform);
+}
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {
     // TODO: this whole function should be replaced by a list of renderables+xforms returned from `renderable_Render` call

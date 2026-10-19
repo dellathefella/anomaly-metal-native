@@ -110,8 +110,8 @@ IC void CSSetupManager::select_action()
 		}
 
 		float m_total_weight = 0.f;
-		setup_actions::const_iterator I = actions().begin();
-		setup_actions::const_iterator E = actions().end();
+		typename setup_actions::const_iterator I = actions().begin();
+		typename setup_actions::const_iterator E = actions().end();
 		for (; I != E; ++I)
 			if (((*I).first != m_current_action_id) && (*I).second->applicable())
 				m_total_weight += (*I).second->weight();

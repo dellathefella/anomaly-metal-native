@@ -10,6 +10,9 @@
 #define CHK_GL(expr) expr
 #endif
 
+// OpenXRay's xr_types.h spelling used by the staged layers (xrCore untouched).
+using cpcstr = const char* const;
+
 #pragma warning(disable:4995)
 #include "xrEngine/stdafx.h"
 

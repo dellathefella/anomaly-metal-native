@@ -861,6 +861,16 @@ inline char* itoa(int value, char* buf, int radix)
 	return _itoa(value, buf, radix);
 }
 #endif
+// _itoa_s: secure variant, call form (value, buf, size, radix)
+inline errno_t _itoa_s(int value, char* buf, size_t size, int radix)
+{
+	switch (radix) {
+	case 16: snprintf(buf, size, "%x", value); break;
+	case 8:  snprintf(buf, size, "%o", value); break;
+	default: snprintf(buf, size, "%d", value); break;
+	}
+	return 0;
+}
 #ifndef ultoa
 inline char* ultoa(unsigned long value, char* buf, int radix)
 {

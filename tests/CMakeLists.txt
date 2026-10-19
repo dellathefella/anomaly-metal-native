@@ -9,3 +9,10 @@ set_target_properties(xr_smoke PROPERTIES
     BUILD_RPATH "${CMAKE_BINARY_DIR}/bin"
     INSTALL_RPATH "@loader_path"
 )
+
+add_executable(xr_lua_smoke xr_lua_smoke.cpp)
+target_link_libraries(xr_lua_smoke PRIVATE xrLuaJIT)
+set_target_properties(xr_lua_smoke PROPERTIES
+    BUILD_RPATH "${CMAKE_BINARY_DIR}/bin"
+    INSTALL_RPATH "@loader_path"
+)

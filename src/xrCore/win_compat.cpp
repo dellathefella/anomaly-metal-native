@@ -208,6 +208,16 @@ BOOL xr_CloseHandle(HANDLE h)
         m->closed = true;
         delete m;
     }
+    else if (magic == 0x58527431) // 'XRt1' thread handle
+    {
+        xr_win_thread* t = (xr_win_thread*)h;
+        if (!t->joined)
+        {
+            pthread_join(t->thr, nullptr);
+            t->joined = true;
+        }
+        delete t;
+    }
     return TRUE;
 }
 

@@ -1,7 +1,11 @@
 #ifndef _TTAPI_H_INCLUDED_
 #define _TTAPI_H_INCLUDED_
 
+#ifndef _WIN32
+// POSIX: expects xrCore.h (win_compat types) to be included first via stdafx.
+#else
 #include <windows.h>
+#endif
 
 /*
 	Trivial (and dumb) Threads API

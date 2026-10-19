@@ -80,6 +80,7 @@ DWORD WINAPI ttapiThreadProc(LPVOID lpParameter)
 	return 0;
 }
 
+#ifdef _WIN32
 typedef struct tagTHREADNAME_INFO
 {
 	DWORD dwType;
@@ -105,6 +106,11 @@ void SetThreadName(DWORD dwThreadID, LPCSTR szThreadName)
 	{
 	}
 }
+#else
+// MSVC-only debugger thread naming; no portable equivalent settable from
+// another thread.
+void SetThreadName(DWORD, LPCSTR) {}
+#endif
 
 DWORD ttapi_Init(_processor_info* ID)
 {

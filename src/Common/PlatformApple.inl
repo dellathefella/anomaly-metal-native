@@ -343,6 +343,7 @@ inline int vsnprintf_s(char* buffer, size_t size, size_t, const char* format, va
 #define vsprintf_s(dest, size, format, args) vsprintf(dest, format, args)
 #define _snprintf snprintf
 #define sprintf_s(buffer, buffer_size, stringbuffer, ...) sprintf(buffer, stringbuffer, ##__VA_ARGS__)
+#define sscanf_s sscanf
 //#define GetProcAddress(handle, name) dlsym(handle, name)
 #define _chdir chdir
 #define _strnicmp strnicmp

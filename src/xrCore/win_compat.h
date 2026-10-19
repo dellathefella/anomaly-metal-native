@@ -19,6 +19,7 @@
 
 #include <pthread.h>
 #include <malloc/malloc.h>
+#include <sched.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -32,6 +33,10 @@ typedef unsigned char BYTE;
 #endif
 typedef BYTE* LPBYTE;
 typedef int64_t LONGLONG;
+
+#ifndef VOID
+typedef void VOID;
+#endif
 
 #ifndef INVALID_HANDLE_VALUE
 #define INVALID_HANDLE_VALUE ((HANDLE)(intptr_t)-1)
@@ -168,7 +173,88 @@ inline unsigned long WaitForSingleObject(HANDLE h, unsigned long ms)
     return WAIT_OBJECT_0;
 }
 
-inline unsigned long WaitForMultipleObjects(unsigned long, HANDLE*, BOOL, unsigned long) { return WAIT_OBJECT_0; }
+// ---------------------------------------------------------------------------
+// Threads — CreateThread handles carry an 'XRt1' magic so
+// WaitForMultipleObjects/CloseHandle can tell them from event handles.
+// ---------------------------------------------------------------------------
+struct xr_win_thread
+{
+    uint32_t magic; // 'XRt1'
+    pthread_t thr;
+    bool joined;
+};
+
+typedef unsigned long(WINAPI* xr_thread_start_routine)(void*);
+
+inline void* xr_thread_trampoline(void* arg)
+{
+    void** pair = (void**)arg;
+    xr_thread_start_routine fn = (xr_thread_start_routine)pair[0];
+    void* user = pair[1];
+    delete[] pair;
+    return (void*)(intptr_t)fn(user);
+}
+
+inline HANDLE CreateThread(void*, size_t, xr_thread_start_routine fn, void* arg, unsigned, unsigned* tid)
+{
+    xr_win_thread* t = new xr_win_thread{ 0x58527431, pthread_t(), false };
+    void** pair = new void*[2]{ (void*)fn, arg };
+    if (pthread_create(&t->thr, NULL, xr_thread_trampoline, pair) != 0)
+    {
+        delete[] pair;
+        delete t;
+        return NULL;
+    }
+    if (tid)
+        *tid = (unsigned)(uintptr_t)t; // stable non-zero id; only used for naming
+    return (HANDLE)t;
+}
+
+inline unsigned long WaitForMultipleObjects(unsigned long count, HANDLE* handles, BOOL wait_all, unsigned long ms)
+{
+    for (unsigned long i = 0; i < count; ++i)
+    {
+        HANDLE h = handles[i];
+        if (h && h != INVALID_HANDLE_VALUE && *(uint32_t*)h == 0x58527431) // 'XRt1' thread
+        {
+            xr_win_thread* t = (xr_win_thread*)h;
+            if (!t->joined)
+            {
+                pthread_join(t->thr, nullptr);
+                t->joined = true;
+            }
+            continue;
+        }
+        unsigned long r = WaitForSingleObject(h, ms);
+        if (r != WAIT_OBJECT_0 && wait_all)
+            return r;
+    }
+    return WAIT_OBJECT_0;
+}
+
+// SwitchToThread is provided by Common/PlatformApple.inl (sched_yield).
+
+inline unsigned long GetCurrentThreadId()
+{
+    uint64_t tid = 0;
+    pthread_threadid_np(NULL, &tid);
+    return (unsigned long)tid;
+}
+
+// macOS exposes no public per-thread CPU affinity/priority API: no-ops.
+inline HANDLE GetCurrentThread() { return (HANDLE)(intptr_t)-2; }
+inline BOOL SetPriorityClass(HANDLE, unsigned long) { return TRUE; }
+inline unsigned long GetPriorityClass(HANDLE) { return 0x00000080; /*HIGH_PRIORITY_CLASS*/ }
+inline BOOL SetThreadPriority(HANDLE, int) { return TRUE; }
+inline int GetThreadPriority(HANDLE) { return 0; }
+inline unsigned long SetThreadAffinityMask(HANDLE, unsigned long mask) { return mask; }
+inline BOOL GetProcessAffinityMask(HANDLE, unsigned long* pM, unsigned long* pS)
+{
+    unsigned long m = (1UL << sysconf(_SC_NPROCESSORS_ONLN)) - 1UL;
+    if (pM) *pM = m;
+    if (pS) *pS = m;
+    return TRUE;
+}
 
 // ---------------------------------------------------------------------------
 // Interlocked operations
@@ -186,6 +272,15 @@ inline void* InterlockedCompareExchangePointer(void* volatile* p, void* xchg, vo
 {
     return __sync_val_compare_and_swap(p, compar, xchg);
 }
+
+// MSVC intrinsic spellings (used by xrCPU_Pipe / xrEngine)
+#define _InterlockedIncrement InterlockedIncrement
+#define _InterlockedDecrement InterlockedDecrement
+#define _InterlockedExchange InterlockedExchange
+#define _InterlockedExchangeAdd InterlockedExchangeAdd
+#define _InterlockedCompareExchange InterlockedCompareExchange
+#define _InterlockedExchangePointer InterlockedExchangePointer
+#define _InterlockedCompareExchangePointer InterlockedCompareExchangePointer
 
 // ---------------------------------------------------------------------------
 // Memory helpers

@@ -53,6 +53,16 @@ struct xrImTextureData
 #define R__NUM_SUN_CASCADES (3u)
 #define R__NUM_AUX_CONTEXTS (1u)
 #define R__NUM_PARALLEL_CONTEXTS (R__NUM_SUN_CASCADES + R__NUM_AUX_CONTEXTS)
+#define R__NUM_CONTEXTS (R__NUM_PARALLEL_CONTEXTS + 1/* imm */)
+
+// p4: the IRender boundary (IRender_interface/IRender_Sector/IRender_Light…)
+// must precede the staged layers so every renderer TU sees the same types
+// regardless of staged include order.
+#include "xrEngine/Render.h"
+
+// p4: synchronous task-shim (dev's xrCore/Threading; staged headers use Task
+// by pointer/reference without including it themselves).
+#include "xrCore/Threading/TaskManager.hpp"
 
 #include "Layers/xrRenderGL/CommonTypes.h"
 

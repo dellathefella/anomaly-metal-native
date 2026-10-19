@@ -99,7 +99,7 @@ struct R_dsgraph_structure
     }
     void clear_Counters() { counter_S = counter_D = 0; }
 
-    R_dsgraph_structure() : Sectors_xrc("dsgraph")
+    R_dsgraph_structure() : Sectors_xrc() // p4: dev xrXRC debug-name ctor not in monolith
     {
         r_pmask(true, true);
     };

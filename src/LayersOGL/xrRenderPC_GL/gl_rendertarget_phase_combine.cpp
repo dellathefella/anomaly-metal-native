@@ -89,7 +89,7 @@ void CRenderTarget::phase_combine()
         static Fmatrix m_saved_viewproj;
 
         // (new-camera) -> (world) -> (old_viewproj)
-        m_previous.mul(m_saved_viewproj, xr_inv_view() // p4: dev device member; monolith computes on demand);
+        m_previous.mul(m_saved_viewproj, xr_inv_view());
         m_current.set(Device.mProject);
         m_saved_viewproj.set(Device.mFullTransform);
         float scale = ps_r2_mblur / 2.f;
@@ -112,7 +112,7 @@ void CRenderTarget::phase_combine()
         };
         ambclr.mul(ps_r2_sun_lumscale_amb);
 
-        Fvector4 envclr(envdesc->hemi_color.x, envdesc->hemi_color.y, envdesc->hemi_color.z, 0.f); // p4: monolith hemi_color (dev env_color)
+        Fvector4 envclr = { envdesc->hemi_color.x, envdesc->hemi_color.y, envdesc->hemi_color.z, 0.f }; // p4: monolith hemi_color // p4: monolith hemi_color (dev env_color)
         envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
         envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
@@ -187,7 +187,7 @@ void CRenderTarget::phase_combine()
             RCache.set_Element(s_combine_msaa[0]->E[0]);
         RCache.set_Geometry(g_combine);
 
-        RCache.set_c("m_v2w", xr_inv_view() // p4: dev device member; monolith computes on demand);
+        RCache.set_c("m_v2w", xr_inv_view());
         RCache.set_c("L_ambient", ambclr);
 
         RCache.set_c("Ldynamic_color", sunclr);

@@ -155,8 +155,8 @@ void occRasterizer::on_dbg_render()
                 box_r = right_bottom;
                 box_r.sub(box_center);
 
-                xr_inv_view() // p4: dev device member; monolith computes on demand.transform(box_center);
-                xr_inv_view() // p4: dev device member; monolith computes on demand.transform_dir(box_r);
+                xr_inv_view().transform(box_center);
+                xr_inv_view().transform_dir(box_r);
 
                 pixel_box& tmp = dbg_pixel_boxes[i * occ_dim_0 + j];
                 tmp.center = box_center;

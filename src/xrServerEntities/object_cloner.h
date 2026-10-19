@@ -174,7 +174,7 @@ struct CCloner
 		template <bool a>
 		IC static void clone(const T& _1, T& _2)
 		{
-			CHelper<T>::clone < object_type_traits::is_pointer<T>::value > (_1, _2);
+			CHelper<T>::template clone < object_type_traits::is_pointer<T>::value > (_1, _2); // p4: dependent member template
 		}
 
 		template <>

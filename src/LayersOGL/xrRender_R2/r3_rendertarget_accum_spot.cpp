@@ -128,7 +128,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
         Fmatrix xf_view = L->X.S.view;
         Fmatrix xf_project;
         xf_project.mul(m_TexelAdjust, L->X.S.project);
-        m_Shadow.mul(xf_view, xr_inv_view() // p4: dev device member; monolith computes on demand);
+        m_Shadow.mul(xf_view, xr_inv_view());
         m_Shadow.mulA_44(xf_project);
 
         // lmap
@@ -157,7 +157,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
 
         // compute xforms
         xf_project.mul(m_TexelAdjust2, L->X.S.project);
-        m_Lmap.mul(xf_view, xr_inv_view() // p4: dev device member; monolith computes on demand);
+        m_Lmap.mul(xf_view, xr_inv_view());
         m_Lmap.mulA_44(xf_project);
     }
 
@@ -392,7 +392,7 @@ void CRenderTarget::accum_volumetric(CBackend& cmd_list, light* L)
         Fmatrix xf_view = L->X.S.view;
         Fmatrix xf_project;
         xf_project.mul(m_TexelAdjust, L->X.S.project);
-        m_Shadow.mul(xf_view, xr_inv_view() // p4: dev device member; monolith computes on demand);
+        m_Shadow.mul(xf_view, xr_inv_view());
         m_Shadow.mulA_44(xf_project);
 
         // lmap
@@ -421,7 +421,7 @@ void CRenderTarget::accum_volumetric(CBackend& cmd_list, light* L)
 
         // compute xforms
         xf_project.mul(m_TexelAdjust2, L->X.S.project);
-        m_Lmap.mul(xf_view, xr_inv_view() // p4: dev device member; monolith computes on demand);
+        m_Lmap.mul(xf_view, xr_inv_view());
         m_Lmap.mulA_44(xf_project);
 
         // Compute light frustum in world space

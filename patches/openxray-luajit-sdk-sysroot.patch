@@ -1,0 +1,20 @@
+diff --git a/Externals/LuaJIT-proj/CMakeLists.txt b/Externals/LuaJIT-proj/CMakeLists.txt
+index cf6006826..f2fee127d 100644
+--- a/Externals/LuaJIT-proj/CMakeLists.txt
++++ b/Externals/LuaJIT-proj/CMakeLists.txt
+@@ -15,7 +15,14 @@ set(RELVER 5)
+ set(ABIVER 5.1)
+ set(NODOTABIVER 51)
+ 
+-set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
++if (APPLE AND NOT DEFINED CMAKE_OSX_SYSROOT OR CMAKE_OSX_SYSROOT STREQUAL "")
++    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _XR_DEFAULT_SDK OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
++    if (_XR_DEFAULT_SDK)
++        set(CMAKE_OSX_SYSROOT "${_XR_DEFAULT_SDK}")
++    else()
++        set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
++    endif()
++endif()
+ set(LUAJIT_DIR ${XRAY_SOURCE_DIR}/Externals/LuaJIT/src CACHE PATH "Location of luajit sources")
+ 
+ option(BUILD_SHARED_LIBS "Build as shared library" ON)

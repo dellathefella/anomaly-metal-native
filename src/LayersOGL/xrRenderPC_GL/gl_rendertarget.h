@@ -13,7 +13,7 @@ namespace xray::render::RENDER_NAMESPACE
 //	no less than 2
 #define VOLUMETRIC_SLICES 100
 
-class CRenderTarget
+class CRenderTarget : public IRender_Target // p4: engine's IRender_Target (getTarget())
 {
     u32 dwWidth[R__NUM_CONTEXTS];
     u32 dwHeight[R__NUM_CONTEXTS];
@@ -300,6 +300,11 @@ public:
 
     u32 get_width(CBackend& cmd_list) { return dwWidth[cmd_list.context_id]; }
     u32 get_height(CBackend& cmd_list) { return dwHeight[cmd_list.context_id]; }
+
+    // p4: engine's IRender_Target queries (no context at hand there — the
+    // immediate context is the only one that renders frames on this backend).
+    u32 get_width() override { return dwWidth[R__NUM_PARALLEL_CONTEXTS]; }
+    u32 get_height() override { return dwHeight[R__NUM_PARALLEL_CONTEXTS]; }
 
     void set_blur(float f) { param_blur = f; }
     void set_gray(float f) { param_gray = f; }

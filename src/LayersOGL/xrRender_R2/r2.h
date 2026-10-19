@@ -410,6 +410,8 @@ public:
     void set_Object(IRenderable* O) override { m_p4_object = O; }
     void add_Occluder(Fbox2& bb_screenspace) override { (void)bb_screenspace; } // p4: dev HOM has no manual occlusion
     void add_Visual(IRenderVisual* V) override;
+    void add_Geometry(IRenderVisual* V) override; // p4: no engine callers; stub
+    void models_PrefetchOne(LPCSTR name) override; // p4: dev ModelPool has no per-model prefetch; no-op
 
     Fmatrix* m_p4_xform{ nullptr };
     bool m_p4_hud{ false };
@@ -464,7 +466,8 @@ public:
     void add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m); // p4: dev overload (hides base) // add visual leaf	(no culling performed at all)
     // wallmarks
     void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
-    void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V); // p4: dev overload (hides base)
+    void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V,
+                            float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true) override; // p4: Anomaly args
     void add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V) override;
     void clear_static_wallmarks() override;
     void add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm);
@@ -504,23 +507,23 @@ public:
     BOOL occ_visible(sPoly& P) override;
 
     // Main
-    void OnCameraUpdated() override;
+    void OnCameraUpdated(); // p4: not a monolith IRender virtual
 
     void Calculate() override;
     void Render() override;
-    void RenderMenu() override;
+    void RenderMenu(); // p4: dev IRender virtual not in monolith
 
     void Screenshot(ScreenshotMode mode = SM_NORMAL, pcstr name = nullptr) override;
     void OnFrame() override;
 
-    void BeforeWorldRender() override; //--#SM+#-- +SecondVP+ Procedure is called before world render and post-effects
-    void AfterWorldRender() override;  //--#SM+#-- +SecondVP+ Procedure is called after world render and before UI
+    void BeforeWorldRender(); // p4: Anomaly SecondVP hook lives inside GL renderer only //--#SM+#-- +SecondVP+ Procedure is called before world render and post-effects
+    void AfterWorldRender(); // p4: Anomaly SecondVP hook lives inside GL renderer only  //--#SM+#-- +SecondVP+ Procedure is called after world render and before UI
 
-    void SetPostProcessParams(const SPPInfo& ppi) override;
+    void SetPostProcessParams(const SPPInfo& ppi); // p4: dev IRender virtual not in monolith
 
 #ifdef USE_OGL
-    RenderContext GetCurrentContext() const override;
-    void MakeContextCurrent(RenderContext context) override;
+    RenderContext GetCurrentContext() const;
+    void MakeContextCurrent(RenderContext context);
 #endif
 
     // Render mode

@@ -794,6 +794,16 @@ void CRender::add_Visual(IRenderVisual* V)
         return;
     get_context(R_dsgraph_structure::IMM_CTX_ID).add_leafs_dynamic(m_p4_object, (dxRender_Visual*)V, *m_p4_xform);
 }
+
+void CRender::add_Geometry(IRenderVisual* V)
+{
+    (void)V; // p4: no monolith-engine callers (DX11-era full-culling add)
+}
+
+void CRender::models_PrefetchOne(LPCSTR name)
+{
+    (void)name; // p4: deferred-loading hint; GL path loads visuals on demand
+}
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {
     // TODO: this whole function should be replaced by a list of renderables+xforms returned from `renderable_Render` call
@@ -809,8 +819,12 @@ void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::
     Wallmarks->AddStaticWallmark(T, verts, P, &*S, s);
 }
 
-void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V)
+void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V,
+                                 float ttl, bool ignore_opt, bool random_rotation) // p4: Anomaly args (GL wallmarks ignore)
 {
+    (void)ttl;
+    (void)ignore_opt;
+    (void)random_rotation;
     dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
     ref_shader* pShader = pWMA->dxGenerateWallmark();
     if (pShader)

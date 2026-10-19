@@ -624,6 +624,7 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
 		LPSTR script = 0;
 		bool dynamic_allocation = false;
 
+#ifdef _WIN32
 		__try
 		{
 			if (total_size < 768 * 1024)
@@ -649,6 +650,12 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
 #endif //#ifdef DEBUG
 			dynamic_allocation = true;
 		};
+#else
+		// p4: no SEH on POSIX; the __try above only rescued an _alloca stack
+		// overflow, so take the (always-safe) heap path directly.
+		script = (LPSTR)Memory.mem_alloc(total_size);
+		dynamic_allocation = true;
+#endif
 
 		xr_strcpy(script, total_size, insert);
 		CopyMemory(script + str_len, caBuffer, u32(tSize));

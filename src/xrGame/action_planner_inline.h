@@ -67,7 +67,7 @@ TEMPLATE_SPECIALIZATION
 void CPlanner::update()
 {
 	m_solving = true;
-	solve();
+	this->solve();
 	m_solving = false;
 
 #ifdef LOG_ACTION
@@ -77,8 +77,8 @@ void CPlanner::update()
 			show_current_world_state();
 			show_target_world_state	();
 			Msg						("%6d : Solution for object %s [%d vertices searched]",Device.dwTimeGlobal,object_name(),ai().graph_engine().solver_algorithm().data_storage().get_visited_node_count());
-			for (int i=0; i<(int)solution().size(); ++i)
-				Msg					("%s",action2string(solution()[i]));
+			for (int i=0; i<(int)this->solution().size(); ++i)
+				Msg					("%s",action2string(this->solution()[i]));
 		}
 	}
 #endif
@@ -86,7 +86,7 @@ void CPlanner::update()
 	bool bDbgAct = strstr(Core.Params, "-dbgact") != NULL;
 
 #ifdef LOG_ACTION
-	if (m_failed)
+	if (this->m_failed)
 	{
 		// printing current world state
 		show						();
@@ -95,23 +95,23 @@ void CPlanner::update()
 		show_target_world_state		();
 	}
 #else
-	if (bDbgAct && m_failed && current_action().m_action_name)
+	if (bDbgAct && this->m_failed && current_action().m_action_name)
 		Msg("!ERROR: there is no action sequence, which can transfer current world state to the target one. action[%s]",
 		    current_action().m_action_name);
 #endif
 
-	THROW(!solution().empty());
+	THROW(!this->solution().empty());
 	//Alundaio:
-	if (solution().empty())
+	if (this->solution().empty())
 		return;
 	//-Alundaio
 
 	if (initialized())
 	{
-		if (current_action_id() != solution().front())
+		if (current_action_id() != this->solution().front())
 		{
 			current_action().finalize();
-			m_current_action_id = solution().front();
+			m_current_action_id = this->solution().front();
 			//Alundaio: More detailed logging for initializing action
 			if (bDbgAct == true)
 				Msg("DEBUG: Action [%s] initializing", current_action().m_action_name);
@@ -121,7 +121,7 @@ void CPlanner::update()
 	else
 	{
 		m_initialized = true;
-		m_current_action_id = solution().front();
+		m_current_action_id = this->solution().front();
 		//Alundaio: More detailed logging for initializing action
 		if (bDbgAct == true)
 			Msg("DEBUG: Action [%s] initializing", current_action().m_action_name);
@@ -147,7 +147,7 @@ IC void CPlanner::finalize()
 TEMPLATE_SPECIALIZATION
 IC typename CPlanner::COperator&CPlanner::action(const _action_id_type& action_id)
 {
-	return (*get_operator(action_id));
+	return (*this->get_operator(action_id));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -302,8 +302,8 @@ TEMPLATE_SPECIALIZATION
 IC	void CPlanner::set_use_log		(bool value)
 {
 	m_use_log							= value;
-	OPERATOR_VECTOR::iterator			I = m_operators.begin();
-	OPERATOR_VECTOR::iterator			E = m_operators.end();
+	typename inherited::OPERATOR_VECTOR::iterator			I = this->m_operators.begin();
+	typename inherited::OPERATOR_VECTOR::iterator			E = this->m_operators.end();
 	for ( ; I != E; ++I)
 		(*I).get_operator()->set_use_log(m_use_log);
 }
@@ -383,15 +383,15 @@ TEMPLATE_SPECIALIZATION
 IC void CPlanner::save(NET_Packet& packet)
 {
 	{
-		EVALUATORS::iterator I = m_evaluators.begin();
-		EVALUATORS::iterator E = m_evaluators.end();
+		typename inherited::EVALUATORS::iterator I = this->m_evaluators.begin();
+		typename inherited::EVALUATORS::iterator E = this->m_evaluators.end();
 		for (; I != E; ++I)
 			(*I).second->save(packet);
 	}
 
 	{
-		OPERATOR_VECTOR::iterator I = m_operators.begin();
-		OPERATOR_VECTOR::iterator E = m_operators.end();
+		typename inherited::OPERATOR_VECTOR::iterator I = this->m_operators.begin();
+		typename inherited::OPERATOR_VECTOR::iterator E = this->m_operators.end();
 		for (; I != E; ++I)
 			(*I).m_operator->save(packet);
 	}
@@ -413,15 +413,15 @@ TEMPLATE_SPECIALIZATION
 IC void CPlanner::load(IReader& packet)
 {
 	{
-		EVALUATORS::iterator I = m_evaluators.begin();
-		EVALUATORS::iterator E = m_evaluators.end();
+		typename inherited::EVALUATORS::iterator I = this->m_evaluators.begin();
+		typename inherited::EVALUATORS::iterator E = this->m_evaluators.end();
 		for (; I != E; ++I)
 			(*I).second->load(packet);
 	}
 
 	{
-		OPERATOR_VECTOR::iterator I = m_operators.begin();
-		OPERATOR_VECTOR::iterator E = m_operators.end();
+		typename inherited::OPERATOR_VECTOR::iterator I = this->m_operators.begin();
+		typename inherited::OPERATOR_VECTOR::iterator E = this->m_operators.end();
 		for (; I != E; ++I)
 			(*I).m_operator->load(packet);
 	}

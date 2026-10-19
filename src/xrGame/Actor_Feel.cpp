@@ -159,7 +159,7 @@ void CActor::DrawPickupItems()
 	CFrustum frustum;
 	frustum.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB | FRUSTUM_P_FAR);
 
-	for (xr_vector<CObject*>::iterator it = feel_touch.begin(); it != feel_touch.end(); it++)
+	for (typename xr_vector<CObject*>::iterator it = feel_touch.begin(); it != feel_touch.end(); it++)
 	{
 		if (CanPickItem(frustum, Device.vCameraPosition, *it))
 			PickupInfoDraw(*it);
@@ -360,8 +360,8 @@ void CActor::Feel_Grenade_Update( float rad )
 	q_nearest.clear_not_free();
 	g_pGameLevel->ObjectSpace.GetNearest( q_nearest, pos_actor, rad, NULL );
 
-	xr_vector<CObject*>::iterator	it_b = q_nearest.begin();
-	xr_vector<CObject*>::iterator	it_e = q_nearest.end();
+	typename xr_vector<CObject*>::iterator	it_b = q_nearest.begin();
+	typename xr_vector<CObject*>::iterator	it_e = q_nearest.end();
 
 	// select only grenade
 	for ( ; it_b != it_e; ++it_b )

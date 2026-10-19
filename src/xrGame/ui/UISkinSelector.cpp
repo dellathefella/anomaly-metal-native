@@ -106,7 +106,7 @@ void CUISkinSelectorWnd::UpdateSkins()
 		else
 			m_pImage[i]->TextItemControl()->SetText("");
 
-		xr_vector<int>::iterator it = std::find(m_skinsEnabled.begin(), m_skinsEnabled.end(), i + m_firstSkin);
+		typename xr_vector<int>::iterator it = std::find(m_skinsEnabled.begin(), m_skinsEnabled.end(), i + m_firstSkin);
 		m_pImage[i]->Enable(it != m_skinsEnabled.end());
 	}
 
@@ -265,7 +265,7 @@ bool CUISkinSelectorWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 		//		Msg("Selected %d", NewIndex);
 		//		for (u32 i=0; i<m_skinsEnabled.size(); i++)
 		//			Msg("Enabled - %d", m_skinsEnabled[i]);
-		xr_vector<int>::iterator It = std::find(m_skinsEnabled.begin(), m_skinsEnabled.end(), NewIndex);
+		typename xr_vector<int>::iterator It = std::find(m_skinsEnabled.begin(), m_skinsEnabled.end(), NewIndex);
 		if (It != m_skinsEnabled.end())
 		{
 			m_iActiveIndex = NewIndex;

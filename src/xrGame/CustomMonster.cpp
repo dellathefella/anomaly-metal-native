@@ -1144,8 +1144,8 @@ void CCustomMonster::OnRender()
 	{
 		float const radius						= .075f;
 		xr_vector<u32> const& path				= movement().level_path().path();
-		xr_vector<u32>::const_iterator i		= path.begin();
-		xr_vector<u32>::const_iterator const e	= path.end();
+		typename xr_vector<u32>::const_iterator i		= path.begin();
+		typename xr_vector<u32>::const_iterator const e	= path.end();
 		for ( ; i != e; ++i )
 			Level().debug_renderer().draw_aabb	( ai().level_graph().vertex_position(*i), radius, radius, radius, D3DCOLOR_XRGB(255,22,255) );
 	}
@@ -1273,8 +1273,8 @@ void CCustomMonster::OnRender()
 	if (m_jump_picks.size() < 1)
 		return;
 
-	xr_vector<trajectory_pick>::const_iterator	I = m_jump_picks.begin();
-	xr_vector<trajectory_pick>::const_iterator	E = m_jump_picks.end();
+	typename xr_vector<trajectory_pick>::const_iterator	I = m_jump_picks.begin();
+	typename xr_vector<trajectory_pick>::const_iterator	E = m_jump_picks.end();
 	for ( ; I != E; ++I )
 	{
 		trajectory_pick pick				=	*I;	

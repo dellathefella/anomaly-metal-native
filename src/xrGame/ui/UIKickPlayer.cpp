@@ -161,7 +161,7 @@ void CUIKickPlayer::Update()
 	bool bNeedRefresh = false;
 	bool bHasSelected = false;
 
-	xr_vector<game_PlayerState*>::iterator fit; //, fite;
+	typename xr_vector<game_PlayerState*>::iterator fit; //, fite;
 	for (; I != E; ++I)
 	{
 		game_PlayerState* pI = I->second;

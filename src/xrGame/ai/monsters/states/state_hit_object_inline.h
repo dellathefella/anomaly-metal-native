@@ -46,10 +46,10 @@ bool CStateMonsterHitObjectAbstract::check_start_conditions()
 	m_nearest_objects.clear_not_free();
 	Level().ObjectSpace.GetNearest(m_nearest_objects, object->Position(), object->Radius() - 0.5f, object());
 
-	xr_vector<CObject*>::iterator B = m_nearest_objects.begin();
-	xr_vector<CObject*>::iterator E = m_nearest_objects.end();
+	typename xr_vector<CObject*>::iterator B = m_nearest_objects.begin();
+	typename xr_vector<CObject*>::iterator E = m_nearest_objects.end();
 
-	for (xr_vector<CObject*>::iterator I = B; I != E; I++)
+	for (typename xr_vector<CObject*>::iterator I = B; I != E; I++)
 	{
 		CPhysicsShellHolder* obj = smart_cast<CPhysicsShellHolder *>(*I);
 		if (!obj || !obj->m_pPhysicsShell) continue;

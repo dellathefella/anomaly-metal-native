@@ -42,8 +42,8 @@ bool CAgentCorpseManager::process_corpse(CMemberOrder& member)
 {
 	float min_dist_sqr = flt_max;
 	CMemberCorpse* best_corpse = 0;
-	xr_vector<CMemberCorpse>::iterator I = m_corpses.begin();
-	xr_vector<CMemberCorpse>::iterator E = m_corpses.end();
+	typename xr_vector<CMemberCorpse>::iterator I = m_corpses.begin();
+	typename xr_vector<CMemberCorpse>::iterator E = m_corpses.end();
 	for (; I != E; ++I)
 	{
 		if (!member.object().memory().visual().visible_now((*I).corpse()))

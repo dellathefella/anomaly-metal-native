@@ -193,7 +193,7 @@ protected:
 	float m_fLimpingHealthEnd;
 
 	//typedef xr_vector<SMedicineInfluenceValues> BOOSTS_VECTOR;
-	//typedef xr_vector<SMedicineInfluenceValues>::iterator BOOSTS_VECTOR_ITER;
+	//typedef typename xr_vector<SMedicineInfluenceValues>::iterator BOOSTS_VECTOR_ITER;
 	//BOOSTS_VECTOR m_vecBoosts;
 	ref_sound m_use_sound;
 	

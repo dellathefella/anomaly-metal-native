@@ -1531,8 +1531,8 @@ void iterate_nearest(const Fvector& pos, float radius, luabind::functor<bool> fu
 
 	if (!m_nearest.size()) return;
 
-	xr_vector<CObject*>::iterator it = m_nearest.begin();
-	xr_vector<CObject*>::iterator it_e = m_nearest.end();
+	typename xr_vector<CObject*>::iterator it = m_nearest.begin();
+	typename xr_vector<CObject*>::iterator it_e = m_nearest.end();
 	for (; it != it_e; it++)
 	{
 		CGameObject* obj = smart_cast<CGameObject*>(*it);

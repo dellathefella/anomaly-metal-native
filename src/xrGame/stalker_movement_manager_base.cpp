@@ -771,8 +771,8 @@ void stalker_movement_manager_base::update_object_on_the_way(const CGameObject* 
 
 	Fvector position = object->Position();
 	float current_distance = 0.f;
-	xr_vector<STravelPathPoint>::const_iterator I = detail().path().begin() + detail().curr_travel_point_index() + 1;
-	xr_vector<STravelPathPoint>::const_iterator E = detail().path().end();
+	typename xr_vector<STravelPathPoint>::const_iterator I = detail().path().begin() + detail().curr_travel_point_index() + 1;
+	typename xr_vector<STravelPathPoint>::const_iterator E = detail().path().end();
 	for (; I != E; ++I)
 	{
 		if (distance_to_line((*(I - 1)).position, (*I).position, position) < 1.f)

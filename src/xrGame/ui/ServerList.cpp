@@ -212,7 +212,7 @@ void CServerList::FillUpDetailedServerInfo()
 	//		CUIListBoxItem* pItemAdv;
 
 	//		// TEAM 1
-	//		xr_vector<PlayerInfo>::iterator it;
+	//		typename xr_vector<PlayerInfo>::iterator it;
 	//		for (it = srvInfo.m_aPlayers.begin(); it != srvInfo.m_aPlayers.end(); ++it)
 	//		{
 	//			PlayerInfo pf = *it;
@@ -316,7 +316,7 @@ void CServerList::FillUpDetailedServerInfo()
 	//	}
 	//	else
 	//	{
-	//		xr_vector<PlayerInfo>::iterator it;
+	//		typename xr_vector<PlayerInfo>::iterator it;
 	//		for (it = srvInfo.m_aPlayers.begin(); it != srvInfo.m_aPlayers.end(); ++it)
 	//		{
 	//			PlayerInfo pf = *it;
@@ -337,7 +337,7 @@ void CServerList::FillUpDetailedServerInfo()
 	//		}
 	//	}
 
-	//	xr_vector<GameInfo>::iterator it;
+	//	typename xr_vector<GameInfo>::iterator it;
 	//	for (it = srvInfo.m_aInfos.begin(); it != srvInfo.m_aInfos.end(); ++it)
 	//	{
 	//		GameInfo gi							= *it;

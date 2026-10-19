@@ -148,7 +148,7 @@ void CUIMotionIcon::SetActorVisibility(u16 who_id, float value)
 	clamp(value, 0.f, 1.f);
 	value *= 100.f;
 
-	xr_vector<_npc_visibility>::iterator it = std::find(m_npc_visibility.begin(),
+	typename xr_vector<_npc_visibility>::iterator it = std::find(m_npc_visibility.begin(),
 	                                                    m_npc_visibility.end(),
 	                                                    who_id);
 

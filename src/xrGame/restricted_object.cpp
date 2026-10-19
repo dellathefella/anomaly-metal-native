@@ -29,8 +29,8 @@ CRestrictedObject::~CRestrictedObject()
 IC void construct_string(LPSTR result, u32 const result_size, const xr_vector<ALife::_OBJECT_ID>& restrictions)
 {
 	u32 count = xr_strlen(result) ? _GetItemCount(result) : 0;
-	xr_vector<ALife::_OBJECT_ID>::const_iterator I = restrictions.begin();
-	xr_vector<ALife::_OBJECT_ID>::const_iterator E = restrictions.end();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator I = restrictions.begin();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator E = restrictions.end();
 	for (; I != E; ++I)
 	{
 		CSE_ALifeDynamicObject* object = ai().alife().objects().object(*I);
@@ -53,8 +53,8 @@ IC	void construct_id_string					(LPSTR result, const xr_vector<ALife::_OBJECT_ID
 	xr_strcpy			(result,"");
 	string16		temp;
 	u32				count = 0;
-	xr_vector<ALife::_OBJECT_ID>::const_iterator	I = restrictions.begin();
-	xr_vector<ALife::_OBJECT_ID>::const_iterator	E = restrictions.end();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator	I = restrictions.begin();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator	E = restrictions.end();
 	for ( ; I != E; ++I) {
 		if (count)
 			xr_strcat	(result,",");
@@ -287,8 +287,8 @@ IC void CRestrictedObject::construct_restriction_string(LPSTR temp_restrictions,
 {
 	u32 count = 0;
 	*temp_restrictions = 0;
-	xr_vector<ALife::_OBJECT_ID>::const_iterator I = restrictions.begin();
-	xr_vector<ALife::_OBJECT_ID>::const_iterator E = restrictions.end();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator I = restrictions.begin();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator E = restrictions.end();
 	for (; I != E; ++I)
 	{
 		CObject* object = Level().Objects.net_Find(*I);

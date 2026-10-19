@@ -486,8 +486,8 @@ void CHudItem::UpdateCL()
 				float motion_prev_time = ((float)m_dwMotionCurrTm - (float)m_dwMotionStartTm) / 1000.0f;
 				float motion_curr_time = ((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f;
 
-				xr_vector<motion_marks>::const_iterator it = marks.begin();
-				xr_vector<motion_marks>::const_iterator it_e = marks.end();
+				typename xr_vector<motion_marks>::const_iterator it = marks.begin();
+				typename xr_vector<motion_marks>::const_iterator it_e = marks.end();
 				for (; it != it_e; ++it)
 				{
 					const motion_marks& M = (*it);

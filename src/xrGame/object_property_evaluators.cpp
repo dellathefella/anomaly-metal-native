@@ -30,7 +30,7 @@ CObjectPropertyEvaluatorState::CObjectPropertyEvaluatorState(CWeapon* item, CAI_
 CObjectPropertyEvaluatorState::_value_type CObjectPropertyEvaluatorState::evaluate()
 {
 	VERIFY(m_item);
-	return (_value_type((m_item->GetState() == m_state) == m_equality));
+	return (GraphEngineSpace::_solver_value_type((m_item->GetState() == m_state) == m_equality));
 }
 
 CObjectPropertyEvaluatorWeaponHidden::CObjectPropertyEvaluatorWeaponHidden(CWeapon* item, CAI_Stalker* owner):
@@ -58,9 +58,9 @@ CObjectPropertyEvaluatorAmmo::CObjectPropertyEvaluatorAmmo(CWeapon* item, CAI_St
 CObjectPropertyEvaluatorAmmo::_value_type CObjectPropertyEvaluatorAmmo::evaluate()
 {
 	if (!m_ammo_type)
-		return (_value_type(!!m_item->GetSuitableAmmoTotal()));
+		return (GraphEngineSpace::_solver_value_type(!!m_item->GetSuitableAmmoTotal()));
 	else
-		return (_value_type(false));
+		return (GraphEngineSpace::_solver_value_type(false));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -76,9 +76,9 @@ CObjectPropertyEvaluatorEmpty::CObjectPropertyEvaluatorEmpty(CWeapon* item, CAI_
 CObjectPropertyEvaluatorEmpty::_value_type CObjectPropertyEvaluatorEmpty::evaluate()
 {
 	if (!m_ammo_type)
-		return (_value_type(!m_item->GetAmmoElapsed()));
+		return (GraphEngineSpace::_solver_value_type(!m_item->GetAmmoElapsed()));
 	else
-		return (_value_type(false));
+		return (GraphEngineSpace::_solver_value_type(false));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -94,9 +94,9 @@ CObjectPropertyEvaluatorFull::CObjectPropertyEvaluatorFull(CWeapon* item, CAI_St
 CObjectPropertyEvaluatorFull::_value_type CObjectPropertyEvaluatorFull::evaluate()
 {
 	if (!m_ammo_type)
-		return (_value_type(m_item->GetAmmoElapsed() == m_item->GetAmmoMagSize()));
+		return (GraphEngineSpace::_solver_value_type(m_item->GetAmmoElapsed() == m_item->GetAmmoMagSize()));
 	else
-		return (_value_type(false));
+		return (GraphEngineSpace::_solver_value_type(false));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -112,11 +112,11 @@ CObjectPropertyEvaluatorReady::CObjectPropertyEvaluatorReady(CWeapon* item, CAI_
 CObjectPropertyEvaluatorReady::_value_type CObjectPropertyEvaluatorReady::evaluate()
 {
 	if (!m_ammo_type)
-		//		return		(_value_type(!m_item->IsMisfire() && m_item->GetAmmoElapsed()));
-		return (_value_type(
+		//		return		(GraphEngineSpace::_solver_value_type(!m_item->IsMisfire() && m_item->GetAmmoElapsed()));
+		return (GraphEngineSpace::_solver_value_type(
 			!m_item->IsMisfire() && (m_item->GetAmmoElapsed() && (m_item->GetState() != CWeapon::eReload))));
 	else
-		return (_value_type(false));
+		return (GraphEngineSpace::_solver_value_type(false));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -141,7 +141,7 @@ CObjectPropertyEvaluatorQueue::_value_type CObjectPropertyEvaluatorQueue::evalua
 
 CObjectPropertyEvaluatorNoItems::CObjectPropertyEvaluatorNoItems(CAI_Stalker* owner)
 {
-	m_object = owner;
+	this->m_object = owner;
 }
 
 CObjectPropertyEvaluatorNoItems::_value_type CObjectPropertyEvaluatorNoItems::evaluate()
@@ -174,7 +174,7 @@ CObjectPropertyEvaluatorMissile::CObjectPropertyEvaluatorMissile(CMissile* item,
 CObjectPropertyEvaluatorMissile::_value_type CObjectPropertyEvaluatorMissile::evaluate()
 {
 	VERIFY(m_item);
-	return (_value_type((m_item->GetState() == m_state) == m_equality));
+	return (GraphEngineSpace::_solver_value_type((m_item->GetState() == m_state) == m_equality));
 }
 
 //////////////////////////////////////////////////////////////////////////

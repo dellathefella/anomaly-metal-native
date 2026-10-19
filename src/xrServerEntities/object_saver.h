@@ -125,8 +125,8 @@ struct CSaver
 	IC static void save_data(const xr_vector<bool>& data, M& stream, const P& p)
 	{
 		stream.w_u32((u32)data.size());
-		xr_vector<bool>::const_iterator I = data.begin();
-		xr_vector<bool>::const_iterator E = data.end();
+		typename xr_vector<bool>::const_iterator I = data.begin();
+		typename xr_vector<bool>::const_iterator E = data.end();
 		u32 mask = 0;
 		if (I != E)
 		{

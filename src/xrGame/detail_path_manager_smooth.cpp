@@ -436,8 +436,8 @@ bool CDetailPathManager::compute_path(
 	float min_time = flt_max, time;
 	u32 size = m_tpTravelLine ? m_tpTravelLine->size() : 0;
 	u32 real_straight_line_index;
-	xr_vector<STravelParamsIndex>::const_iterator I = start_params.begin();
-	xr_vector<STravelParamsIndex>::const_iterator E = start_params.end();
+	typename xr_vector<STravelParamsIndex>::const_iterator I = start_params.begin();
+	typename xr_vector<STravelParamsIndex>::const_iterator E = start_params.end();
 	for (; I != E; ++I)
 	{
 		EDirectionType direction_type = eDirectionTypePP;
@@ -450,8 +450,8 @@ bool CDetailPathManager::compute_path(
 			direction_type = EDirectionType(direction_type | eDirectionTypeFN);
 			start.direction.mul(-1.f);
 		}
-		xr_vector<STravelParamsIndex>::const_iterator i = dest_params.begin();
-		xr_vector<STravelParamsIndex>::const_iterator e = dest_params.end();
+		typename xr_vector<STravelParamsIndex>::const_iterator i = dest_params.begin();
+		typename xr_vector<STravelParamsIndex>::const_iterator e = dest_params.end();
 		for (; i != e; ++i)
 		{
 			dest = _dest;
@@ -752,8 +752,8 @@ void CDetailPathManager::build_path_via_key_points(
 {
 	STrajectoryPoint s, d, p;
 	s = start;
-	xr_vector<STravelPoint>::const_iterator I = m_key_points.begin(), B = I;
-	xr_vector<STravelPoint>::const_iterator E = m_key_points.end();
+	typename xr_vector<STravelPoint>::const_iterator I = m_key_points.begin(), B = I;
+	typename xr_vector<STravelPoint>::const_iterator E = m_key_points.end();
 	for (B != E ? ++I : I; I != E; ++I)
 	{
 		VERIFY(ai().level_graph().inside((*I).vertex_id,(*I).position));

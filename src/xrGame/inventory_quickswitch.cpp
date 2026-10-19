@@ -296,8 +296,8 @@ PIItem CInventory::GetNextActiveGrenade()
 		if (pGrenade)
 		{
 			// ñîñòàâëÿåì ñïèñîê òèïîâ ãðàíàò (ñ) ÍàíîÁîò
-			xr_vector<shared_str>::const_iterator I = types_sect_grn.begin();
-			xr_vector<shared_str>::const_iterator E = types_sect_grn.end();
+			typename xr_vector<shared_str>::const_iterator I = types_sect_grn.begin();
+			typename xr_vector<shared_str>::const_iterator E = types_sect_grn.end();
 			bool new_type = true;
 			for (; I != E; ++I)
 			{
@@ -317,8 +317,8 @@ PIItem CInventory::GetNextActiveGrenade()
 	{
 		int curr_num = 0; // íîìåð òèïà òåêóùåé ãðàíàòû
 		std::sort(types_sect_grn.begin(), types_sect_grn.end());
-		xr_vector<shared_str>::const_iterator I = types_sect_grn.begin();
-		xr_vector<shared_str>::const_iterator E = types_sect_grn.end();
+		typename xr_vector<shared_str>::const_iterator I = types_sect_grn.begin();
+		typename xr_vector<shared_str>::const_iterator E = types_sect_grn.end();
 		for (; I != E; ++I)
 		{
 			if (!xr_strcmp(ActiveItem()->cast_game_object()->cNameSect(), *I)) // åñëè ñîâïàäàþò

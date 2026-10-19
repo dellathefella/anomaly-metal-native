@@ -15,6 +15,9 @@ class CPropertyEvaluatorMember : public CPropertyEvaluator<_object_type>
 {
 protected:
 	typedef CPropertyEvaluator<_object_type> inherited;
+	// clang: dependent base typedefs must be re-exposed for unqualified use
+	typedef typename inherited::_condition_type _condition_type;
+	typedef typename inherited::_value_type _value_type;
 
 protected:
 	_condition_type m_condition_id;

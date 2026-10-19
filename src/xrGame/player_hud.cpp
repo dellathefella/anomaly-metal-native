@@ -16,8 +16,8 @@ Fvector _wpn_root_pos;
 
 player_hud_motion* player_hud_motion_container::find_motion(const shared_str& name)
 {
-	xr_vector<player_hud_motion>::iterator it = m_anims.begin();
-	xr_vector<player_hud_motion>::iterator it_e = m_anims.end();
+	typename xr_vector<player_hud_motion>::iterator it = m_anims.begin();
+	typename xr_vector<player_hud_motion>::iterator it_e = m_anims.end();
 	for (; it != it_e; ++it)
 	{
 		const shared_str& s = (true) ? (*it).m_alias_name : (*it).m_base_name;
@@ -1424,8 +1424,8 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 void player_hud::remove_from_model_pool(LPCSTR sect)
 {
-	xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
-	xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
+	typename xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
+	typename xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
 	for (; it != it_e; ++it)
 	{
 		attachable_hud_item* itm = *it;
@@ -1444,8 +1444,8 @@ void player_hud::remove_from_model_pool(LPCSTR sect)
 
 attachable_hud_item* player_hud::create_hud_item(const shared_str& sect)
 {
-	xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
-	xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
+	typename xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
+	typename xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
 	for (; it != it_e; ++it)
 	{
 		attachable_hud_item* itm = *it;

@@ -213,7 +213,7 @@ void CALifeSpawnRegistry::build_root_spawns()
 	process_spawns(m_temp1);
 
 	m_spawn_roots.resize(m_temp0.size() + m_temp1.size());
-	xr_vector<ALife::_SPAWN_ID>::iterator I = std::set_difference(
+	typename xr_vector<ALife::_SPAWN_ID>::iterator I = std::set_difference(
 		m_temp0.begin(),
 		m_temp0.end(),
 		m_temp1.begin(),

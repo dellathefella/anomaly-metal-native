@@ -550,8 +550,8 @@ void CAI_Stalker::update_best_item_info_impl()
 	// check if we remember we saw item which can kill
 	// or items which can make my item killing
 	{
-		xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
-		xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
+		typename xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
+		typename xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
 		for (; I != E; ++I)
 		{
 			const CInventoryItem* inventory_item = smart_cast<const CInventoryItem*>(*I);
@@ -595,8 +595,8 @@ void CAI_Stalker::update_best_item_info_impl()
 
 	// check if we remember we saw item to kill
 	// and item which can make this item killing
-	xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
-	xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
+	typename xr_vector<const CGameObject*>::const_iterator I = memory().item().objects().begin();
+	typename xr_vector<const CGameObject*>::const_iterator E = memory().item().objects().end();
 	for (; I != E; ++I)
 	{
 		const CInventoryItem* inventory_item = smart_cast<const CInventoryItem*>(*I);
@@ -821,8 +821,8 @@ bool CAI_Stalker::undetected_anomaly()
 
 bool CAI_Stalker::inside_anomaly()
 {
-	xr_vector<CObject*>::const_iterator I = feel_touch.begin();
-	xr_vector<CObject*>::const_iterator E = feel_touch.end();
+	typename xr_vector<CObject*>::const_iterator I = feel_touch.begin();
+	typename xr_vector<CObject*>::const_iterator E = feel_touch.end();
 	for (; I != E; ++I)
 	{
 		CCustomZone* zone = smart_cast<CCustomZone*>(*I);

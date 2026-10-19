@@ -25,7 +25,7 @@ void CMonsterCorpseMemory::init_external(CBaseMonster* M, TTime mem_time)
 
 void CMonsterCorpseMemory::update()
 {
-	for (xr_vector<const CGameObject *>::const_iterator I = monster->memory().item().objects().begin(); I != monster
+	for (typename xr_vector<const CGameObject *>::const_iterator I = monster->memory().item().objects().begin(); I != monster
 	                                                                                                         ->memory().
 	                                                                                                         item().
 	                                                                                                         objects().

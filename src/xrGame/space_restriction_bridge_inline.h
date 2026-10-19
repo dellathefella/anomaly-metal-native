@@ -31,8 +31,8 @@ IC u32 CSpaceRestrictionBridge::accessible_nearest(T& restriction, const Fvector
 
 	float min_dist_sqr = flt_max;
 	u32 selected = u32(-1);
-	xr_vector<u32>::const_iterator I = restriction->accessible_neighbour_border(restriction, out_restriction).begin();
-	xr_vector<u32>::const_iterator E = restriction->accessible_neighbour_border(restriction, out_restriction).end();
+	typename xr_vector<u32>::const_iterator I = restriction->accessible_neighbour_border(restriction, out_restriction).begin();
+	typename xr_vector<u32>::const_iterator E = restriction->accessible_neighbour_border(restriction, out_restriction).end();
 	for (; I != E; ++I)
 	{
 		VERIFY2(

@@ -315,8 +315,8 @@ void CAgentEnemyManager::permutate_enemies()
 
 			float best = (*I)->object().Position().distance_to(m_enemies[(*I)->selected_enemy()].m_object->Position());
 			bool found = false;
-			xr_vector<u32>::const_iterator i = (*I)->enemies().begin();
-			xr_vector<u32>::const_iterator e = (*I)->enemies().end();
+			typename xr_vector<u32>::const_iterator i = (*I)->enemies().begin();
+			typename xr_vector<u32>::const_iterator e = (*I)->enemies().end();
 			for (; i != e; ++i)
 			{
 				if ((*I)->selected_enemy() == *i)
@@ -331,7 +331,7 @@ void CAgentEnemyManager::permutate_enemies()
 					{
 						K = (J & (J - 1)) ^ J;
 						CAgentMemberManager::iterator j = object().member().member(K);
-						xr_vector<u32>::iterator ii = std::find((*j)->enemies().begin(), (*j)->enemies().end(),
+						typename xr_vector<u32>::iterator ii = std::find((*j)->enemies().begin(), (*j)->enemies().end(),
 						                                        (*I)->selected_enemy());
 						// check if member can my current enemy
 						if (ii == (*j)->enemies().end())
@@ -405,7 +405,7 @@ template <typename T>
 IC void CAgentEnemyManager::setup_mask(xr_vector<T>& objects, CMemberEnemy& enemy,
                                        const squad_mask_type& non_combat_members)
 {
-	xr_vector<T>::iterator I = std::find(objects.begin(), objects.end(), enemy.m_object->ID());
+	typename xr_vector<T>::iterator I = std::find(objects.begin(), objects.end(), enemy.m_object->ID());
 	if (I != objects.end())
 	{
 		(*I).m_squad_mask.assign(

@@ -59,7 +59,7 @@ void CInventoryBox::OnEvent(NET_Packet& P, u16 type)
 			P.r_u16(id);
 			CObject* itm = Level().Objects.net_Find(id);
 			VERIFY(itm);
-			xr_vector<u16>::iterator it;
+			typename xr_vector<u16>::iterator it;
 			it = std::find(m_items.begin(), m_items.end(), id);
 			VERIFY(it!=m_items.end());
 			m_items.erase(it);
@@ -119,8 +119,8 @@ void CInventoryBox::net_Relcase(CObject* O)
 
 void CInventoryBox::AddAvailableItems(TIItemContainer& items_container) const
 {
-	xr_vector<u16>::const_iterator it = m_items.begin();
-	xr_vector<u16>::const_iterator it_e = m_items.end();
+	typename xr_vector<u16>::const_iterator it = m_items.begin();
+	typename xr_vector<u16>::const_iterator it_e = m_items.end();
 
 	for (; it != it_e; ++it)
 	{

@@ -31,7 +31,7 @@ bool bfGetActionSuccessProbability(GroupHierarchyHolder::MEMBER_REGISTRY& Member
                                    CBaseFunction& fSuccessProbabilityFunction)
 {
 	int i = 0, j = 0, I = (int)Members.size(), J = (int)VisibleEnemies.size();
-	xr_vector<const CEntityAlive*>::const_iterator II = VisibleEnemies.begin();
+	typename xr_vector<const CEntityAlive*>::const_iterator II = VisibleEnemies.begin();
 	for (; (i < I) && (j < J);)
 	{
 		ai().ef_storage().non_alife().member() = smart_cast<CEntityAlive *>(Members[i]);

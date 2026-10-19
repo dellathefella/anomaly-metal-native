@@ -376,7 +376,7 @@ void SHeliMovementState::goByRoundPath(Fvector center_, float radius_, bool cloc
 	float end_h = PI_MUL_2 - EPS;
 
 	xr_vector<STmpPt> round_points;
-	xr_vector<STmpPt>::iterator it, it_e;
+	typename xr_vector<STmpPt>::iterator it, it_e;
 	CreateRoundPoints(center_, radius_, start_h, end_h, round_points);
 	if (clockwise_)
 		std::reverse(round_points.begin() + 1, round_points.end());
@@ -498,8 +498,8 @@ void CHelicopter::OnRender()
 		dir_h	+= td;
 	}
 
-	xr_vector<Fvector>::iterator it = round_points.begin();
-	xr_vector<Fvector>::iterator it_e = round_points.end();
+	typename xr_vector<Fvector>::iterator it = round_points.begin();
+	typename xr_vector<Fvector>::iterator it_e = round_points.end();
 	for(;it!=it_e;++it){
 		Level().debug_renderer().draw_aabb  ((*it),0.1f,0.1f,0.1f,D3DCOLOR_XRGB(0,255,0));
 	}

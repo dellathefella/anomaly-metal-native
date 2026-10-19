@@ -477,8 +477,8 @@ bool CAI_Rat::can_stand_in_position()
 	M.c = C2;
 	MagicBox3 box(M, d);
 
-	xr_vector<CObject*>::iterator I = tpNearestList.begin();
-	xr_vector<CObject*>::iterator E = tpNearestList.end();
+	typename xr_vector<CObject*>::iterator I = tpNearestList.begin();
+	typename xr_vector<CObject*>::iterator E = tpNearestList.end();
 	for (; I != E; ++I)
 	{
 		if (!smart_cast<CAI_Rat*>(*I))
@@ -510,8 +510,8 @@ bool CAI_Rat::can_stand_here()
 	M.c = C2;
 	MagicBox3 box(M, d);
 
-	xr_vector<CObject*>::iterator I = tpNearestList.begin();
-	xr_vector<CObject*>::iterator E = tpNearestList.end();
+	typename xr_vector<CObject*>::iterator I = tpNearestList.begin();
+	typename xr_vector<CObject*>::iterator E = tpNearestList.end();
 	for (; I != E; ++I)
 	{
 		if (!smart_cast<CAI_Rat*>(*I))

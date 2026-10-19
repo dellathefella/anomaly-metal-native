@@ -891,7 +891,7 @@ void   CBaseMonster::add_debug_info (debug::text_tree& root_s)
 
 	TextTree& now_playing_s = sound_player_s.add_line("Objects", object_count);
 
-	typedef xr_vector<CSoundPlayer::CSoundSingle>::const_iterator SoundSingleIterator;
+	typedef typename xr_vector<CSoundPlayer::CSoundSingle>::const_iterator SoundSingleIterator;
 
 	index = 1;
 	for ( SoundSingleIterator i=sound().playing_sounds().begin(), 

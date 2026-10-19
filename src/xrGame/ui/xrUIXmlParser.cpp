@@ -30,7 +30,7 @@ xr_vector<DBGList_>	dbg_list_xmls;
 void dump_list_xmls()
 {
 	Msg("------Total  xmls %d",dbg_list_xmls.size());
-	xr_vector<DBGList_>::iterator _it = dbg_list_xmls.begin();
+	typename xr_vector<DBGList_>::iterator _it = dbg_list_xmls.begin();
 	for(;_it!=dbg_list_xmls.end();++_it)
 		if(!(*_it).closed)
 			Msg("--leak detected ---- xml = %d",(*_it).num);
@@ -55,7 +55,7 @@ CUIXml::CUIXml()
 CUIXml::~CUIXml()
 {
 #ifdef LOG_ALL_XMLS
-	xr_vector<DBGList_>::iterator _it = dbg_list_xmls.begin();
+	typename xr_vector<DBGList_>::iterator _it = dbg_list_xmls.begin();
 	bool bOK = false;
 	for(;_it!=dbg_list_xmls.end();++_it){
 		if( (*_it).num==m_dbg_id && !(*_it).closed){

@@ -109,8 +109,8 @@ bool CSpaceRestriction::accessible(u32 level_vertex_id, float radius)
 IC bool CSpaceRestriction::intersects(SpaceRestrictionHolder::CBaseRestrictionPtr bridge0,
                                       SpaceRestrictionHolder::CBaseRestrictionPtr bridge1)
 {
-	xr_vector<u32>::const_iterator I = bridge1->border().begin();
-	xr_vector<u32>::const_iterator E = bridge1->border().end();
+	typename xr_vector<u32>::const_iterator I = bridge1->border().begin();
+	typename xr_vector<u32>::const_iterator E = bridge1->border().end();
 	for (; I != E; ++I)
 		if (bridge0->inside(*I, true))
 			return (true);
@@ -119,7 +119,7 @@ IC bool CSpaceRestriction::intersects(SpaceRestrictionHolder::CBaseRestrictionPt
 		return (true);
 
 	m_temp.resize(bridge0->border().size() + bridge1->border().size());
-	xr_vector<u32>::iterator J = std::set_intersection(
+	typename xr_vector<u32>::iterator J = std::set_intersection(
 		bridge0->border().begin(),
 		bridge0->border().end(),
 		bridge1->border().begin(),

@@ -82,8 +82,8 @@ bool CSE_ALifeTraderAbstract::check_inventory_consistency	()
 {
 	int							volume = 0;
 	float						mass = 0.f;
-	xr_vector<ALife::_OBJECT_ID>::const_iterator	I = base()->children.begin();
-	xr_vector<ALife::_OBJECT_ID>::const_iterator	E = base()->children.end();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator	I = base()->children.begin();
+	typename xr_vector<ALife::_OBJECT_ID>::const_iterator	E = base()->children.end();
 	for ( ; I != E; ++I) {
 		CSE_ALifeDynamicObject	*object = ai().alife().objects().object(*I,true);
 		if (!object)

@@ -30,7 +30,8 @@ CScriptActionPlanner* cast_planner(CScriptActionBase* action)
 }
 
 #pragma optimize("s",on)
-void CScriptActionPlanner::script_register(lua_State* L)
+template<> // clang: explicit member specialization via full template-id (CScriptActionPlanner is a typedef)
+void CActionPlanner<CScriptGameObject>::script_register(lua_State* L)
 {
 	module(L)
 	[

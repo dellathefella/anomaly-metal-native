@@ -43,7 +43,8 @@ TEMPLATE_SPECIALIZATION
 IC void CEdgePathBuilder::get_edge_path(xr_vector<_edge_type>& path, CGraphVertex* best, bool reverse_order)
 {
 	CGraphVertex *t1 = best, *t2 = best->back();
-	for (u32 i = 1; t2; t1 = t2, t2 = t2->back(), ++i);
+	u32 i = 1; // clang: MSVC for-scope leak — i used below
+	for (; t2; t1 = t2, t2 = t2->back(), ++i);
 	u32 n = (u32)path.size();
 
 	path.resize(n + --i);
@@ -51,14 +52,14 @@ IC void CEdgePathBuilder::get_edge_path(xr_vector<_edge_type>& path, CGraphVerte
 
 	if (!reverse_order)
 	{
-		xr_vector<_edge_type>::reverse_iterator I = path.rbegin();
-		//xr_vector<_edge_type>::reverse_iterator	E = path.rend();
+		typename xr_vector<_edge_type>::reverse_iterator I = path.rbegin();
+		//typename xr_vector<_edge_type>::reverse_iterator	E = path.rend();
 		for (; t2->back(); t2 = t2->back(), ++I)
 			*I = t2->edge();
 	}
 	else
 	{
-		xr_vector<_edge_type>::iterator I = path.begin() + n;
+		typename xr_vector<_edge_type>::iterator I = path.begin() + n;
 		for (; t2->back(); t2 = t2->back(), ++I)
 			*I = t2->edge();
 	}

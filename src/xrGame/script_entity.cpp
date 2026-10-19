@@ -733,8 +733,8 @@ int CScriptEntity::get_enemy_strength()
 
 void CScriptEntity::process_sound_callbacks()
 {
-	xr_vector<CSavedSound>::const_iterator I = m_saved_sounds.begin();
-	xr_vector<CSavedSound>::const_iterator E = m_saved_sounds.end();
+	typename xr_vector<CSavedSound>::const_iterator I = m_saved_sounds.begin();
+	typename xr_vector<CSavedSound>::const_iterator E = m_saved_sounds.end();
 	for (; I != E; ++I)
 	{
 		object().callback(GameObject::eSound)(

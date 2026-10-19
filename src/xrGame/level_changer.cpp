@@ -39,7 +39,7 @@ float CLevelChanger::Radius() const
 void CLevelChanger::net_Destroy()
 {
 	inherited::net_Destroy();
-	xr_vector<CLevelChanger*>::iterator it = std::find(g_lchangers.begin(), g_lchangers.end(), this);
+	typename xr_vector<CLevelChanger*>::iterator it = std::find(g_lchangers.begin(), g_lchangers.end(), this);
 	if (it != g_lchangers.end())
 		g_lchangers.erase(it);
 }
@@ -183,8 +183,8 @@ bool CLevelChanger::feel_touch_contact(CObject* object)
 void CLevelChanger::update_actor_invitation()
 {
 	if (m_bSilentMode) return;
-	xr_vector<CObject*>::iterator it = feel_touch.begin();
-	xr_vector<CObject*>::iterator it_e = feel_touch.end();
+	typename xr_vector<CObject*>::iterator it = feel_touch.begin();
+	typename xr_vector<CObject*>::iterator it_e = feel_touch.end();
 
 	for (; it != it_e; ++it)
 	{

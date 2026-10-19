@@ -137,7 +137,7 @@ bool InventoryUtilities::FreeRoom_inBelt(TIItemContainer& item_list, PIItem _ite
 
 	found_place = true;
 
-	for (xr_vector<PIItem>::iterator it = item_list.begin(); (item_list.end() != it) && found_place; ++it)
+	for (typename xr_vector<PIItem>::iterator it = item_list.begin(); (item_list.end() != it) && found_place; ++it)
 	{
 		PIItem pItem = *it;
 		Ivector2 iWH = pItem->GetInvGridRect().rb;

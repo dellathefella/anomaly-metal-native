@@ -295,7 +295,7 @@ void CSE_SmartCover::set_enterable (shared_str const &id)
 		  }
 	};
 
-	xr_vector<SSCDrawHelper>::iterator	found = std::find_if(
+	typename xr_vector<SSCDrawHelper>::iterator	found = std::find_if(
 		m_draw_data.begin(),
 		m_draw_data.end(),
 		id_predicate(id)
@@ -352,8 +352,8 @@ void CSE_SmartCover::fill_visuals()
 {
 	delete_data(m_visuals);
 
-	xr_vector<SSCDrawHelper>::iterator I = m_draw_data.begin();
-	xr_vector<SSCDrawHelper>::iterator E = m_draw_data.end();
+	typename xr_vector<SSCDrawHelper>::iterator I = m_draw_data.begin();
+	typename xr_vector<SSCDrawHelper>::iterator E = m_draw_data.end();
 	for ( ; I != E; ++I) {
 		if (!I->is_enterable)
 			return;
@@ -568,8 +568,8 @@ void CSE_SmartCover::on_render	(CDUInterface* du, ISE_AbstractLEOwner* owner, bo
 	if (!bSelected)
 		return;
 
-	xr_vector<SSCDrawHelper>::iterator it = m_draw_data.begin();
-	xr_vector<SSCDrawHelper>::iterator it_e = m_draw_data.end();
+	typename xr_vector<SSCDrawHelper>::iterator it = m_draw_data.begin();
+	typename xr_vector<SSCDrawHelper>::iterator it_e = m_draw_data.end();
 
 	for( ; it!=it_e; ++it){
 		SSCDrawHelper& H = *it;

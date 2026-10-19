@@ -169,8 +169,8 @@ void CUIArtefactDetectorElite::Draw()
 
 	UI().ScreenFrustumLIT().CreateFromRect(Frect().set(rp.x, rp.y, wrk_sz.x, wrk_sz.y));
 
-	xr_vector<SDrawOneItem>::const_iterator it = m_items_to_draw.begin();
-	xr_vector<SDrawOneItem>::const_iterator it_e = m_items_to_draw.end();
+	typename xr_vector<SDrawOneItem>::const_iterator it = m_items_to_draw.begin();
+	typename xr_vector<SDrawOneItem>::const_iterator it_e = m_items_to_draw.end();
 	for (; it != it_e; ++it)
 	{
 		Fvector p = (*it).pos;

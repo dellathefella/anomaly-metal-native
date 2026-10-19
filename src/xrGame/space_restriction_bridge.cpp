@@ -105,8 +105,8 @@ bool CSpaceRestrictionBridge::on_border(const Fvector& position) const
 
 		CLevelGraph::CPosition pos = ai().level_graph().vertex_position(position);
 
-		xr_vector<u32>::const_iterator E = object().border().end();
-		xr_vector<u32>::const_iterator I = std::lower_bound(
+		typename xr_vector<u32>::const_iterator E = object().border().end();
+		typename xr_vector<u32>::const_iterator I = std::lower_bound(
 			object().border().begin(),
 			object().border().end(),
 			pos.xz(),

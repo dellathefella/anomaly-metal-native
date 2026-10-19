@@ -235,7 +235,7 @@ void CUIMpTradeWnd::UpdateHelperItems()
 
 void CUIMpTradeWnd::CreateHelperItems(xr_vector<shared_str>& ammo_types)
 {
-	for (xr_vector<shared_str>::iterator it = ammo_types.begin();
+	for (typename xr_vector<shared_str>::iterator it = ammo_types.begin();
 	     it != ammo_types.end();
 	     ++it)
 	{
@@ -253,7 +253,7 @@ void CUIMpTradeWnd::CreateHelperItems(xr_vector<shared_str>& ammo_types)
 
 void CUIMpTradeWnd::CreateHelperItems(CUIDragDropListEx* list, const CStoreHierarchy::item* shop_level)
 {
-	for (xr_vector<shared_str>::const_iterator
+	for (typename xr_vector<shared_str>::const_iterator
 	     it = shop_level->m_items_in_group.begin();
 	     it != shop_level->m_items_in_group.end();
 	     ++it)

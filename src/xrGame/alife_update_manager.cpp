@@ -551,7 +551,7 @@ void CALifeUpdateManager::remove_restriction(ALife::_OBJECT_ID id, ALife::_OBJEC
 	{
 	case RestrictionSpace::eRestrictorTypeOut:
 		{
-			xr_vector<ALife::_OBJECT_ID>::iterator I = std::find(creature->m_dynamic_out_restrictions.begin(),
+			typename xr_vector<ALife::_OBJECT_ID>::iterator I = std::find(creature->m_dynamic_out_restrictions.begin(),
 			                                                     creature->m_dynamic_out_restrictions.end(),
 			                                                     restriction_id);
 			if (I == creature->m_dynamic_out_restrictions.end())
@@ -568,7 +568,7 @@ void CALifeUpdateManager::remove_restriction(ALife::_OBJECT_ID id, ALife::_OBJEC
 		}
 	case RestrictionSpace::eRestrictorTypeIn:
 		{
-			xr_vector<ALife::_OBJECT_ID>::iterator I = std::find(creature->m_dynamic_in_restrictions.begin(),
+			typename xr_vector<ALife::_OBJECT_ID>::iterator I = std::find(creature->m_dynamic_in_restrictions.begin(),
 			                                                     creature->m_dynamic_in_restrictions.end(),
 			                                                     restriction_id);
 			if (I == creature->m_dynamic_in_restrictions.end())

@@ -49,7 +49,7 @@ u32 CDbgScriptThreads::FillFrom(CScriptProcess* sp)
 
 lua_State* CDbgScriptThreads::FindScript(int nThreadID)
 {
-	xr_vector<SScriptThread>::iterator It = m_threads.begin();
+	typename xr_vector<SScriptThread>::iterator It = m_threads.begin();
 	for (; It != m_threads.end(); ++It)
 	{
 		if ((*It).scriptID == nThreadID)
@@ -62,7 +62,7 @@ void CDbgScriptThreads::DrawThreads()
 {
 	//CScriptDebugger::GetDebugger()->ClearThreads();
 	m_debugger->ClearThreads();
-	xr_vector<SScriptThread>::iterator It = m_threads.begin();
+	typename xr_vector<SScriptThread>::iterator It = m_threads.begin();
 	for (; It != m_threads.end(); ++It)
 	{
 		SScriptThread th;

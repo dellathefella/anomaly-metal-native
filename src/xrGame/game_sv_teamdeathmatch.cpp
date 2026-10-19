@@ -699,7 +699,7 @@ void game_sv_TeamDeathmatch::OnDetachItem(CSE_ActorMP* actor, CSE_Abstract* item
 	if (item->m_tClassID == CLSID_OBJECT_PLAYERS_BAG)
 	{
 		//move all items from player to rukzak
-		xr_vector<u16>::const_iterator it_e = actor->children.end();
+		typename xr_vector<u16>::const_iterator it_e = actor->children.end();
 
 		xr_vector<CSE_Abstract*> to_transfer;
 		xr_vector<CSE_Abstract*> to_destroy;
@@ -707,7 +707,7 @@ void game_sv_TeamDeathmatch::OnDetachItem(CSE_ActorMP* actor, CSE_Abstract* item
 		// may be there is a sense to move next invokation into the ProcessDeath method...
 		FillDeathActorRejectItems(actor, to_reject);
 
-		for (xr_vector<u16>::const_iterator it = actor->children.begin();
+		for (typename xr_vector<u16>::const_iterator it = actor->children.begin();
 		     it != it_e; ++it)
 		{
 			u16 ItemID = *it;
@@ -732,14 +732,14 @@ void game_sv_TeamDeathmatch::OnDetachItem(CSE_ActorMP* actor, CSE_Abstract* item
 			}
 		}
 
-		xr_vector<CSE_Abstract*>::const_iterator tr_it_e = to_transfer.end();
+		typename xr_vector<CSE_Abstract*>::const_iterator tr_it_e = to_transfer.end();
 
 		NET_Packet EventPack;
 		NET_Packet PacketReject;
 		NET_Packet PacketTake;
 		EventPack.w_begin(M_EVENT_PACK);
 
-		for (xr_vector<CSE_Abstract*>::const_iterator tr_it = to_transfer.begin();
+		for (typename xr_vector<CSE_Abstract*>::const_iterator tr_it = to_transfer.begin();
 		     tr_it != tr_it_e; ++tr_it)
 		{
 			m_server->Perform_transfer(PacketReject, PacketTake, *tr_it, actor, item);

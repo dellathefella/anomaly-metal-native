@@ -74,8 +74,8 @@ IC void CSpaceRestrictionAbstract::prepare_accessible_neighbour_border(T& restri
 	VERIFY(!border().empty());
 	m_accessible_neighbour_border.reserve(border().size());
 
-	xr_vector<u32>::const_iterator I = border().begin();
-	xr_vector<u32>::const_iterator E = border().end();
+	typename xr_vector<u32>::const_iterator I = border().begin();
+	typename xr_vector<u32>::const_iterator E = border().end();
 	for (; I != E; ++I)
 		if (accessible_neighbours(restriction, *I, out_restriction))
 			m_accessible_neighbour_border.push_back(*I);

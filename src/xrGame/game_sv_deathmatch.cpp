@@ -1052,8 +1052,8 @@ void game_sv_Deathmatch::OnPlayerBuyFinished(ClientID id_who, NET_Packet& P)
 			CheckItem(ps, pItem, &ItemsDesired, &ItemsToDelete, ExactMatch);
 		};
 		
-		xr_vector<u16>::iterator	IDI = ItemsToDelete.begin();
-		xr_vector<u16>::iterator	EDI = ItemsToDelete.end();
+		typename xr_vector<u16>::iterator	IDI = ItemsToDelete.begin();
+		typename xr_vector<u16>::iterator	EDI = ItemsToDelete.end();
 		for ( ; IDI != EDI; ++IDI) 
 		{
 			NET_Packet			P;
@@ -1751,8 +1751,8 @@ void game_sv_Deathmatch::OnDetach(u16 eid_who, u16 eid_what)
 	if (e_entity->m_tClassID == CLSID_OBJECT_PLAYERS_BAG && actor)
 	{
 		//move all items from player to rukzak
-		xr_vector<u16>::const_iterator it = e_parent->children.begin();
-		xr_vector<u16>::const_iterator it_e = e_parent->children.end();
+		typename xr_vector<u16>::const_iterator it = e_parent->children.begin();
+		typename xr_vector<u16>::const_iterator it_e = e_parent->children.end();
 		xr_vector<CSE_Abstract*> to_transfer;
 		xr_vector<CSE_Abstract*> to_destroy;
 		xr_vector<CSE_Abstract*> to_reject;
@@ -1781,8 +1781,8 @@ void game_sv_Deathmatch::OnDetach(u16 eid_who, u16 eid_what)
 			}
 		}
 
-		xr_vector<CSE_Abstract*>::const_iterator tr_it = to_transfer.begin();
-		xr_vector<CSE_Abstract*>::const_iterator tr_it_e = to_transfer.end();
+		typename xr_vector<CSE_Abstract*>::const_iterator tr_it = to_transfer.begin();
+		typename xr_vector<CSE_Abstract*>::const_iterator tr_it_e = to_transfer.end();
 
 		NET_Packet EventPack;
 		NET_Packet PacketReject;
@@ -2207,8 +2207,8 @@ void game_sv_Deathmatch::OnRender				()
 			bool			failed = !m_graph_engine->search(*m_level_graph,m_level_graph->vertex(u32(-1),v0),m_level_graph->vertex(u32(-1),v1),&xPath,GraphEngineSpace::CBaseParameters());
 			if (failed) continue;
 
-			xr_vector<u32>::const_iterator I = xPath.begin();
-			xr_vector<u32>::const_iterator E = xPath.end();
+			typename xr_vector<u32>::const_iterator I = xPath.begin();
+			typename xr_vector<u32>::const_iterator E = xPath.end();
 			for ( ; I != E; ++I) {
 				Level().debug_renderer().draw_aabb(
 					Fvector().set(

@@ -111,8 +111,8 @@ void CAI_Stalker::attach_available_ammo(CWeapon* weapon)
 		return;
 
 	u32 count = 0;
-	xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
-	xr_vector<CTradeItem>::iterator E = m_temp_items.end();
+	typename xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
+	typename xr_vector<CTradeItem>::iterator E = m_temp_items.end();
 	for (; I != E; ++I)
 	{
 		if (m_total_money < (*I).m_item->Cost())
@@ -142,8 +142,8 @@ void CAI_Stalker::choose_weapon(ALife::EWeaponPriorityType weapon_priority_type)
 	float best_value = -1.f;
 	ai().ef_storage().non_alife().member() = this;
 
-	xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
-	xr_vector<CTradeItem>::iterator E = m_temp_items.end();
+	typename xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
+	typename xr_vector<CTradeItem>::iterator E = m_temp_items.end();
 	for (; I != E; ++I)
 	{
 		if (m_total_money < (*I).m_item->Cost())
@@ -219,8 +219,8 @@ void CAI_Stalker::choose_detector()
 	CTradeItem* best_detector = 0;
 	float best_value = -1.f;
 	ai().ef_storage().non_alife().member() = this;
-	xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
-	xr_vector<CTradeItem>::iterator E = m_temp_items.end();
+	typename xr_vector<CTradeItem>::iterator I = m_temp_items.begin();
+	typename xr_vector<CTradeItem>::iterator E = m_temp_items.end();
 	for (; I != E; ++I)
 	{
 		if (m_total_money < (*I).m_item->Cost())
@@ -294,7 +294,7 @@ bool CAI_Stalker::can_sell(CInventoryItem* item)
 		return (tradable_item(item, ID()));
 
 	update_sell_info();
-	xr_vector<CTradeItem>::const_iterator I = std::find(m_temp_items.begin(), m_temp_items.end(), item->object().ID());
+	typename xr_vector<CTradeItem>::const_iterator I = std::find(m_temp_items.begin(), m_temp_items.end(), item->object().ID());
 	VERIFY(I != m_temp_items.end());
 	return ((*I).m_new_owner_id != ID());
 }
@@ -392,8 +392,8 @@ void CAI_Stalker::remove_personal_only_ammo(const CInventoryItem* item)
 	const CWeapon* weapon = smart_cast<const CWeapon*>(item);
 	VERIFY(weapon);
 
-	xr_vector<shared_str>::const_iterator I = weapon->m_ammoTypes.begin();
-	xr_vector<shared_str>::const_iterator E = weapon->m_ammoTypes.end();
+	typename xr_vector<shared_str>::const_iterator I = weapon->m_ammoTypes.begin();
+	typename xr_vector<shared_str>::const_iterator E = weapon->m_ammoTypes.end();
 	for (; I != E; ++I)
 	{
 		bool found = false;

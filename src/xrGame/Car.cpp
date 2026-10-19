@@ -323,7 +323,7 @@ void CCar::RestoreNetState(CSE_PHSkeleton* po)
 
 	{
 		xr_map<u16, SDoor>::iterator i, e;
-		xr_vector<CSE_ALifeCar::SDoorState>::iterator ii = co->door_states.begin();
+		typename xr_vector<CSE_ALifeCar::SDoorState>::iterator ii = co->door_states.begin();
 		i = m_doors.begin();
 		e = m_doors.end();
 		for (; i != e; ++i, ++ii)
@@ -333,7 +333,7 @@ void CCar::RestoreNetState(CSE_PHSkeleton* po)
 	}
 	{
 		xr_map<u16, SWheel>::iterator i, e;
-		xr_vector<CSE_ALifeCar::SWheelState>::iterator ii = co->wheel_states.begin();
+		typename xr_vector<CSE_ALifeCar::SWheelState>::iterator ii = co->wheel_states.begin();
 		i = m_wheels_map.begin();
 		e = m_wheels_map.end();
 		for (; i != e; ++i, ++ii)
@@ -920,7 +920,7 @@ void CCar::Init()
 	}
 
 	{
-		xr_vector<SWheelDrive>::iterator i, e;
+		typename xr_vector<SWheelDrive>::iterator i, e;
 		i = m_driving_wheels.begin();
 		e = m_driving_wheels.end();
 		for (; i != e; ++i)
@@ -928,7 +928,7 @@ void CCar::Init()
 	}
 
 	{
-		xr_vector<SWheelBreak>::iterator i, e;
+		typename xr_vector<SWheelBreak>::iterator i, e;
 		i = m_breaking_wheels.begin();
 		e = m_breaking_wheels.end();
 		for (; i != e; ++i)
@@ -936,7 +936,7 @@ void CCar::Init()
 	}
 
 	{
-		xr_vector<SWheelSteer>::iterator i, e;
+		typename xr_vector<SWheelSteer>::iterator i, e;
 		i = m_steering_wheels.begin();
 		e = m_steering_wheels.end();
 		for (; i != e; ++i)
@@ -944,7 +944,7 @@ void CCar::Init()
 	}
 
 	{
-		xr_vector<SExhaust>::iterator i, e;
+		typename xr_vector<SExhaust>::iterator i, e;
 		i = m_exhausts.begin();
 		e = m_exhausts.end();
 		for (; i != e; ++i)
@@ -1002,7 +1002,7 @@ void CCar::Revert()
 
 void CCar::NeutralDrive()
 {
-	xr_vector<SWheelDrive>::iterator i, e;
+	typename xr_vector<SWheelDrive>::iterator i, e;
 	i = m_driving_wheels.begin();
 	e = m_driving_wheels.end();
 	for (; i != e; ++i)
@@ -1012,7 +1012,7 @@ void CCar::NeutralDrive()
 
 void CCar::ReleaseHandBreak()
 {
-	xr_vector<SWheelBreak>::iterator i, e;
+	typename xr_vector<SWheelBreak>::iterator i, e;
 	i = m_breaking_wheels.begin();
 	e = m_breaking_wheels.end();
 	for (; i != e; ++i)
@@ -1027,7 +1027,7 @@ void CCar::Drive()
 	m_pPhysicsShell->Enable();
 	m_current_rpm = EngineDriveSpeed();
 	m_current_engine_power = EnginePower();
-	xr_vector<SWheelDrive>::iterator i, e;
+	typename xr_vector<SWheelDrive>::iterator i, e;
 	i = m_driving_wheels.begin();
 	e = m_driving_wheels.end();
 	for (; i != e; ++i)
@@ -1110,7 +1110,7 @@ void CCar::UpdatePower()
 		if (m_current_rpm > m_gear_ratious[CurrentTransmission()][2]) TransmissionUp();
 	}
 
-	xr_vector<SWheelDrive>::iterator i, e;
+	typename xr_vector<SWheelDrive>::iterator i, e;
 	i = m_driving_wheels.begin();
 	e = m_driving_wheels.end();
 	for (; i != e; ++i)
@@ -1121,7 +1121,7 @@ void CCar::SteerRight()
 {
 	b_wheels_limited = true; //no need to limit wheels when stiring
 	m_pPhysicsShell->Enable();
-	xr_vector<SWheelSteer>::iterator i, e;
+	typename xr_vector<SWheelSteer>::iterator i, e;
 	i = m_steering_wheels.begin();
 	e = m_steering_wheels.end();
 	for (; i != e; ++i)
@@ -1133,7 +1133,7 @@ void CCar::SteerLeft()
 {
 	b_wheels_limited = true; //no need to limit wheels when stiring
 	m_pPhysicsShell->Enable();
-	xr_vector<SWheelSteer>::iterator i, e;
+	typename xr_vector<SWheelSteer>::iterator i, e;
 	i = m_steering_wheels.begin();
 	e = m_steering_wheels.end();
 	for (; i != e; ++i)
@@ -1145,7 +1145,7 @@ void CCar::SteerIdle()
 {
 	b_wheels_limited = false;
 	m_pPhysicsShell->Enable();
-	xr_vector<SWheelSteer>::iterator i, e;
+	typename xr_vector<SWheelSteer>::iterator i, e;
 	i = m_steering_wheels.begin();
 	e = m_steering_wheels.end();
 	for (; i != e; ++i)
@@ -1157,7 +1157,7 @@ void CCar::LimitWheels()
 {
 	if (b_wheels_limited) return;
 	b_wheels_limited = true;
-	xr_vector<SWheelSteer>::iterator i, e;
+	typename xr_vector<SWheelSteer>::iterator i, e;
 	i = m_steering_wheels.begin();
 	e = m_steering_wheels.end();
 	for (; i != e; ++i)
@@ -1166,7 +1166,7 @@ void CCar::LimitWheels()
 
 void CCar::HandBreak()
 {
-	xr_vector<SWheelBreak>::iterator i, e;
+	typename xr_vector<SWheelBreak>::iterator i, e;
 	i = m_breaking_wheels.begin();
 	e = m_breaking_wheels.end();
 	for (; i != e; ++i)
@@ -1184,7 +1184,7 @@ void CCar::StartBreaking()
 
 void CCar::StopBreaking()
 {
-	xr_vector<SWheelBreak>::iterator i, e;
+	typename xr_vector<SWheelBreak>::iterator i, e;
 	i = m_breaking_wheels.begin();
 	e = m_breaking_wheels.end();
 	for (; i != e; ++i)
@@ -1417,7 +1417,7 @@ void CCar::UpdateBack()
 		{
 			k *= (time / m_break_time);
 		}
-		xr_vector<SWheelBreak>::iterator i, e;
+		typename xr_vector<SWheelBreak>::iterator i, e;
 		i = m_breaking_wheels.begin();
 		e = m_breaking_wheels.end();
 		for (; i != e; ++i)
@@ -1440,7 +1440,7 @@ void CCar::UpdateBack()
 
 void CCar::PlayExhausts()
 {
-	xr_vector<SExhaust>::iterator i, e;
+	typename xr_vector<SExhaust>::iterator i, e;
 	i = m_exhausts.begin();
 	e = m_exhausts.end();
 	for (; i != e; ++i)
@@ -1449,7 +1449,7 @@ void CCar::PlayExhausts()
 
 void CCar::StopExhausts()
 {
-	xr_vector<SExhaust>::iterator i, e;
+	typename xr_vector<SExhaust>::iterator i, e;
 	i = m_exhausts.begin();
 	e = m_exhausts.end();
 	for (; i != e; ++i)
@@ -1459,7 +1459,7 @@ void CCar::StopExhausts()
 void CCar::UpdateExhausts()
 {
 	if (!b_engine_on) return;
-	xr_vector<SExhaust>::iterator i, e;
+	typename xr_vector<SExhaust>::iterator i, e;
 	i = m_exhausts.begin();
 	e = m_exhausts.end();
 	for (; i != e; ++i)
@@ -1468,7 +1468,7 @@ void CCar::UpdateExhausts()
 
 void CCar::ClearExhausts()
 {
-	xr_vector<SExhaust>::iterator i, e;
+	typename xr_vector<SExhaust>::iterator i, e;
 	i = m_exhausts.begin();
 	e = m_exhausts.end();
 	for (; i != e; ++i)
@@ -1616,7 +1616,7 @@ float CCar::EnginePower()
 
 float CCar::DriveWheelsMeanAngleRate()
 {
-	xr_vector<SWheelDrive>::iterator i, e;
+	typename xr_vector<SWheelDrive>::iterator i, e;
 	i = m_driving_wheels.begin();
 	e = m_driving_wheels.end();
 	float drive_speed = 0.f;

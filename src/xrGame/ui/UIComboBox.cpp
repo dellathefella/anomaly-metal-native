@@ -113,7 +113,7 @@ void CUIComboBox::disable_id(int id)
 
 void CUIComboBox::enable_id(int id)
 {
-	xr_vector<int>::iterator it = std::find(m_disabled.begin(), m_disabled.end(), id);
+	typename xr_vector<int>::iterator it = std::find(m_disabled.begin(), m_disabled.end(), id);
 
 	if (m_disabled.end() != it)
 		m_disabled.erase(it);

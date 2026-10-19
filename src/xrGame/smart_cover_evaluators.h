@@ -33,7 +33,7 @@ namespace smart_cover
 
 		public:
 			in_cover_evaluator(CAI_Stalker* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -47,7 +47,7 @@ namespace smart_cover
 
 		public:
 			cover_actual_evaluator(CAI_Stalker* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ namespace smart_cover
 
 		public:
 			cover_entered_evaluator(CAI_Stalker* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -80,7 +80,7 @@ namespace smart_cover
 		public:
 			loophole_actual_evaluator(CAI_Stalker* object, LPCSTR evaluator_name, animation_planner* planner,
 			                          u32 const& loophole_value);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ namespace smart_cover
 			u32 m_time_to_wait;
 		public:
 			loophole_hit_long_ago_evaluator(animation_planner* object, LPCSTR evaluator_name, u32 const& time_to_wait);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ namespace smart_cover
 
 		public:
 			loophole_planner_const_evaluator(animation_planner* object, LPCSTR evaluator_name, bool const& value);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ namespace smart_cover
 
 		public:
 			is_action_available_evaluator(animation_planner* object, LPCSTR evaluator_name, LPCSTR action_id);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -144,7 +144,7 @@ namespace smart_cover
 
 		public:
 			loophole_exitable_evaluator(CAI_Stalker* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -158,7 +158,7 @@ namespace smart_cover
 
 		public:
 			can_exit_loophole_with_animation(CAI_Stalker* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -172,7 +172,7 @@ namespace smart_cover
 
 		public:
 			default_behaviour_evaluator(animation_planner* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -186,7 +186,7 @@ namespace smart_cover
 
 		public:
 			can_fire_at_enemy_evaluator(animation_planner* object, LPCSTR evaluator_name);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -204,7 +204,7 @@ namespace smart_cover
 		public:
 			idle_time_interval_passed_evaluator(animation_planner* object, LPCSTR evaluator_name,
 			                                    u32 const& time_interval);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 
 		//////////////////////////////////////////////////////////////////////////
@@ -222,7 +222,7 @@ namespace smart_cover
 		public:
 			lookout_time_interval_passed_evaluator(animation_planner* object, LPCSTR evaluator_name,
 			                                       u32 const& time_interval);
-			virtual _value_type evaluate();
+			virtual GraphEngineSpace::_solver_value_type evaluate();
 		};
 	} // namespace evaluators
 } // namespace smart_covers

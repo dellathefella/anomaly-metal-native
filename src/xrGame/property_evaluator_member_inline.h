@@ -18,9 +18,9 @@ CEvaluator::CPropertyEvaluatorMember(CPropertyStorage* storage, _condition_type 
 	m_value(value),
 	m_equality(equality)
 {
-	//Alundaio: m_evaluator_name
+	//Alundaio: this->m_evaluator_name
 	//#ifdef LOG_ACTION
-	m_evaluator_name = evaluator_name;
+	this->m_evaluator_name = evaluator_name;
 	//#endif
 	m_storage = storage;
 }

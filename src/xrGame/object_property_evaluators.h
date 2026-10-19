@@ -52,7 +52,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorState(CWeapon* item, CAI_Stalker* owner, u32 state, bool equality = true);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 class CObjectPropertyEvaluatorWeaponHidden : public CObjectPropertyEvaluatorBase<CWeapon>
@@ -61,7 +61,7 @@ protected:
 	typedef CObjectPropertyEvaluatorBase<CWeapon> inherited;
 public:
 	CObjectPropertyEvaluatorWeaponHidden(CWeapon* item, CAI_Stalker* owner);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -76,7 +76,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorAmmo(CWeapon* item, CAI_Stalker* owner, u32 ammo_type);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorEmpty(CWeapon* item, CAI_Stalker* owner, u32 ammo_type);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorFull(CWeapon* item, CAI_Stalker* owner, u32 ammo_type);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorReady(CWeapon* item, CAI_Stalker* owner, u32 ammo_type);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -139,7 +139,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorQueue(CWeapon* item, CAI_Stalker* owner, u32 type);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -153,7 +153,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorNoItems(CAI_Stalker* owner);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 	IC CAI_Stalker& object() const;
 };
 
@@ -170,7 +170,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorMissile(CMissile* item, CAI_Stalker* owner, u32 state, bool equality = true);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -186,7 +186,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorMissileStarted(CMissile* item, CAI_Stalker* owner);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -202,7 +202,7 @@ protected:
 
 public:
 	CObjectPropertyEvaluatorMissileHidden(CMissile* item, CAI_Stalker* owner);
-	virtual _value_type evaluate();
+	virtual GraphEngineSpace::_solver_value_type evaluate();
 };
 
 #include "object_property_evaluators_inline.h"

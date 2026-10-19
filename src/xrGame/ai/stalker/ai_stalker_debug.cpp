@@ -163,7 +163,7 @@ void draw_planner						(const planner_type &brain, LPCSTR start_indent, LPCSTR i
 	planner_type::EVALUATORS::const_iterator	I = brain.evaluators().begin();
 	planner_type::EVALUATORS::const_iterator	E = brain.evaluators().end();
 	for ( ; I != E; ++I) {
-		xr_vector<planner_type::COperatorCondition>::const_iterator J = std::lower_bound(brain.current_state().conditions().begin(),brain.current_state().conditions().end(),planner_type::CWorldProperty((*I).first,false));
+		typename xr_vector<planner_type::COperatorCondition>::const_iterator J = std::lower_bound(brain.current_state().conditions().begin(),brain.current_state().conditions().end(),planner_type::CWorldProperty((*I).first,false));
 		char				temp = '?';
 		if ((J != brain.current_state().conditions().end()) && ((*J).condition() == (*I).first)) {
 			temp			= (*J).value() ? '+' : '-';
@@ -174,7 +174,7 @@ void draw_planner						(const planner_type &brain, LPCSTR start_indent, LPCSTR i
 	DBG_OutText	("%s%starget world state",start_indent,indent);
 	I = brain.evaluators().begin();
 	for ( ; I != E; ++I) {
-		xr_vector<planner_type::COperatorCondition>::const_iterator J = std::lower_bound(brain.target_state().conditions().begin(),brain.target_state().conditions().end(),planner_type::CWorldProperty((*I).first,false));
+		typename xr_vector<planner_type::COperatorCondition>::const_iterator J = std::lower_bound(brain.target_state().conditions().begin(),brain.target_state().conditions().end(),planner_type::CWorldProperty((*I).first,false));
 		char				temp = '?';
 		if ((J != brain.target_state().conditions().end()) && ((*J).condition() == (*I).first)) {
 			temp			= (*J).value() ? '+' : '-';
@@ -338,7 +338,7 @@ void CAI_Stalker::debug_text			()
 		DBG_OutText	("%s%sselected",indent,indent);
 		
 		float								fuzzy = 0.f;
-		xr_vector<feel_visible_Item>::iterator I=feel_visible.begin(),E=feel_visible.end();
+		typename xr_vector<feel_visible_Item>::iterator I=feel_visible.begin(),E=feel_visible.end();
 		for (; I!=E; I++)
 			if (I->O->ID() == memory().enemy().selected()->ID()) {
 				fuzzy						= I->fuzzy;
@@ -799,8 +799,8 @@ void CAI_Stalker::debug_text			()
 		DBG_OutText("%s%sobjects     : %d",indent,indent,object_count);
 	}
 	{
-		xr_vector<CSoundPlayer::CSoundSingle>::const_iterator	I = sound().playing_sounds().begin();
-		xr_vector<CSoundPlayer::CSoundSingle>::const_iterator	E = sound().playing_sounds().end();
+		typename xr_vector<CSoundPlayer::CSoundSingle>::const_iterator	I = sound().playing_sounds().begin();
+		typename xr_vector<CSoundPlayer::CSoundSingle>::const_iterator	E = sound().playing_sounds().end();
 		for ( ; I != E; ++I)
 			DBG_OutText(
 				"%s%s%s[%s]%s",

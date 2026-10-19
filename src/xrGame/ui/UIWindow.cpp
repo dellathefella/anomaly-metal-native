@@ -24,7 +24,7 @@ poolSS<_12b, 128> ui_allocator;
 	xr_vector<DBGList>	dbg_list_wnds;
 	void dump_list_wnd(){
 		Msg("------Total  wnds %d",dbg_list_wnds.size());
-		xr_vector<DBGList>::iterator _it = dbg_list_wnds.begin();
+		typename xr_vector<DBGList>::iterator _it = dbg_list_wnds.begin();
 		for(;_it!=dbg_list_wnds.end();++_it)
 			if(!(*_it).closed)
 				Msg("--leak detected ---- wnd = %d",(*_it).num);
@@ -75,8 +75,8 @@ void draw_wnds_rects()
 {
 	if (0 == g_wnds_rects.size()) return;
 
-	xr_vector<Frect>::iterator it = g_wnds_rects.begin();
-	xr_vector<Frect>::iterator it_e = g_wnds_rects.end();
+	typename xr_vector<Frect>::iterator it = g_wnds_rects.begin();
+	typename xr_vector<Frect>::iterator it_e = g_wnds_rects.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -149,7 +149,7 @@ CUIWindow::~CUIWindow()
 		MainMenu()->UnregisterPPDraw(this);
 
 #ifdef LOG_ALL_WNDS
-	xr_vector<DBGList>::iterator _it = dbg_list_wnds.begin();
+	typename xr_vector<DBGList>::iterator _it = dbg_list_wnds.begin();
 	bool bOK = false;
 	for(;_it!=dbg_list_wnds.end();++_it){
 		if( (*_it).num==m_dbg_id && !(*_it).closed){

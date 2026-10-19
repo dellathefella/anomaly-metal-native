@@ -165,8 +165,8 @@ void CALifeMonsterDetailPathManager::actualize()
 			Msg						("! game_graph_mask -> [ %d, %d, %d, %d]", vertex->vertex_type()[0], vertex->vertex_type()[1], vertex->vertex_type()[2], vertex->vertex_type()[3]);
 		}
 		Msg						("! List of available game_graph masks:");
-		xr_vector<GameGraph::STerrainPlace>::iterator I = object().m_tpaTerrain.begin();
-		xr_vector<GameGraph::STerrainPlace>::iterator E = object().m_tpaTerrain.end();
+		typename xr_vector<GameGraph::STerrainPlace>::iterator I = object().m_tpaTerrain.begin();
+		typename xr_vector<GameGraph::STerrainPlace>::iterator E = object().m_tpaTerrain.end();
 		for ( ; I != E; ++I) {
 			Msg							("! [%d , %d , %d , %d]",(*I).tMask[0],(*I).tMask[1],(*I).tMask[2],(*I).tMask[3]);
 		};

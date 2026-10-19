@@ -455,11 +455,11 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 
 		if (res)
 		{
-			xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
-			xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
+			typename xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
+			typename xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
 
-			xr_vector<CLevelChanger*>::iterator lit = g_lchangers.begin();
-			//xr_vector<CLevelChanger*>::iterator lit_e = g_lchangers.end();
+			typename xr_vector<CLevelChanger*>::iterator lit = g_lchangers.begin();
+			//typename xr_vector<CLevelChanger*>::iterator lit_e = g_lchangers.end();
 			bool bDone = false;
 			//for(; (it!=it_e)&&(!bDone) ;++it){
 			//	for(lit=g_lchangers.begin();lit!=lit_e; ++lit){
@@ -477,8 +477,8 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 			{
 				Msg("! Error. Path from actor to selected map spot does not contain level changer :(");
 				Msg("Path:");
-				xr_vector<u32>::iterator it = map_point_path.begin();
-				xr_vector<u32>::iterator it_e = map_point_path.end();
+				typename xr_vector<u32>::iterator it = map_point_path.begin();
+				typename xr_vector<u32>::iterator it_e = map_point_path.end();
 				for (; it != it_e; ++it)
 				{
 					//					Msg("%d-%s",(*it),ai().game_graph().vertex(*it));
@@ -486,7 +486,7 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 					    *ai().game_graph().header().level(ai().game_graph().vertex(*it)->level_id()).name());
 				}
 				Msg("- Available LevelChangers:");
-				xr_vector<CLevelChanger*>::iterator lit, lit_e;
+				typename xr_vector<CLevelChanger*>::iterator lit, lit_e;
 				lit_e = g_lchangers.end();
 				for (lit = g_lchangers.begin(); lit != lit_e; ++lit)
 				{
@@ -507,8 +507,8 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 			}
 			else
 			{
-				xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
-				xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
+				typename xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
+				typename xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
 				for (; (it != it_e) && (!bDone); ++it)
 				{
 					if (*ai().game_graph().header().level(ai().game_graph().vertex(*it)->level_id()).name() == Level().
@@ -858,8 +858,8 @@ bool CRelationMapLocation::Update()
 
 		if (Level().MapManager().GetMapLocationsForObject(m_objectID, find_locations_res))
 		{
-			xr_vector<CMapLocation*>::iterator it = find_locations_res.begin();
-			xr_vector<CMapLocation*>::iterator it_e = find_locations_res.end();
+			typename xr_vector<CMapLocation*>::iterator it = find_locations_res.begin();
+			typename xr_vector<CMapLocation*>::iterator it_e = find_locations_res.end();
 			for (; it != it_e; ++it)
 			{
 				CMapLocation* ml = (*it);

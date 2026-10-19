@@ -1889,7 +1889,7 @@ void CSE_ALifeCar::data_save(NET_Packet& tNetPacket)
 	tNetPacket.w_vec3(o_Angle);
 	{
 		tNetPacket.w_u16(u16(door_states.size()));
-		xr_vector<SDoorState>::iterator i = door_states.begin(), e = door_states.end();
+		typename xr_vector<SDoorState>::iterator i = door_states.begin(), e = door_states.end();
 		for (; e != i; ++i)
 		{
 			i->write(tNetPacket);
@@ -1898,7 +1898,7 @@ void CSE_ALifeCar::data_save(NET_Packet& tNetPacket)
 	}
 	{
 		tNetPacket.w_u16(u16(wheel_states.size()));
-		xr_vector<SWheelState>::iterator i = wheel_states.begin(), e = wheel_states.end();
+		typename xr_vector<SWheelState>::iterator i = wheel_states.begin(), e = wheel_states.end();
 		for (; e != i; ++i)
 		{
 			i->write(tNetPacket);

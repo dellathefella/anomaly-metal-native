@@ -302,8 +302,8 @@ void UITeamState::Update()
 {
 	if (toDeletePlayers.size())
 	{
-		xr_vector<ClientID>::iterator ie = toDeletePlayers.end();
-		for (xr_vector<ClientID>::iterator i = toDeletePlayers.begin();
+		typename xr_vector<ClientID>::iterator ie = toDeletePlayers.end();
+		for (typename xr_vector<ClientID>::iterator i = toDeletePlayers.begin();
 		     i != ie; ++i)
 		{
 			MapClientIdToUIPlayer::iterator tempIter = myPlayers.find(*i);

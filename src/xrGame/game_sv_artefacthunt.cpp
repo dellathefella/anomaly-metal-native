@@ -636,7 +636,7 @@ void game_sv_ArtefactHunt::OnObjectEnterTeamBase(u16 id, u16 zone_team)
 			signal_Syncronize();
 
 			xr_vector<u16>& C = eActor->children;
-			xr_vector<u16>::iterator c = std::find(C.begin(), C.end(), m_dwArtefactID);
+			typename xr_vector<u16>::iterator c = std::find(C.begin(), C.end(), m_dwArtefactID);
 			if (C.end() != c)
 			{
 				OnArtefactOnBase(eActor->owner->ID);

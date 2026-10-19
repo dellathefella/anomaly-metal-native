@@ -120,7 +120,7 @@ DECLARE_SCRIPT_REGISTER_FUNCTION
 			class_<__VA_ARGS__>(name_str)\
 				.def(						constructor<>())\
 				.def(						constructor<__VA_ARGS__::lua_object_type, __VA_ARGS__::lua_function_type>())\
-				.def("bind",				&__VA_ARGS__::bind)\
+				.def("bind",				static_cast<void (__VA_ARGS__::*)(__VA_ARGS__::lua_object_type, __VA_ARGS__::lua_function_type)>(&__VA_ARGS__::bind))\
 				.def("clear",				&__VA_ARGS__::clear)\
 		];\
 	};

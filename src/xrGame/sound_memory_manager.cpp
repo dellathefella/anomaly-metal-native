@@ -114,7 +114,7 @@ IC u32 CSoundMemoryManager::priority(const MemorySpace::CSoundObject& sound) con
 
 void CSoundMemoryManager::enable(const CObject* object, bool enable)
 {
-	xr_vector<CSoundObject>::iterator J = std::find(m_sounds->begin(), m_sounds->end(), object_id(object));
+	typename xr_vector<CSoundObject>::iterator J = std::find(m_sounds->begin(), m_sounds->end(), object_id(object));
 	if (J == m_sounds->end())
 		return;
 	(*J).m_enabled = enable;
@@ -219,7 +219,7 @@ void CSoundMemoryManager::add(const CSoundObject& sound_object, bool check_for_e
 	VERIFY(m_max_sound_count);
 	if (m_max_sound_count <= m_sounds->size())
 	{
-		xr_vector<CSoundObject>::iterator I = std::min_element(m_sounds->begin(), m_sounds->end(),
+		typename xr_vector<CSoundObject>::iterator I = std::min_element(m_sounds->begin(), m_sounds->end(),
 		                                                       SLevelTimePredicate<CGameObject>());
 		VERIFY(m_sounds->end() != I);
 		*I = sound_object;
@@ -277,7 +277,7 @@ void CSoundMemoryManager::add(const CObject* object, int sound_type, const Fvect
 
 	const CGameObject* self = m_object;
 
-	xr_vector<CSoundObject>::iterator J = std::find(m_sounds->begin(), m_sounds->end(), object_id(object));
+	typename xr_vector<CSoundObject>::iterator J = std::find(m_sounds->begin(), m_sounds->end(), object_id(object));
 	if (m_sounds->end() == J)
 	{
 		CSoundObject sound_object;
@@ -334,8 +334,8 @@ void CSoundMemoryManager::update()
 #ifdef USE_SELECTED_SOUND
 	xr_delete					(m_selected_sound);
 	u32							priority = u32(-1);
-	xr_vector<CSoundObject>::const_iterator	I = m_sounds->begin();
-	xr_vector<CSoundObject>::const_iterator	E = m_sounds->end();
+	typename xr_vector<CSoundObject>::const_iterator	I = m_sounds->begin();
+	typename xr_vector<CSoundObject>::const_iterator	E = m_sounds->end();
 	for ( ; I != E; ++I) {
 		u32						cur_priority = this->priority(*I);
 		if (cur_priority < priority) {

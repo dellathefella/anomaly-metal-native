@@ -888,8 +888,8 @@ void CCustomZone::PlayBoltEntranceParticles()
 
 	CParticlesObject* pParticles = NULL;
 
-	xr_vector<CCF_Shape::shape_def>::iterator it = Shapes.begin();
-	xr_vector<CCF_Shape::shape_def>::iterator it_e = Shapes.end();
+	typename xr_vector<CCF_Shape::shape_def>::iterator it = Shapes.begin();
+	typename xr_vector<CCF_Shape::shape_def>::iterator it_e = Shapes.end();
 
 	for (; it != it_e; ++it)
 	{
@@ -1518,8 +1518,8 @@ void CCustomZone::CalcDistanceTo(const Fvector& P, float& dist, float& radius)
 
 	Fvector sP;
 
-	xr_vector<CCF_Shape::shape_def>::iterator it = Shapes.begin();
-	xr_vector<CCF_Shape::shape_def>::iterator it_e = Shapes.end();
+	typename xr_vector<CCF_Shape::shape_def>::iterator it = Shapes.begin();
+	typename xr_vector<CCF_Shape::shape_def>::iterator it_e = Shapes.end();
 	for (; it != it_e; ++it)
 	{
 		CCF_Shape::shape_def& s = *it;

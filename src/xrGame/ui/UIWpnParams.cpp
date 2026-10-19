@@ -248,7 +248,7 @@ void CUIWpnParams::SetInfo(CInventoryItem* slot_wpn, CInventoryItem& cur_wpn)
 		int counter = 0;
 		xr_vector<shared_str> good_ammo;
 
-		xr_vector<shared_str>::iterator it = ammo_types.begin();
+		typename xr_vector<shared_str>::iterator it = ammo_types.begin();
 		for (; it != ammo_types.end();)
 		{
 			if (ammo_types[counter] != NULL && !strstr(ammo_types[counter].c_str(), "_bad") && !strstr(

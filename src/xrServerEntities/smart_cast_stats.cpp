@@ -115,8 +115,8 @@ IC	void CSmartCastStats::show					()
 	std::sort							(m_temp.begin(),m_temp.end(),CStatsPredicate());
 	u32									total = 0;
 
-	xr_vector<CStats>::const_iterator	I = m_temp.begin();
-	xr_vector<CStats>::const_iterator	E = m_temp.end();
+	typename xr_vector<CStats>::const_iterator	I = m_temp.begin();
+	typename xr_vector<CStats>::const_iterator	E = m_temp.end();
 	for ( ; I != E; ++I)
 		total							+= (*I).m_count;
 

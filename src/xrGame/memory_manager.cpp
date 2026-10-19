@@ -159,8 +159,8 @@ template <typename T>
 void CMemoryManager::update(const xr_vector<T>& objects, bool add_enemies)
 {
 	squad_mask_type mask = m_stalker ? m_stalker->agent_manager().member().mask(m_stalker) : 0;
-	xr_vector<T>::const_iterator I = objects.begin();
-	xr_vector<T>::const_iterator E = objects.end();
+	typename xr_vector<T>::const_iterator I = objects.begin();
+	typename xr_vector<T>::const_iterator E = objects.end();
 	for (; I != E; ++I)
 	{
 		if (!(*I).m_enabled)
@@ -199,7 +199,7 @@ CMemoryInfo CMemoryManager::memory(const CObject* object) const
 	squad_mask_type mask = m_stalker ? m_stalker->agent_manager().member().mask(m_stalker) : squad_mask_type(-1);
 
 	{
-		xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
+		typename xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
 		                                                        object_id(object));
 		if (visual().objects().end() != I)
 		{
@@ -212,7 +212,7 @@ CMemoryInfo CMemoryManager::memory(const CObject* object) const
 	}
 
 	{
-		xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
+		typename xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
 		                                                      object_id(object));
 		if ((sound().objects().end() != I) && (level_time < (*I).m_level_time))
 		{
@@ -224,7 +224,7 @@ CMemoryInfo CMemoryManager::memory(const CObject* object) const
 	}
 
 	{
-		xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
+		typename xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
 		                                                    object_id(object));
 		if ((hit().objects().end() != I) && (level_time < (*I).m_level_time))
 		{
@@ -248,21 +248,21 @@ u32 CMemoryManager::memory_time(const CObject* object) const
 	VERIFY(game_object);
 
 	{
-		xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
+		typename xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
 		                                                        object_id(object));
 		if (visual().objects().end() != I)
 			result = (*I).m_level_time;
 	}
 
 	{
-		xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
+		typename xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
 		                                                      object_id(object));
 		if ((sound().objects().end() != I) && (result < (*I).m_level_time))
 			result = (*I).m_level_time;
 	}
 
 	{
-		xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
+		typename xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
 		                                                    object_id(object));
 		if ((hit().objects().end() != I) && (result < (*I).m_level_time))
 			result = (*I).m_level_time;
@@ -282,7 +282,7 @@ Fvector CMemoryManager::memory_position(const CObject* object) const
 	VERIFY(game_object);
 
 	{
-		xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
+		typename xr_vector<CVisibleObject>::const_iterator I = std::find(visual().objects().begin(), visual().objects().end(),
 		                                                        object_id(object));
 		if (visual().objects().end() != I)
 		{
@@ -292,7 +292,7 @@ Fvector CMemoryManager::memory_position(const CObject* object) const
 	}
 
 	{
-		xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
+		typename xr_vector<CSoundObject>::const_iterator I = std::find(sound().objects().begin(), sound().objects().end(),
 		                                                      object_id(object));
 		if ((sound().objects().end() != I) && (time < (*I).m_level_time))
 		{
@@ -302,7 +302,7 @@ Fvector CMemoryManager::memory_position(const CObject* object) const
 	}
 
 	{
-		xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
+		typename xr_vector<CHitObject>::const_iterator I = std::find(hit().objects().begin(), hit().objects().end(),
 		                                                    object_id(object));
 		if ((hit().objects().end() != I) && (time < (*I).m_level_time))
 		{

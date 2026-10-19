@@ -660,7 +660,7 @@ void CGamePersistent::OnFrame()
                         VERIFY(e);
                         CSE_ALifeCreatureActor*	s_actor = smart_cast<CSE_ALifeCreatureActor*>(e);
                         VERIFY(s_actor);
-                        xr_vector<u16>::iterator it = s_actor->children.begin();
+                        typename xr_vector<u16>::iterator it = s_actor->children.begin();
                         for (; it != s_actor->children.end(); it++)
                         {
                             CObject* obj = Level().Objects.net_Find(*it);

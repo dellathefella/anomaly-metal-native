@@ -78,8 +78,8 @@ void CGameTask::CreateMapLocation(bool on_load)
 	{
 		xr_vector<CMapLocation*> res;
 		Level().MapManager().GetMapLocations(m_map_location, m_map_object_id, res);
-		xr_vector<CMapLocation*>::iterator it = res.begin();
-		xr_vector<CMapLocation*>::iterator it_e = res.end();
+		typename xr_vector<CMapLocation*>::iterator it = res.begin();
+		typename xr_vector<CMapLocation*>::iterator it_e = res.end();
 		for (; it != it_e; ++it)
 		{
 			CMapLocation* ml = *it;
@@ -172,7 +172,7 @@ ETaskState CGameTask::UpdateState()
 bool CGameTask::CheckInfo(const xr_vector<shared_str>& v) const
 {
 	bool res = false;
-	xr_vector<shared_str>::const_iterator it = v.begin();
+	typename xr_vector<shared_str>::const_iterator it = v.begin();
 	for (; it != v.end(); ++it)
 	{
 		res = Actor()->HasInfo(*it);
@@ -204,7 +204,7 @@ void CGameTask::CallAllFuncs(const task_state_functors& v)
 
 void CGameTask::SendInfo(const xr_vector<shared_str>& v)
 {
-	xr_vector<shared_str>::const_iterator it = v.begin();
+	typename xr_vector<shared_str>::const_iterator it = v.begin();
 	for (; it != v.end(); ++it)
 		Actor()->TransferInfo((*it), true);
 }
@@ -300,8 +300,8 @@ void CGameTask::AddOnFailFunc_script(LPCSTR _str)
 
 void SScriptTaskHelper::init_functors(xr_vector<shared_str>& v_src, task_state_functors& v_dest)
 {
-	xr_vector<shared_str>::iterator it = v_src.begin();
-	xr_vector<shared_str>::iterator it_e = v_src.end();
+	typename xr_vector<shared_str>::iterator it = v_src.begin();
+	typename xr_vector<shared_str>::iterator it_e = v_src.end();
 	v_dest.resize(v_src.size());
 
 	for (u32 idx = 0; it != it_e; ++it, ++idx)

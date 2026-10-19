@@ -155,15 +155,15 @@ IC typename CHashFixedVertexManager::CGraphVertex&CHashFixedVertexManager::creat
 	vertex.index() = vertex_id;
 
 	u32 index = hash_index(vertex_id);
-	CGraphIndexVertex* _vertex = m_hash[index];
-	if (!_vertex || (_vertex->m_path_id != current_path_id()) || (_vertex->m_hash != index))
-		_vertex = 0;
+	CGraphIndexVertex* hash_vertex = m_hash[index]; // renamed: local must not shadow template parameter _vertex
+	if (!hash_vertex || (hash_vertex->m_path_id != current_path_id()) || (hash_vertex->m_hash != index))
+		hash_vertex = 0;
 
 	m_hash[index] = index_vertex;
-	index_vertex->m_next = _vertex;
+	index_vertex->m_next = hash_vertex;
 	index_vertex->m_prev = 0;
-	if (_vertex)
-		_vertex->m_prev = index_vertex;
+	if (hash_vertex)
+		hash_vertex->m_prev = index_vertex;
 	index_vertex->m_hash = index;
 	return (vertex);
 }

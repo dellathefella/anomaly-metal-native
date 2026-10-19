@@ -85,7 +85,7 @@ IC void CGameLocationSelector::select_random_location(const _vertex_id_type star
 	GameGraph::TERRAIN_VECTOR::const_iterator B = vertex_types.begin(), I;
 	GameGraph::TERRAIN_VECTOR::const_iterator E = vertex_types.end();
 
-	_Graph::const_iterator i, e;
+	typename _Graph::const_iterator i, e;
 	m_graph->begin(start_vertex_id, i, e);
 	for (; i != e; ++i)
 	{

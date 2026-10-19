@@ -1080,7 +1080,7 @@ public:
 	CCC_DumpCreatures(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = true; };
 	virtual void	Execute(LPCSTR args)
 	{
-		typedef CSafeMapIterator<ALife::_OBJECT_ID, CSE_ALifeDynamicObject>::_REGISTRY::const_iterator const_iterator;
+		typedef CSafeMapIterator<ALife::_OBJECT_ID, CSE_ALifeDynamicObject>::typename _REGISTRY::const_iterator const_iterator;
 
 		const_iterator I = ai().alife().graph().level().objects().begin();
 		const_iterator E = ai().alife().graph().level().objects().end();

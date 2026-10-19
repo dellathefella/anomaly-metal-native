@@ -114,7 +114,7 @@ std::unordered_map<const void*, size_t> g_mappings;
 LPVOID xr_MapViewOfFile(HANDLE map, unsigned long access, unsigned long offhi,
                         unsigned long offlo, size_t size)
 {
-    if (map == INVALID_HANDLE_VALUE)
+    if (!map || map == INVALID_HANDLE_VALUE)
         return nullptr;
     xr_win_map* m = (xr_win_map*)map;
 
@@ -137,7 +137,10 @@ LPVOID xr_MapViewOfFile(HANDLE map, unsigned long access, unsigned long offhi,
     if ((access & PROT_WRITE) && !(m->prot & PROT_WRITE))
         prot &= ~PROT_WRITE;
 
-    void* addr = mmap(nullptr, len, prot, MAP_SHARED, m->fd, 0);
+    // offhi:offlo must be a multiple of the host page size (the engine aligns
+    // with dwAllocationGranularity, which we report as the page size).
+    off_t off = ((off_t)offhi << 32) | (off_t)offlo;
+    void* addr = mmap(nullptr, len, prot, MAP_SHARED, m->fd, off);
     if (addr == MAP_FAILED)
     {
         xr_win_last_error = errno;

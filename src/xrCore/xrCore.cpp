@@ -99,9 +99,7 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 		// Init COM so we can use CoCreateInstance
 		// HRESULT co_res =
 		Params = xr_strdup(GetCommandLine());
-		fprintf(stderr, "[xp] after strdup\n");
 		xr_strlwr(Params);
-		fprintf(stderr, "[xp] after strlwr\n");
 #ifdef XR_PLATFORM_WINDOWS
 		if (!strstr(Params, "-editor"))
 			CoInitializeEx(NULL, COINIT_MULTITHREADED);

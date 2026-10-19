@@ -1846,12 +1846,12 @@ BOOL CLocatorAPI::can_write_to_folder(LPCSTR path)
 		string_path temp;
 		LPCSTR fn = "$!#%TEMP%#!$.$$$";
 		strconcat(sizeof(temp), temp, path, path[xr_strlen(path) - 1] != '\\' ? "\\" : "", fn);
-		FILE* hf = fopen(temp, "wb");
+		FILE* hf = xr_fopen_conv(temp, "wb");
 		if (hf == 0) return FALSE;
 		else
 		{
 			fclose(hf);
-			unlink(temp);
+			xr_unlink(temp);
 			return TRUE;
 		}
 	}
@@ -1870,7 +1870,7 @@ BOOL CLocatorAPI::can_write_to_alias(LPCSTR path)
 
 BOOL CLocatorAPI::can_modify_file(LPCSTR fname)
 {
-	FILE* hf = fopen(fname, "r+b");
+	FILE* hf = xr_fopen_conv(fname, "r+b");
 	if (hf)
 	{
 		fclose(hf);

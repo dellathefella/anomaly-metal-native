@@ -371,10 +371,31 @@ inline int xr_access_conv(const char* path, int mode)
     conv[i] = 0;
     return access(conv, mode);
 }
+// Engine paths carry Windows separators; convert before handing them to libc.
+inline FILE* xr_fopen_conv(const char* path, const char* mode)
+{
+    char conv[4096];
+    size_t i = 0;
+    for (; path[i] && i + 1 < sizeof(conv); ++i)
+        conv[i] = (path[i] == '\\') ? '/' : path[i];
+    conv[i] = 0;
+    return fopen(conv, mode);
+}
 #define _access xr_access_conv
 #define _open xr_open_conv
 #define _close close
-#define _sopen open
+// _sopen(path, oflag, shflag [, pmode]): the share flag is meaningless on
+// POSIX; the upstream `#define _sopen open` passed it as the file mode.
+inline int xr_sopen_conv(const char* path, int flags, int /*shflag*/, int mode = 0644)
+{
+    char conv[4096];
+    size_t i = 0;
+    for (; path[i] && i + 1 < sizeof(conv); ++i)
+        conv[i] = (path[i] == '\\') ? '/' : path[i];
+    conv[i] = 0;
+    return open(conv, flags, mode);
+}
+#define _sopen xr_sopen_conv
 #define _utime utime
 #define _utimbuf utimbuf
 // MSVC semantics: errno_t result (0 == success) and the fd stored in *handle.

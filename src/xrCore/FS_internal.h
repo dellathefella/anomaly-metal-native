@@ -51,7 +51,7 @@ public:
 		}
 		else
 		{
-			hf = fopen(*fName, "wb");
+			hf = xr_fopen_conv(*fName, "wb");
 			if (hf == 0)
 				Msg("!Can't write file: '%s'. Error: '%s'.", *fName, _sys_errlist[errno]);
 		}

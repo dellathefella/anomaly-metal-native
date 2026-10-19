@@ -84,6 +84,9 @@
 #define xr_strcmpi _strcmpi
 #define xr_unlink _unlink
 #define xr_itoa _itoa
+// POSIX platforms provide xr_fopen_conv (backslash-path converter) in their
+// Platform*.inl; Windows opens Windows paths natively.
+#define xr_fopen_conv fopen
 #else
 #if !defined(__INTEL_COMPILER)
 #define xr_alloca alloca

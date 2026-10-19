@@ -85,7 +85,7 @@ rtc9_csize(u32 in)
 u32
 rtc9_compress(void* dst, u32 dst_len, const void* src, u32 src_len)
 {
-	u32 out_size = dst_len;
+	lzo_uint out_size = dst_len; // must match lzo_uint width (8 bytes on arm64); a u32 here smashes the stack
 	int r = LZO_E_ERROR;
 
 	rtc9_initialize();
@@ -93,21 +93,21 @@ rtc9_compress(void* dst, u32 dst_len, const void* src, u32 src_len)
 	if (_LZO_Dictionary)
 	{
 		r = lzo1x_999_compress_dict((const lzo_byte*)src, (lzo_uint)src_len,
-		                            (lzo_byte*)dst, (lzo_uintp)&out_size,
+		                            (lzo_byte*)dst, &out_size,
 		                            rtc9_wrkmem, _LZO_Dictionary, _LZO_DictionarySize
 		);
 	}
 	else
 	{
 		r = lzo1x_999_compress((const lzo_byte*)src, (lzo_uint)src_len,
-		                       (lzo_byte*)dst, (lzo_uintp)&out_size,
+		                       (lzo_byte*)dst, &out_size,
 		                       rtc9_wrkmem
 		);
 	}
 
 	VERIFY(r == LZO_E_OK);
 
-	return out_size;
+	return (u32)out_size;
 }
 
 
@@ -116,7 +116,7 @@ rtc9_compress(void* dst, u32 dst_len, const void* src, u32 src_len)
 u32
 rtc9_decompress(void* dst, u32 dst_len, const void* src, u32 src_len)
 {
-	u32 out_size = dst_len;
+	lzo_uint out_size = dst_len; // must match lzo_uint width (8 bytes on arm64); a u32 here smashes the stack
 	int r = LZO_E_ERROR;
 
 	rtc9_initialize();
@@ -124,19 +124,19 @@ rtc9_decompress(void* dst, u32 dst_len, const void* src, u32 src_len)
 	if (_LZO_Dictionary)
 	{
 		r = lzo1x_decompress_dict_safe((const lzo_byte*)src, (lzo_uint)src_len,
-		                               (lzo_byte*)dst, (lzo_uintp)&out_size,
+		                               (lzo_byte*)dst, &out_size,
 		                               NULL, _LZO_Dictionary, _LZO_DictionarySize
 		);
 	}
 	else
 	{
 		r = lzo1x_decompress((const lzo_byte*)src, (lzo_uint)src_len,
-		                     (lzo_byte*)dst, (lzo_uintp)&out_size,
+		                     (lzo_byte*)dst, &out_size,
 		                     NULL
 		);
 	}
 
 	VERIFY(r == LZO_E_OK);
 
-	return out_size;
+	return (u32)out_size;
 }

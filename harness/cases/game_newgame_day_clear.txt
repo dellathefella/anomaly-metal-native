@@ -1,0 +1,13 @@
+# case: game_newgame_day_clear — base r2 deferred pipeline, sun shadows.
+# Deterministic entry via the harness golden save (create once: start a new
+# game, settle, then `save harness_golden` from the console; commit the save
+# outside the repo — appdata/savedgames/harness_golden*.sc*).
+# NOTE: waits assume cold shader cache; tune once gameplay boots (p4 t3).
+wait 25
+load harness_golden
+wait 120
+al_time_factor 0
+wait 5
+screenshot harness_game_newgame_day_clear
+wait 2
+quit

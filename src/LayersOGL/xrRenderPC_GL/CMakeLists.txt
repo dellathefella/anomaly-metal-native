@@ -349,6 +349,7 @@ target_include_directories(xrRender_GL
     "${XRAY_SOURCE_DIR}/src/3rd party"
     "${XRAY_SOURCE_DIR}/src/3rd party/luabind"
     "${XRAY_SOURCE_DIR}/src/3rd party/glad"
+    "${XRAY_SOURCE_DIR}/src/3rd party/bcdec"
     "${XRAY_SOURCE_DIR}/src/3rd party/KHR"
 )
 

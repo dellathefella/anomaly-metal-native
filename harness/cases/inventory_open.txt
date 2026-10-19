@@ -1,0 +1,13 @@
+# case: inventory_open — PDA/secondVP RT path (p4 t2 known gap: the capture
+# must show the known-gap marker region, not garbage).
+# Inventory toggle needs an input path: implemented via a scripted
+# execute_console_command_deferred of the bound key or a debug CCC once
+# gameplay boots (t5 implementation time).
+wait 25
+load harness_golden
+wait 120
+# TODO(t5): open inventory (script hook)
+wait 5
+screenshot harness_inventory_open
+wait 2
+quit

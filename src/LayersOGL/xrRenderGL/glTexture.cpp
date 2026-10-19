@@ -9,6 +9,7 @@
 // p4: CPU BCn decode for GL contexts without RGTC/BPTC (Apple Silicon's GL
 // exposes only S3TC). Single-TU implementation; statics, no external symbols.
 #define BCDEC_STATIC
+#define BCDEC_BC4BC5_PRECISE // signed BC4/BC5 variants (signed normal maps)
 #define BCDEC_IMPLEMENTATION
 #include <bcdec.h>
 
@@ -145,31 +146,38 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
     size_t p4_bps = 4; // destination bytes per pixel
     gli::gl::format p4_format = format;
     int p4_signed = 0;
+    // gli's translate-result fields are its own enum types, not GLenum.
+    #define P4_INTERNAL(x) static_cast<gli::gl::internal_format>(x)
+    #define P4_EXTERNAL(x) static_cast<gli::gl::external_format>(x)
+    #define P4_TYPE(x) static_cast<gli::gl::type_format>(x)
     switch (format.Internal)
     {
     case p4_GL_COMPRESSED_RED_RGTC1: case p4_GL_COMPRESSED_RG_RGTC2:
     case p4_GL_COMPRESSED_RGBA_BPTC_UNORM:
         p4_decode = true;
-        p4_format.Internal = GL_RGBA8;
-        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        p4_format.Internal = P4_INTERNAL(GL_RGBA8);
+        p4_format.External = P4_EXTERNAL(GL_RGBA); p4_format.Type = P4_TYPE(GL_UNSIGNED_BYTE);
         break;
     case p4_GL_COMPRESSED_SIGNED_RED_RGTC1: case p4_GL_COMPRESSED_SIGNED_RG_RGTC2:
         p4_decode = true; p4_signed = 1;
-        p4_format.Internal = GL_RGBA8;
-        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        p4_format.Internal = P4_INTERNAL(GL_RGBA8);
+        p4_format.External = P4_EXTERNAL(GL_RGBA); p4_format.Type = P4_TYPE(GL_UNSIGNED_BYTE);
         break;
     case p4_GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
         p4_decode = true;
-        p4_format.Internal = GL_SRGB8_ALPHA8;
-        p4_format.External = GL_RGBA; p4_format.Type = GL_UNSIGNED_BYTE;
+        p4_format.Internal = P4_INTERNAL(GL_SRGB8_ALPHA8);
+        p4_format.External = P4_EXTERNAL(GL_RGBA); p4_format.Type = P4_TYPE(GL_UNSIGNED_BYTE);
         break;
     case p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT: case p4_GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
         p4_decode = true; p4_bps = 8; p4_signed = p4_GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT == format.Internal;
-        p4_format.Internal = GL_RGBA16F;
-        p4_format.External = GL_RGBA; p4_format.Type = GL_HALF_FLOAT;
+        p4_format.Internal = P4_INTERNAL(GL_RGBA16F);
+        p4_format.External = P4_EXTERNAL(GL_RGBA); p4_format.Type = P4_TYPE(GL_HALF_FLOAT);
         break;
     default: break;
     }
+    #undef P4_INTERNAL
+    #undef P4_EXTERNAL
+    #undef P4_TYPE
     if (p4_decode && gli::TARGET_2D != texture.target() && gli::TARGET_CUBE != texture.target())
         p4_decode = false; // rare 3D/array BCn: leave to GL (will warn below)
 

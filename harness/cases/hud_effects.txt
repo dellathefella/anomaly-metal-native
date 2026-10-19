@@ -1,0 +1,11 @@
+# case: hud_effects — HUD immediate-mode visual path, wallmarks.
+# HUD must be visible with a weapon drawn; state comes from the golden save,
+# effects pinned via script hook at implementation time.
+wait 25
+load harness_golden
+wait 120
+# TODO(t5): fire weapon / spawn effects (script hook)
+wait 5
+screenshot harness_hud_effects
+wait 2
+quit

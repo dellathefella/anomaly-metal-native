@@ -1,0 +1,11 @@
+# case: scope_3dss — Anomaly 3DSS scope path (PIP/RT correctness).
+# Needs a scoped weapon in the golden save + scripted ADS (t5 implementation
+# time, same input hook as inventory_open).
+wait 25
+load harness_golden
+wait 120
+# TODO(t5): equip scoped weapon + ADS (script hook)
+wait 5
+screenshot harness_scope_3dss
+wait 2
+quit

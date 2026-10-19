@@ -34,6 +34,9 @@
 //#include <stdlib.h>
 //#include <string.h>
 #include "stdafx.h"
+// p4: the engine chain pulls sys/param.h's function-like `roundup(x,y)`;
+// this file defines its own unary roundup() below.
+#undef roundup
 #include "limb.h"
 
 //#include "../ode_include.h"
@@ -989,7 +992,8 @@ void dump_file(char* file, int euler_type, float min[], float max[],
 	fprintf(fp, "%d\n", euler_type);
 	fprintf(fp, "%f %f %f \n", roundup(min[2]), roundup(min[1]), roundup(min[0]));
 	fprintf(fp, "%f %f %f \n", max[2], max[1], max[0]);
-	for (int i = 0; i < 4; i++)
+	int i;
+	for (i = 0; i < 4; i++)
 		fprintf(fp, "%f %f %f %f\n", c[i][0], c[i][1], c[i][2], c[i][3]);
 	for (i = 0; i < 4; i++)
 		fprintf(fp, "%f %f %f %f\n", s[i][0], s[i][1], s[i][2], s[i][3]);

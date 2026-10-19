@@ -15,19 +15,10 @@ IC CStalkerAnimationManager::EBodyState CStalkerAnimationManager::body_state() c
 	return (object().movement().body_state());
 }
 
-bool CStalkerAnimationManager::standing() const
-{
-	CAI_Stalker& obj = object();
-	stalker_movement_manager_smart_cover& movement = obj.movement();
-
-	if (movement.speed(obj.character_physics_support()->movement()) < EPS_L)
-		return (true);
-
-	if (eMovementTypeStand == movement.movement_type())
-		return (true);
-
-	return (false);
-}
+// p4: standing() definition moved to stalker_animation_global.cpp — several
+// TUs include this header, so an out-of-line definition here would be a
+// duplicate, and an `inline` one risks no emitted copy (fully inlined) while
+// other TUs still reference it out-of-line under clang.
 
 IC void CStalkerAnimationManager::fill_object_info()
 {

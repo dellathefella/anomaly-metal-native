@@ -38,9 +38,15 @@ list(APPEND XRGAME_SOURCES
 )
 
 # p4: legacy C/C++ files predating the engine PCH — keep them out of it (the
-# C file cannot parse the C++ PCH; the .cxx solver is self-contained).
+# C file cannot parse the C++ PCH; the .cxx solver is self-contained and
+# clashes with system macros (sys/param.h roundup) pulled in through it).
 set_source_files_properties(
     "${XRAY_SOURCE_DIR}/src/xrGame/atlas_stalkercoppc_v1.c"
+    "${XRAY_SOURCE_DIR}/src/xrGame/ik/aint.cxx"
+    "${XRAY_SOURCE_DIR}/src/xrGame/ik/eqn.cxx"
+    "${XRAY_SOURCE_DIR}/src/xrGame/ik/eulersolver.cxx"
+    "${XRAY_SOURCE_DIR}/src/xrGame/ik/jtlimits.cxx"
+    "${XRAY_SOURCE_DIR}/src/xrGame/ik/limb.cxx"
     PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE
 )
 

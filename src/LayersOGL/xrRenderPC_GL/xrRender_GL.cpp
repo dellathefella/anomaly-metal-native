@@ -36,8 +36,9 @@ using namespace xray::render::render_gl;
 // xrAPI-owned globals; the engine reads these after DllMainXrRenderR2.
 // (Defined in Layers/xrAPI/xrAPI_posix.cpp — we only assign.)
 
-// Engine-referenced capability flag (xrEngine/EngineAPI.cpp).
-bool SupportsAdvancedRendering()
+// Engine-referenced capability flag (xrEngine/EngineAPI.cpp) — declared
+// extern "C" there under STATIC_RENDERER_R2, so the definition must be too.
+extern "C" bool SupportsAdvancedRendering()
 {
 	return true;
 }

@@ -1,0 +1,12 @@
+# case: game_sunset_fog — fog/color grading, tone-mapping.
+# Same golden-save entry as the day case; sunset time pin via script API is
+# finalized at implementation time.
+wait 25
+load harness_golden
+wait 120
+al_time_factor 0
+# TODO(t5): sunset time + fog pin here
+wait 5
+screenshot harness_game_sunset_fog
+wait 2
+quit

@@ -1,0 +1,6 @@
+# p4 t5: known engine-side render gaps. diff.py downgrades these to "warn".
+# Format: <case-or-token>  <note>
+inventory_open  PDA/secondVP RenderToTarget stub (p4 t2)
+sky  CNullApplicationRender null sky (p4 t2) — affects all outdoor cases
+console_render  dev console render not ported (p4 t2)
+f3_stats  F3 stats overlay not ported (p4 t2)

@@ -94,3 +94,19 @@ MotionID CStalkerAnimationManager::assign_global_animation(bool& animation_movem
 
 	return global().select(m_data_storage->m_part_animations.A[b_state].m_global.A[1].A);
 }
+
+// p4: out-of-line definition (see stalker_animation_manager_impl.h) — single
+// strong copy for the TUs that reference standing() without the body.
+bool CStalkerAnimationManager::standing() const
+{
+	CAI_Stalker& obj = object();
+	stalker_movement_manager_smart_cover& movement = obj.movement();
+
+	if (movement.speed(obj.character_physics_support()->movement()) < EPS_L)
+		return (true);
+
+	if (eMovementTypeStand == movement.movement_type())
+		return (true);
+
+	return (false);
+}

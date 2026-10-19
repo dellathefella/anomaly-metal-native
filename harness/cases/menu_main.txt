@@ -1,0 +1,7 @@
+# case: menu_main — UI shaders, fonts, gamma, letterbox math.
+# The harness driver starts timing 30 frames into the main loop; the menu
+# needs the shader compilation wave to finish, hence the long settle.
+wait 30
+screenshot harness_menu_main
+wait 2
+quit

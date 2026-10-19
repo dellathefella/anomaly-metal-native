@@ -1,0 +1,15 @@
+# case: game_night_rain — emissives, rain blender, wetness.
+# Weather/time control goes through Anomaly's script-side weather system;
+# the exact override command is finalized at harness implementation time
+# (candidates: game_weather.script hook or a dedicated CCC — see
+# docs/VISUAL_HARNESS.md). Until then this case pins whatever the golden
+# save carries at night.
+wait 25
+load harness_golden
+wait 120
+al_time_factor 0
+# TODO(t5): night + rain override here
+wait 5
+screenshot harness_game_night_rain
+wait 2
+quit

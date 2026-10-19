@@ -16,6 +16,7 @@
 #include "xr_input.h"
 #include "xr_ioconsole.h"
 #include "x_ray.h"
+#include "harness_driver.h" // p4: -harness <file> visual-regression driver
 #include "std_classes.h"
 #include "GameFont.h"
 #include "resource.h"
@@ -598,6 +599,8 @@ void Startup()
 	// Main cycle
 	Msg("* [x-ray]: Starting Main Loop");
 	Memory.mem_usage();
+
+	harness_init(); // p4: visual regression harness (-harness <file>)
 
 	Device.Run();
 

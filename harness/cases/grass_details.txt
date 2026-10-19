@@ -1,0 +1,11 @@
+# case: grass_details — detail-manager instancing.
+# Golden save should start near dense grass; camera pin via script hook at
+# implementation time.
+wait 25
+load harness_golden
+wait 120
+# TODO(t5): camera pin facing grass patch (script hook)
+wait 5
+screenshot harness_grass_details
+wait 2
+quit

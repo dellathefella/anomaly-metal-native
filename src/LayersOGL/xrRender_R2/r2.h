@@ -395,11 +395,11 @@ public:
     bool is_sun_static() override { return o.sunstatic; }
 
 #if defined(USE_DX11)
-    BackendAPI GetBackendAPI() const override { return IRender::BackendAPI::D3D11; }
+    BackendAPI GetBackendAPI() const { return IRender::BackendAPI::D3D11; } // p4: not a monolith IRender virtual
     u32 get_dx_level() override { return HW.FeatureLevel >= D3D_FEATURE_LEVEL_10_1 ? 0x000A0001 : 0x000A0000; }
     pcstr getShaderPath() override { return "r3\\"; }
 #elif defined(USE_OGL)
-    BackendAPI GetBackendAPI() const override { return IRender::BackendAPI::OpenGL; }
+    BackendAPI GetBackendAPI() const { return IRender::BackendAPI::OpenGL; } // p4: not a monolith IRender virtual
     u32 get_dx_level() override { return /*HW.pDevice1?0x000A0001:*/0x000A0000; }
     pcstr getShaderPath() override { return "gl\\"; }
 #else
@@ -430,7 +430,7 @@ public:
 #endif
 
     HRESULT shader_compile(pcstr name, IReader* fs,
-        pcstr pFunctionName, pcstr pTarget, u32 Flags, void*& result) override;
+        pcstr pFunctionName, pcstr pTarget, u32 Flags, void*& result); // p4: dev shader_compile overload (hides base)
 
     // Information
     void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert) override;
@@ -438,10 +438,10 @@ public:
     IRenderVisual* getVisual(int id) override;
 
     // Main
-    void add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m) override; // add visual leaf	(no culling performed at all)
+    void add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m); // p4: dev overload (hides base) // add visual leaf	(no culling performed at all)
     // wallmarks
     void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
-    void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V) override;
+    void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V); // p4: dev overload (hides base)
     void add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V) override;
     void clear_static_wallmarks() override;
     void add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm);
@@ -475,9 +475,9 @@ public:
     void models_Clear(bool b_complete) override;
 
     // Occlusion culling
-    bool occ_visible(vis_data& V) override;
-    bool occ_visible(Fbox& B) override;
-    bool occ_visible(sPoly& P) override;
+    BOOL occ_visible(vis_data& V) override;
+    BOOL occ_visible(Fbox& B) override;
+    BOOL occ_visible(sPoly& P) override;
 
     // Main
     void OnCameraUpdated() override;

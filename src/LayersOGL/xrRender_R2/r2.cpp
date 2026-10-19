@@ -755,9 +755,9 @@ FSlideWindowItem* CRender::getSWI(int id)
 
 IRender_Light* CRender::light_create() { return Lights.Create(); }
 IRender_Glow* CRender::glow_create() { return xr_new<CGlow>(); }
-bool CRender::occ_visible(vis_data& P) { return HOM.visible(P); }
-bool CRender::occ_visible(sPoly& P) { return HOM.visible(P); }
-bool CRender::occ_visible(Fbox& P) { return HOM.visible(P); }
+BOOL CRender::occ_visible(vis_data& P) { return HOM.visible(P); }
+BOOL CRender::occ_visible(sPoly& P) { return HOM.visible(P); }
+BOOL CRender::occ_visible(Fbox& P) { return HOM.visible(P); }
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {
     // TODO: this whole function should be replaced by a list of renderables+xforms returned from `renderable_Render` call

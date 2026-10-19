@@ -22,12 +22,12 @@ void CRender::level_Load(IReader* fs)
     R_ASSERT(!b_loaded);
 
     // Begin
-    g_pGamePersistent->LoadBegin();
+    pApp->LoadBegin(); // p4: monolith load markers live on CApplication
     Resources->DeferredLoad(TRUE);
     IReader* chunk;
 
     // Shaders
-    g_pGamePersistent->LoadTitle("st_loading_shaders");
+    g_pGamePersistent->LoadTitle(true, "st_loading_shaders");
     {
         ZoneScopedN("Load shaders");
         chunk = fs->open_chunk(fsL_SHADERS);
@@ -57,7 +57,7 @@ void CRender::level_Load(IReader* fs)
     if (!GEnv.isDedicatedServer)
     {
         // VB,IB,SWI
-        g_pGamePersistent->LoadTitle("st_loading_geometry");
+        g_pGamePersistent->LoadTitle(true, "st_loading_geometry");
         {
             CStreamReader* geom = FS.rs_open("$level$", "level.geom");
             R_ASSERT2(geom, "level.geom");
@@ -75,18 +75,18 @@ void CRender::level_Load(IReader* fs)
         }
 
         // Visuals
-        g_pGamePersistent->LoadTitle("st_loading_spatial_db");
+        g_pGamePersistent->LoadTitle(true, "st_loading_spatial_db");
         chunk = fs->open_chunk(fsL_VISUALS);
         LoadVisuals(chunk);
         chunk->close();
 
         // Details
-        g_pGamePersistent->LoadTitle("st_loading_details");
+        g_pGamePersistent->LoadTitle(true, "st_loading_details");
         Details->Load();
     }
 
     // Sectors
-    g_pGamePersistent->LoadTitle("st_loading_sectors_portals");
+    g_pGamePersistent->LoadTitle(true, "st_loading_sectors_portals");
     LoadSectors(fs);
 
 #if defined(USE_DX11)
@@ -98,11 +98,11 @@ void CRender::level_Load(IReader* fs)
     HOM.Load();
 
     // Lights
-    g_pGamePersistent->LoadTitle("st_loading_lights");
+    g_pGamePersistent->LoadTitle(true, "st_loading_lights");
     LoadLights(fs);
 
     // End
-    g_pGamePersistent->LoadEnd();
+    pApp->LoadEnd(); // p4: monolith load markers live on CApplication
 
     // signal loaded
     b_loaded = TRUE;
@@ -127,7 +127,7 @@ void CRender::level_Unload()
     // 1.
     xr_delete(rmPortals);
     last_sector_id = IRender_Sector::INVALID_SECTOR_ID;
-    Device.vCameraPositionSaved.set(0, 0, 0);
+    RImplementation.p4_saved_cam_pos.set(0, 0, 0);
 
     // 2.
     cleanup_contexts();
@@ -374,14 +374,13 @@ void CRender::LoadSectors(IReader* fs)
         const auto chunk_size = fs->find_chunk(fsL_PORTALS);
 
         rmPortals = xr_new<CDB::MODEL>();
-        if (use_cache)
-            rmPortals->set_model_crc32(crc32(fs->pointer(), chunk_size));
+            // p4: monolith CDB::MODEL has no dev crc/disk-cache API; portals rebuild from scratch
 
         string_path file_name;
         strconcat(file_name, "cdb_cache" DELIMITER, FS.get_path("$level$")->m_Add, "portals.bin");
         FS.update_path(file_name, "$app_data_root$", file_name);
 
-        if (use_cache && FS.exist(file_name) && rmPortals->deserialize(file_name, skip_crc32_check))
+        if (false && use_cache && FS.exist(file_name)) // p4: no CDB::MODEL::deserialize in the monolith xrCDB
         {
 #ifndef MASTER_GOLD
             Msg("* Loaded portals cache (%s)...", file_name);
@@ -421,8 +420,7 @@ void CRender::LoadSectors(IReader* fs)
                 CL.add_face_packed_D(v1, v2, v3, 0);
             }
             rmPortals->build(CL.getV(), CL.getVS(), CL.getT(), CL.getTS());
-            if (use_cache)
-                rmPortals->serialize(file_name);
+                    ; // p4: no CDB::MODEL::serialize in the monolith xrCDB (cache disabled)
         }
     }
     else

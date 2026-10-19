@@ -6,16 +6,16 @@ namespace xray::render::RENDER_NAMESPACE
 {
 // Common
 extern ECORE_API u32 ps_r_sun_shafts; //=	0;
-extern ECORE_API const xr_token qsun_shafts_token[];
+extern ECORE_API xr_token qsun_shafts_token[];
 
 extern ECORE_API u32 ps_r2_smapsize;
-extern ECORE_API const xr_token qsmapsize_token[];
+extern ECORE_API xr_token qsmapsize_token[];
 
 extern ECORE_API u32 ps_r_ssao; //	=	0;
-extern ECORE_API const xr_token qssao_token[];
+extern ECORE_API xr_token qssao_token[];
 
 extern ECORE_API u32 ps_r_ssao_mode;
-extern ECORE_API const xr_token qssao_mode_token[];
+extern ECORE_API xr_token qssao_mode_token[];
 
 enum
 {
@@ -27,17 +27,17 @@ enum
 
 extern ECORE_API u32 ps_r_sun_quality; //	=	0;
 extern ECORE_API u32 ps_r_water_reflection; //	=	0;
-extern ECORE_API const xr_token qsun_quality_token[];
-extern ECORE_API const xr_token qwater_reflection_quality_token[];
+extern ECORE_API xr_token qsun_quality_token[];
+extern ECORE_API xr_token qwater_reflection_quality_token[];
 
 extern ECORE_API u32 ps_r3_msaa; //	=	0;
-extern ECORE_API const xr_token qmsaa_token[];
+extern ECORE_API xr_token qmsaa_token[];
 
 extern ECORE_API u32 ps_r3_msaa_atest; //=	0;
-extern ECORE_API const xr_token qmsaa__atest_token[];
+extern ECORE_API xr_token qmsaa__atest_token[];
 
 extern ECORE_API u32 ps_r3_minmax_sm; //	=	0;
-extern ECORE_API const xr_token qminmax_sm_token[];
+extern ECORE_API xr_token qminmax_sm_token[];
 
 extern ECORE_API int ps_r__LightSleepFrames;
 

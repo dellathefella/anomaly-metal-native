@@ -94,7 +94,9 @@ void CRender::Calculate()
     auto& dsgraph_main = get_imm_context();
 
     // Detect camera-sector
-    if (!Device.vCameraDirectionSaved.similar(Device.vCameraPosition, EPS_L))
+    // p4: monolith device lacks dev's *Saved camera members (dev updates them
+    // in device.cpp each frame); track the previous position renderer-side.
+    if (!RImplementation.p4_saved_cam_pos.similar(Device.vCameraPosition, EPS_L))
     {
         const auto sector_id = dsgraph_main.detect_sector(Device.vCameraPosition);
         if (sector_id != IRender_Sector::INVALID_SECTOR_ID)
@@ -105,13 +107,14 @@ void CRender::Calculate()
             last_sector_id = sector_id;
         }
     }
+    RImplementation.p4_saved_cam_pos = Device.vCameraPosition;
 
     //
     Lights.Update();
 
     // Check if we touch some light even trough portal
     static xr_vector<ISpatial*> spatial_lights;
-    g_pGamePersistent->SpatialSpace.q_sphere(spatial_lights, 0, STYPE_LIGHTSOURCE, Device.vCameraPosition, EPS_L);
+    g_SpatialSpace->q_sphere(spatial_lights, 0, STYPE_LIGHTSOURCE, Device.vCameraPosition, EPS_L);
     for (auto spatial : spatial_lights)
     {
         if (spatial->spatial.type & STYPEFLAG_INVALIDSECTOR)

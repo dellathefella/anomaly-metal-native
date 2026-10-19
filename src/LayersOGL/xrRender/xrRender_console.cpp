@@ -419,7 +419,7 @@ public:
 class CCC_SSAO_Mode : public CCC_Token
 {
 public:
-    CCC_SSAO_Mode(LPCSTR N, u32* V, const xr_token* T) : CCC_Token(N, V, T){};
+    CCC_SSAO_Mode(LPCSTR N, u32* V, xr_token* T) : CCC_Token(N, V, T){};
 
     virtual void Execute(LPCSTR args)
     {
@@ -476,7 +476,7 @@ public:
 class CCC_Preset : public CCC_Token
 {
 public:
-    CCC_Preset(LPCSTR N, u32* V, const xr_token* T) : CCC_Token(N, V, T){};
+    CCC_Preset(LPCSTR N, u32* V, xr_token* T) : CCC_Token(N, V, T){};
 
     virtual void Execute(LPCSTR args)
     {

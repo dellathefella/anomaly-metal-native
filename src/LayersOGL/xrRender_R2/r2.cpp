@@ -621,9 +621,8 @@ void CRender::OnCameraUpdated()
     // Frustum
     ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 
-    if (g_pGamePersistent->MainMenuActiveOrLevelNotExist())
-        return;
-
+    // p4: dev guards its menu-without-level scene here; the monolith engine
+    // only drives the renderer when a level is active, so no guard is needed.
     ProcessHOMTask = &HOM.DispatchMTRender();
     if (Details)
         Details->DispatchMTCalc();
@@ -634,9 +633,7 @@ void CRender::OnFrame()
     ZoneScoped;
 
     Models->DeleteQueue();
-
-    if (g_pGamePersistent->MainMenuActiveOrLevelNotExist())
-        return;
+    // p4: dev's menu guard removed (see OnCalculate note above).
 }
 
 #ifdef USE_OGL
@@ -919,9 +916,9 @@ void CRender::SetPostProcessParams(const SPPInfo& ppi)
     Target->set_noise_scale(ppi.noise.grain);
     Target->set_noise_fps(ppi.noise.fps);
 
-    Target->set_color_base(ppi.color_base);
-    Target->set_color_gray(ppi.color_gray);
-    Target->set_color_add(ppi.color_add);
+    Target->set_color_base(const_cast<SColor&>(ppi.color_base)); // p4: monolith SColor converters are non-const (read-only)
+    Target->set_color_gray(const_cast<SColor&>(ppi.color_gray));
+    Target->set_color_add(const_cast<SColor&>(ppi.color_add));
 
     Target->set_cm_imfluence(ppi.cm_influence);
     Target->set_cm_interpolate(ppi.cm_interpolate);

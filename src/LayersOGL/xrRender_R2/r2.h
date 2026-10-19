@@ -437,6 +437,9 @@ public:
     bool m_p4_hud{ false };
     bool m_p4_invisible{ false };
     IRenderable* m_p4_object{ nullptr };
+    // p4: dev keeps previous-frame camera on CRenderDevice; the monolith does
+    // not, so the sector re-detect heuristic tracks it renderer-side.
+    Fvector p4_saved_cam_pos{ FLT_MAX, FLT_MAX, FLT_MAX };
     u32 m_SMAPSize{ 2048 }; // p4: dev IRender member (sun/rain shadow-map size, shader define)
     bool is_sun_static() override { return o.sunstatic; }
 

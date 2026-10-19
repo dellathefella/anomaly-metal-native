@@ -7,6 +7,10 @@ file(GLOB XRGAME_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ai/*.cpp"
+    # p4: the monolith AI tree lives in ai/<monster>/ subdirectories (67 + 82
+    # sources) — the flat glob above missed them, leaving CAI_Stalker et al. undefined.
+    "${CMAKE_CURRENT_SOURCE_DIR}/ai/*/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ai/*/*/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/ik/*.cpp"
     "${XRAY_SOURCE_DIR}/src/xrServerEntities/*.cpp"
 )

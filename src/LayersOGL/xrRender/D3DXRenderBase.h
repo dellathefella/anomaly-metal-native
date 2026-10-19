@@ -62,10 +62,10 @@ public:
     // IGameFont/IPerformanceAlert stats overlay is not ported)
     virtual void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert);
 
-    xrImTextureData GetImGuiTextureId(pcstr texture_name) override;
+    xrImTextureData GetImGuiTextureId(pcstr texture_name);
 
-    RenderContext GetCurrentContext() const override { return IRender::PrimaryContext; }
-    void MakeContextCurrent(RenderContext /*context*/) override {}
+    RenderContext GetCurrentContext() const { return IRender::PrimaryContext; }
+    /* p4: not a monolith IRender virtual */ void MakeContextCurrent(RenderContext /*context*/) {}
 
     CBackend& get_imm_command_list()
     {

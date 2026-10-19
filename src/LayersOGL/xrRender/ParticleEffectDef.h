@@ -14,6 +14,8 @@ struct EParticleAction;
 
 namespace xray::render::RENDER_NAMESPACE
 {
+} // p4: temporarily close the render namespace — PS must be global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // p4: PS definitions reference render-layer types
 namespace PS
 {
 class CParticleEffect;
@@ -142,6 +144,9 @@ public:
 #endif
 };
 };
+
+namespace xray::render::RENDER_NAMESPACE
+{
 #define PED_VERSION 0x0001
 #define PED_CHUNK_VERSION 0x0001
 #define PED_CHUNK_NAME 0x0002

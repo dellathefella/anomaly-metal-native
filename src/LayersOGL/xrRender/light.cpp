@@ -5,7 +5,7 @@ namespace xray::render::RENDER_NAMESPACE
 {
 static constexpr float RSQRTDIV2 = 0.70710678118654752440084436210485f;
 
-light::light() : SpatialBase(g_pGamePersistent->SpatialSpace)
+light::light() : SpatialBase(*g_SpatialSpace) // p4: monolith global spatial DB (dev uses CGamePersistent::SpatialSpace)
 {
     spatial.type = STYPE_LIGHTSOURCE;
     flags.type = POINT;

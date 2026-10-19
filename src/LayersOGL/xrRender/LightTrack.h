@@ -128,10 +128,10 @@ private:
     static inline void accum_hemi(float* hemi_cube, Fvector3& dir, float scale);
 
     // Calculates sun part of ambient occlusion
-    void calc_sun_value(Fvector& position, IGameObject* _object);
+    void calc_sun_value(Fvector& position, CObject* _object);
 
     // Calculates sky part of ambient occlusion
-    void calc_sky_hemi_value(Fvector& position, IGameObject* _object);
+    void calc_sky_hemi_value(Fvector& position, CObject* _object);
 
     // prepares static or hemisphere lights for ambient occlusion calculations
     void prepare_lights(Fvector& position, IRenderable* O);

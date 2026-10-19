@@ -11,6 +11,8 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
+} // p4: temporarily close the render namespace — PS must be global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // p4: PS definitions reference render-layer types
 namespace PS
 {
 class ECORE_API CParticleEffect : public dxParticleCustom
@@ -106,5 +108,8 @@ void OnEffectParticleDead(void* owner, u32 param, PAPI::Particle& m, u32 idx);
 extern const u32 uDT_STEP;
 extern const float fDT_STEP;
 }
+
+namespace xray::render::RENDER_NAMESPACE
+{
 //---------------------------------------------------------------------------
 } // namespace xray::render::RENDER_NAMESPACE

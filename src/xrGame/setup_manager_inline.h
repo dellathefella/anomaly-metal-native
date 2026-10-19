@@ -40,7 +40,7 @@ void CSSetupManager::reinit()
 TEMPLATE_SPECIALIZATION
 IC _action_type&CSSetupManager::action(const _action_id_type& action_id) const
 {
-	setup_actions::const_iterator I = std::find_if(actions().begin(), actions().end(), setup_pred(action_id));
+	typename setup_actions::const_iterator I = std::find_if(actions().begin(), actions().end(), setup_pred(action_id));
 	VERIFY(I != actions().end());
 	return (*(*I).second);
 }

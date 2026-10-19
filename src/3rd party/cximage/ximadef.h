@@ -102,7 +102,8 @@ typedef struct tagcomplex {
 // so the scalar fallbacks below must be skipped). Only the GDI-flavored
 // aliases are added; the BITMAP/RGB structs further down are absent from the
 // engine and stay unconditional.
-typedef DWORD COLORREF;
+// COLORREF must match xrEngine/xr_win32_shim_sdl.h's typedef (unsigned long).
+typedef unsigned long COLORREF;
 typedef void* HRGN;
 #else
 typedef unsigned char  BYTE;

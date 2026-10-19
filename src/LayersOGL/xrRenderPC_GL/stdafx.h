@@ -60,6 +60,20 @@ struct xrImTextureData
 // regardless of staged include order.
 #include "xrEngine/Render.h"
 
+// p4: dev's SpatialBase (default ISpatial implementation, dev xrCDB/ISpatial.h)
+// on top of the monolith's ISpatial — the staged light class derives from it.
+// The monolith ISpatial already provides the virtuals the staged overrides
+// target (spatial_move/spatial_sector_point/dcast_Light) and `spatial`.
+#include "xrCDB/ISpatial.h"
+class SpatialBase : public virtual ISpatial
+{
+public:
+	explicit SpatialBase(ISpatial_DB& space) : ISpatial(&space) {}
+	virtual ~SpatialBase() {}
+
+	virtual bool spatial_inside() { return spatial.sector != nullptr; }
+};
+
 // p4: synchronous task-shim (dev's xrCore/Threading; staged headers use Task
 // by pointer/reference without including it themselves).
 #include "xrCore/Threading/TaskManager.hpp"

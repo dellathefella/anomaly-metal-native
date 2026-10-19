@@ -6,10 +6,15 @@ namespace xray::render::RENDER_NAMESPACE
 {
 // refs
 class dxRender_Visual;
+} // p4: temporarily close the render namespace — PS must be global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // p4: PS definitions reference render-layer types
 namespace PS
 {
 struct SEmitter;
 };
+
+namespace xray::render::RENDER_NAMESPACE
+{
 
 // defs
 class ECORE_API CModelPool

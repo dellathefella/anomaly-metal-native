@@ -174,7 +174,7 @@ void CROS_impl::update(IRenderable* O)
     VERIFY(dynamic_cast<CROS_impl*>(O->renderable_ROS()));
     // float	dt			=	Device.fTimeDelta;
 
-    IGameObject* _object = dynamic_cast<IGameObject*>(O);
+    CObject* _object = dynamic_cast<CObject*>(O);
 
     // select sample, randomize position inside object
     vis_data& vis = O->GetRenderData().visual->getVisData();
@@ -366,7 +366,7 @@ void CROS_impl::update_smooth(IRenderable* O)
     }
 }
 
-void CROS_impl::calc_sun_value(Fvector& position, IGameObject* _object)
+void CROS_impl::calc_sun_value(Fvector& position, CObject* _object)
 {
     light* sun = (light*)RImplementation.Lights.sun._get();
 
@@ -385,7 +385,7 @@ void CROS_impl::calc_sun_value(Fvector& position, IGameObject* _object)
     }
 }
 
-void CROS_impl::calc_sky_hemi_value(Fvector& position, IGameObject* _object)
+void CROS_impl::calc_sky_hemi_value(Fvector& position, CObject* _object)
 {
     // hemi-tracing
     if (MODE & IRender_ObjectSpecific::TRACE_HEMI)
@@ -440,7 +440,7 @@ void CROS_impl::calc_sky_hemi_value(Fvector& position, IGameObject* _object)
 
 void CROS_impl::prepare_lights(Fvector& position, IRenderable* O)
 {
-    IGameObject* _object = dynamic_cast<IGameObject*>(O);
+    CObject* _object = dynamic_cast<CObject*>(O);
     float dt = Device.fTimeDelta;
 
     vis_data& vis = O->GetRenderData().visual->getVisData();

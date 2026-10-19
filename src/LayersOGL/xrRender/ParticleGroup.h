@@ -4,6 +4,8 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
+} // p4: temporarily close the render namespace — PS must be global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // p4: PS definitions reference render-layer types
 namespace PS
 {
 class CParticleEffect;
@@ -161,6 +163,9 @@ public:
     virtual u32 ParticlesCount();
 };
 }
+
+namespace xray::render::RENDER_NAMESPACE
+{
 //----------------------------------------------------
 #define PGD_VERSION 0x0003
 #define PGD_CHUNK_VERSION 0x0001

@@ -2,8 +2,9 @@
 
 #include "Include/xrRender/particles_systems_library_interface.hpp"
 
-namespace xray::render::RENDER_NAMESPACE
-{
+// p4: the PS particle-def types live in the monolith's global ::PS namespace
+// (xrParticles owns the definitions; the boundary interface references them
+// unqualified), so the forward decls must not nest inside the render namespace.
 namespace PS
 {
 class CPEDef;
@@ -15,6 +16,9 @@ using PGDVec = xr_vector<CPGDef*>;
 using PGDIt = PGDVec::iterator;
 
 } // namespace PS
+
+namespace xray::render::RENDER_NAMESPACE
+{
 
 class ECORE_API CPSLibrary : public particles_systems::library_interface
 {

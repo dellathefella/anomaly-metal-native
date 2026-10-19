@@ -277,10 +277,14 @@ inline void CloseEventShim(HANDLE h)
 enum : unsigned long
 {
     WAIT_OBJECT_0 = 0,
+    WAIT_ABANDONED = 0x00000080L,
     WAIT_TIMEOUT = 0x00000102L,
     WAIT_FAILED = 0xFFFFFFFFL,
     XR_INFINITE = 0xFFFFFFFF
 };
+
+// Win32 pointer-sized DWORD (LP64: unsigned long is 64-bit)
+typedef unsigned long DWORD_PTR;
 
 inline unsigned long WaitForSingleObject(HANDLE h, unsigned long ms)
 {

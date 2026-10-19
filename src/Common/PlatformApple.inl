@@ -199,7 +199,9 @@ typedef struct tagPOINT {
 
 #define TRUE true
 #define FALSE false
-#define NONE 0
+// NONE deliberately NOT defined here: it collides with enum members
+// (game_sv_artefacthunt.h ARTEFACT_STATE::NONE) and nothing in the POSIX
+// shim layer uses it.
 #define CONST const
 
 typedef dirent DirEntryType;

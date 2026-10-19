@@ -123,8 +123,9 @@ CSINI_IdToIndex::~CIni_IdToIndex()
 TEMPLATE_SPECIALIZATION
 const typename ITEM_DATA* CSINI_IdToIndex::GetById(const T_ID& str_id, bool no_assert)
 {
-	for (typename T_VECTOR::iterator it = m_pItemDataVector->begin();
-	     m_pItemDataVector->end() != it; ++it)
+	// clang: MSVC for-scope leak — it is used after the loop
+	typename T_VECTOR::iterator it = m_pItemDataVector->begin();
+	for (; m_pItemDataVector->end() != it; ++it)
 	{
 		if (!xr_strcmp((*it).id, str_id))
 			break;

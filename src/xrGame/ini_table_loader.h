@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "../xrCore/xr_types.h" // clang: type_max macro (relied on transitively via MSVC PCH)
+
 
 //T_ITEM		-	��� �������� �������
 //					
@@ -117,9 +119,9 @@ typename CSIni_Table::ITEM_TABLE& CSIni_Table::table()
 
 	for (CInifile::SectCIt i = table_ini.Data.begin(); table_ini.Data.end() != i; ++i)
 	{
-		typename T_INI_LOADER::index_type cur_index = T_INI_LOADER::IdToIndex((*i).first, type_max<typename T_INI_LOADER::index_type>());
+		typename T_INI_LOADER::index_type cur_index = T_INI_LOADER::IdToIndex((*i).first, type_max(typename T_INI_LOADER::index_type));
 
-		if (type_max<typename T_INI_LOADER::index_type> == cur_index)
+		if (type_max(typename T_INI_LOADER::index_type) == cur_index)
 			Debug.fatal(DEBUG_INFO, "wrong community %s in section [%s]", (*i).first.c_str(), table_sect);
 
 		(*m_pTable)[cur_index].resize(cur_table_width);

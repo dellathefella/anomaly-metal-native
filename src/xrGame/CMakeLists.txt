@@ -26,6 +26,9 @@ list(REMOVE_ITEM XRGAME_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/profiler.cpp"
     # DEBUG-only UI test screen; touches CGameFont's #ifdef DEBUG member
     "${CMAKE_CURRENT_SOURCE_DIR}/ui/UIDebugFonts.cpp"
+    # legacy rat FSM (ExcludedFromBuild Release|x64 upstream): references rat
+    # FSM identifiers that no longer exist anywhere in the tree
+    "${CMAKE_CURRENT_SOURCE_DIR}/ai/monsters/rats/ai_rat_fsm.cpp"
 )
 
 add_library(xrGame SHARED ${XRGAME_SOURCES})

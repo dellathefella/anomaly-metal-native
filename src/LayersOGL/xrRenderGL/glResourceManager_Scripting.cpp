@@ -8,6 +8,9 @@
 //	adopt_compiler don't have = operator And it can't have = operator
 #include "xrScriptEngine/script_engine.hpp"
 #include "xrScriptEngine/script_space.hpp"
+// p4: the monolith luabind fork keeps return_reference_to in an opt-in header
+// (not pulled by lua_include.hpp) and in namespace luabind (no policy nested ns).
+#include "luabind/return_reference_to_policy.hpp"
 #include "xrCore/Threading/ScopeLock.hpp"
 
 #ifdef	DEBUG
@@ -311,7 +314,7 @@ void CResourceManager::LS_Load()
     auto exporterFunc = [](lua_State* luaState)
     {
         using namespace luabind;
-        using namespace luabind::policy;
+        // p4: fork has no luabind::policy namespace — return_reference_to lives directly in luabind
 
         module(luaState)
         [

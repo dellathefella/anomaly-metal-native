@@ -106,12 +106,25 @@ ICF Fmatrix xr_inv_view()
 }
 
 // p4: dev's size-less strconcat overloads (xrCore/string_concatenations.h) for
-// fixed char arrays — forwards to the monolith's size-checked form (declared
-// here: the engine's strconcat must be visible for the forwarding call).
+// fixed char arrays. Implemented as a manual append loop because some staged
+// call sites pass more string args than the monolith's strconcat overloads
+// (max 6) accept.
+inline pcstr xr_strcat_arg(pcstr s) { return s; }
+template <class T>
+inline pcstr xr_strcat_arg(const T& v) { return v.c_str(); }
 template <size_t Size, class... Args>
 inline LPSTR strconcat(char (&dest)[Size], const Args&... sources)
 {
-	return strconcat(static_cast<int>(Size), dest, sources...);
+	const char* arr[] = { xr_strcat_arg(sources)... };
+	dest[0] = '\0';
+	for (const char* s : arr)
+	{
+		const size_t used = std::strlen(dest);
+		if (used + 1 >= Size)
+			break;
+		std::strncat(dest, s, Size - used - 1);
+	}
+	return dest;
 }
 
 // p4: dev containers key std::unordered_map by shared_str; the monolith's

@@ -107,7 +107,6 @@ void CRender::Calculate()
             last_sector_id = sector_id;
         }
     }
-    RImplementation.p4_saved_cam_pos = Device.vCameraPosition;
 
     //
     Lights.Update();
@@ -160,5 +159,11 @@ void CRender::Calculate()
         r_sun_old.run();
     else
         r_sun.run();
+
+    // p4: dev updates the device-side *Saved camera members at frame end; the
+    // monolith device lacks them, so both consumers (sector re-detect above
+    // and the rain ripples) read last-frame values until here.
+    RImplementation.p4_saved_cam_pos = Device.vCameraPosition;
+    RImplementation.p4_saved_cam_dir = Device.vCameraDirection;
 }
 } // namespace xray::render::RENDER_NAMESPACE

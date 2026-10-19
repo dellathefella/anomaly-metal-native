@@ -54,8 +54,8 @@ void render_rain::init()
 
     o.active  = ps_r2_ls_flags.test(R3FLAG_DYN_WET_SURF);
     o.active &= rain_factor >= EPS_L;
-    o.active &= !Device.vCameraPositionSaved.similar(Device.vCameraPosition, EPS_L) ||
-        !Device.vCameraDirectionSaved.similar(Device.vCameraDirection, EPS_L);
+    o.active &= !RImplementation.p4_saved_cam_pos.similar(Device.vCameraPosition, EPS_L) ||
+        !RImplementation.p4_saved_cam_dir.similar(Device.vCameraDirection, EPS_L);
 
     if (!o.active)
         return;

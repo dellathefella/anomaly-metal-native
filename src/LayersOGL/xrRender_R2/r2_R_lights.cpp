@@ -343,7 +343,7 @@ void CRender::render_indirect(light* L) const
             L_up = { 0, 0, 1 };
 
         L_right.crossproduct(L_up, LI.D).normalize();
-        LIGEN.spatial.sector_id = LI.spatial.sector ? LI.spatial.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID; // p4: monolith sector handle -> Sectors index
+        LIGEN.spatial.sector = LI.S; // p4: monolith _spatial carries the sector pointer directly (dev held an id)
         LIGEN.set_position(LI.P);
         LIGEN.set_rotation(LI.D, L_right);
 

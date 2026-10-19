@@ -185,8 +185,9 @@ CInifile& CSE_Abstract::spawn_ini()
 #pragma warning(push)
 #pragma warning(disable:4238)
 		// clang: address-of-temporary — named local (CInifile is self-contained after ctor, as upstream relies on)
+		void* ini_data = (void*)(*(m_ini_string)); // hoisted: inline cast tripped the most-vexing-parse
 		IReader ini_reader(
-			(void*)(*(m_ini_string)),
+			ini_data,
 			m_ini_string.size()
 		);
 		m_ini_file = xr_new<CInifile>(

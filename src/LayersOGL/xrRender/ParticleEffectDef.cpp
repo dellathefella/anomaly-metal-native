@@ -12,6 +12,8 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
+} // p4: close immediately - particle classes are global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // definitions reference render-layer types
 //---------------------------------------------------------------------------
 using namespace PAPI;
 using namespace PS;
@@ -491,4 +493,3 @@ void PS::CPEDef::Compile(EPAVec& v)
     m_Actions.w_u32(cnt);
 }
 #endif
-} // namespace xray::render::RENDER_NAMESPACE

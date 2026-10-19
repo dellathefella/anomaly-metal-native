@@ -12,6 +12,8 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
+} // p4: close immediately - particle classes are global (monolith boundary interface)
+using namespace xray::render::RENDER_NAMESPACE; // definitions reference render-layer types
 using namespace PS;
 
 //------------------------------------------------------------------------------
@@ -626,4 +628,3 @@ BOOL CParticleGroup::GetHudMode()
     }
     return false;
 }
-} // namespace xray::render::RENDER_NAMESPACE

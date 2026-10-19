@@ -15,10 +15,10 @@
 TEMPLATE_SPECIALIZATION
 CStateGroupRestIdleAbstract::CStateGroupRestIdle(_Object* obj) : inherited(obj)
 {
-	add_state(eStateRest_WalkToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateRest_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
-	add_state(eStateRest_WalkGraphPoint, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateCustom, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStateRest_WalkToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateRest_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStateRest_WalkGraphPoint, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateCustom, xr_new<CStateMonsterCustomAction<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -117,7 +117,7 @@ void CStateGroupRestIdleAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateRest_WalkGraphPoint)
+	if (this->current_substate == eStateRest_WalkGraphPoint)
 	{
 		SStateDataMoveToPointEx data;
 		data.vertex = this->object->Home->get_place_in_mid_home();
@@ -158,7 +158,7 @@ void CStateGroupRestIdleAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateRest_WalkToCover)
+	if (this->current_substate == eStateRest_WalkToCover)
 	{
 		SStateDataMoveToPointEx data;
 		data.vertex = m_target_node;
@@ -199,7 +199,7 @@ void CStateGroupRestIdleAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateRest_LookOpenPlace)
+	if (this->current_substate == eStateRest_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 
@@ -217,7 +217,7 @@ void CStateGroupRestIdleAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateCustom)
+	if (this->current_substate == eStateCustom)
 	{
 		SStateDataAction data;
 

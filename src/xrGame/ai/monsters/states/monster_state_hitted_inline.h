@@ -26,7 +26,7 @@ CStateMonsterHittedAbstract::~CStateMonsterHitted()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterHittedAbstract::reselect_state()
 {
-	if (get_state(eStateHitted_Home)->check_start_conditions())
+	if (this->get_state(eStateHitted_Home)->check_start_conditions())
 	{
 		this->select_state(eStateHitted_Home);
 		return;

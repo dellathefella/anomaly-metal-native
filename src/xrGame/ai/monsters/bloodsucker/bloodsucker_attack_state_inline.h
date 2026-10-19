@@ -12,8 +12,8 @@
 TEMPLATE_SPECIALIZATION
 CBloodsuckerStateAttackAbstract::CBloodsuckerStateAttack(_Object* obj) : inherited_attack(obj)
 {
-	add_state(eStateAttack_Hide, xr_new<CStateMonsterBackstubEnemy<_Object>>(obj));
-	add_state(eStateVampire_Execute, xr_new<CStateBloodsuckerVampireExecute<_Object>>(obj));
+	this->add_state(eStateAttack_Hide, xr_new<CStateMonsterBackstubEnemy<_Object>>(obj));
+	this->add_state(eStateVampire_Execute, xr_new<CStateBloodsuckerVampireExecute<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -75,7 +75,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 				b_melee = true;
 			}
 		}
-		else if (get_state(eStateAttack_Melee)->check_start_conditions())
+		else if (this->get_state(eStateAttack_Melee)->check_start_conditions())
 		{
 			b_melee = true;
 		}
@@ -102,7 +102,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 	}
 
 	// clear behinder var if not melee state selected
-	if (current_substate != eStateAttack_Melee)
+	if (this->current_substate != eStateAttack_Melee)
 	{
 		m_time_start_check_behinder = 0;
 	}
@@ -112,7 +112,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 	}
 
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 
 	// Notify squad	
 	CMonsterSquad* squad = monster_squad().get_squad(this->object);
@@ -132,11 +132,11 @@ bool CBloodsuckerStateAttackAbstract::check_vampire()
 {
 	if (this->prev_substate != eStateVampire_Execute)
 	{
-		if (get_state(eStateVampire_Execute)->check_start_conditions()) return true;
+		if (this->get_state(eStateVampire_Execute)->check_start_conditions()) return true;
 	}
 	else
 	{
-		if (!get_state(eStateVampire_Execute)->check_completion()) return true;
+		if (!this->get_state(eStateVampire_Execute)->check_completion()) return true;
 	}
 	return false;
 }
@@ -164,13 +164,13 @@ bool CBloodsuckerStateAttackAbstract::check_hiding()
 		return true;
 	}
 
-	if (current_substate == eStateAttack_Hide)
+	if (this->current_substate == eStateAttack_Hide)
 	{
 		return !this->get_state_current()->check_completion();
 	}
 
 	m_start_with_encircle = false;
-	return get_state(eStateAttack_Hide)->check_start_conditions();
+	return this->get_state(eStateAttack_Hide)->check_start_conditions();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -178,7 +178,7 @@ void CBloodsuckerStateAttackAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_Hide)
+	if (this->current_substate == eStateAttack_Hide)
 	{
 		CStateMonsterBackstubEnemy<_Object>::StateParams data;
 

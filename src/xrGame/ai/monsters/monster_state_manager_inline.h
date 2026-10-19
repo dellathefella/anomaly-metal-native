@@ -66,7 +66,7 @@ bool CMonsterStateManagerAbstract::check_state(u32 state_id)
 	}
 	else
 	{
-		if (get_state(state_id)->check_start_conditions()) return true;
+		if (this->get_state(state_id)->check_start_conditions()) return true;
 	}
 
 	return false;

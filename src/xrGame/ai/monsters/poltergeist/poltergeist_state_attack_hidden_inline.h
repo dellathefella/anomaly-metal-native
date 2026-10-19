@@ -15,7 +15,7 @@
 TEMPLATE_SPECIALIZATION
 CStatePoltergeistAttackHiddenAbstract::CStatePoltergeistAttackHidden(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -103,11 +103,11 @@ bool CStatePoltergeistAttackHiddenAbstract::check_home_point()
 {
 	if (this->prev_substate != eStateAttack_MoveToHomePoint)
 	{
-		if (get_state(eStateAttack_MoveToHomePoint)->check_start_conditions()) return true;
+		if (this->get_state(eStateAttack_MoveToHomePoint)->check_start_conditions()) return true;
 	}
 	else
 	{
-		if (!get_state(eStateAttack_MoveToHomePoint)->check_completion()) return true;
+		if (!this->get_state(eStateAttack_MoveToHomePoint)->check_completion()) return true;
 	}
 
 	return false;
@@ -120,13 +120,13 @@ void CStatePoltergeistAttackHiddenAbstract::execute()
 	{
 		this->select_state(eStateAttack_MoveToHomePoint);
 		this->get_state_current()->execute();
-		this->prev_substate = current_substate;
+		this->prev_substate = this->current_substate;
 		return;
 	}
 	else
 	{
-		current_substate = (u32)eStateUnknown;
-		this->prev_substate = current_substate;
+		this->current_substate = (u32)eStateUnknown;
+		this->prev_substate = this->current_substate;
 	}
 
 	select_target_for_move();

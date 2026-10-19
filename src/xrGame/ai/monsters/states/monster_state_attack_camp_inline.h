@@ -50,12 +50,12 @@ void CStateMonsterAttackCampAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterAttackCampAbstract::check_completion()
 {
-	if (current_substate == eStateAttackCamp_StealOut)
+	if (this->current_substate == eStateAttackCamp_StealOut)
 	{
 		return this->get_state_current()->check_completion();
 	}
 
-	if (current_substate == eStateAttackCamp_Camp)
+	if (this->current_substate == eStateAttackCamp_Camp)
 	{
 		if (this->object->EnemyMan.see_enemy_now()) return true;
 		if (this->object->HitMemory.get_last_hit_time() > this->get_state_current()->time_started()) return true;
@@ -108,7 +108,7 @@ void CStateMonsterAttackCampAbstract::reselect_state()
 
 	if (this->prev_substate == eStateAttackCamp_Camp)
 	{
-		if (get_state(eStateAttackCamp_StealOut)->check_start_conditions())
+		if (this->get_state(eStateAttackCamp_StealOut)->check_start_conditions())
 			this->select_state(eStateAttackCamp_StealOut);
 		else
 			this->select_state(eStateAttackCamp_Hide);
@@ -127,7 +127,7 @@ void CStateMonsterAttackCampAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttackCamp_Hide)
+	if (this->current_substate == eStateAttackCamp_Hide)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -147,7 +147,7 @@ void CStateMonsterAttackCampAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateAttackCamp_Camp)
+	if (this->current_substate == eStateAttackCamp_Camp)
 	{
 		SStateDataLookToPoint data;
 

@@ -87,7 +87,7 @@ void CStateMonsterSmartTerrainTaskAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateSmartTerrainTaskLevelPathWalk)
+	if (this->current_substate == eStateSmartTerrainTaskLevelPathWalk)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -107,7 +107,7 @@ void CStateMonsterSmartTerrainTaskAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateSmartTerrainTaskWaitCapture)
+	if (this->current_substate == eStateSmartTerrainTaskWaitCapture)
 	{
 		SStateDataAction data;
 
@@ -126,7 +126,7 @@ void CStateMonsterSmartTerrainTaskAbstract::reselect_state()
 {
 	if (this->prev_substate == u32(-1))
 	{
-		if (get_state(eStateSmartTerrainTaskGamePathWalk)->check_start_conditions())
+		if (this->get_state(eStateSmartTerrainTaskGamePathWalk)->check_start_conditions())
 		{
 			this->select_state(eStateSmartTerrainTaskGamePathWalk);
 		}
@@ -170,9 +170,9 @@ void CStateMonsterSmartTerrainTaskAbstract::check_force_state()
 	CALifeSmartTerrainTask* task = monster->brain().smart_terrain().task(monster);
 	if (!task || (m_current_task != task))
 	{
-		if (current_substate != u32(-1)) this->get_state_current()->critical_finalize();
+		if (this->current_substate != u32(-1)) this->get_state_current()->critical_finalize();
 
-		current_substate = u32(-1);
+		this->current_substate = u32(-1);
 		this->prev_substate = u32(-1);
 
 		m_current_task = task;

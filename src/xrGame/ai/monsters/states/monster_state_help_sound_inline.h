@@ -31,7 +31,7 @@ bool CStateMonsterHearHelpSoundAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterHearHelpSoundAbstract::check_completion()
 {
-	if (current_substate == u32(-1)) return true;
+	if (this->current_substate == u32(-1)) return true;
 	return false;
 }
 
@@ -49,7 +49,7 @@ void CStateMonsterHearHelpSoundAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateHearHelpSound_MoveToDest)
+	if (this->current_substate == eStateHearHelpSound_MoveToDest)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -70,7 +70,7 @@ void CStateMonsterHearHelpSoundAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateHearHelpSound_LookAround)
+	if (this->current_substate == eStateHearHelpSound_LookAround)
 	{
 		SStateDataAction data;
 		data.action = ACT_LOOK_AROUND;

@@ -69,7 +69,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateFindEnemy_LookAround_MoveToPoint)
+	if (this->current_substate == eStateFindEnemy_LookAround_MoveToPoint)
 	{
 		SStateDataMoveToPoint data;
 		data.point = target_point;
@@ -87,7 +87,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateFindEnemy_LookAround_LookAround)
+	if (this->current_substate == eStateFindEnemy_LookAround_LookAround)
 	{
 		SStateDataAction data;
 
@@ -101,7 +101,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateFindEnemy_LookAround_TurnToPoint)
+	if (this->current_substate == eStateFindEnemy_LookAround_TurnToPoint)
 	{
 		SStateDataLookToPoint data;
 

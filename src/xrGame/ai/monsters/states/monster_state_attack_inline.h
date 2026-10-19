@@ -108,7 +108,7 @@ void CStateMonsterAttackAbstract::execute()
 				b_melee = true;
 			}
 		}
-		else if (get_state(eStateAttack_Melee)->check_start_conditions())
+		else if (this->get_state(eStateAttack_Melee)->check_start_conditions())
 		{
 			b_melee = true;
 		}
@@ -119,7 +119,7 @@ void CStateMonsterAttackAbstract::execute()
 
 	this->get_state_current()->execute();
 
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 
 	// Notify squad	
 	CMonsterSquad* squad = monster_squad().get_squad(this->object);
@@ -139,12 +139,12 @@ bool CStateMonsterAttackAbstract::check_steal_state()
 {
 	if (this->prev_substate == u32(-1))
 	{
-		if (get_state(eStateAttack_Steal)->check_start_conditions())
+		if (this->get_state(eStateAttack_Steal)->check_start_conditions())
 			return true;
 	}
 	else if (this->prev_substate == eStateAttack_Steal)
 	{
-		if (!get_state(eStateAttack_Steal)->check_completion())
+		if (!this->get_state(eStateAttack_Steal)->check_completion())
 			return true;
 	}
 	return false;
@@ -155,12 +155,12 @@ bool CStateMonsterAttackAbstract::check_camp_state()
 {
 	if (this->prev_substate == u32(-1))
 	{
-		if (get_state(eStateAttackCamp)->check_start_conditions())
+		if (this->get_state(eStateAttackCamp)->check_start_conditions())
 			return true;
 	}
 	else if (this->prev_substate == eStateAttackCamp)
 	{
-		if (!get_state(eStateAttackCamp)->check_completion())
+		if (!this->get_state(eStateAttackCamp)->check_completion())
 			return true;
 	}
 	return false;
@@ -183,7 +183,7 @@ bool CStateMonsterAttackAbstract::check_run_away_state()
 
 	if (this->prev_substate == eStateAttack_RunAway)
 	{
-		if (!get_state(eStateAttack_RunAway)->check_completion())
+		if (!this->get_state(eStateAttack_RunAway)->check_completion())
 			return true;
 		else m_time_next_run_away = Device.dwTimeGlobal + 10000;
 	}
@@ -201,12 +201,12 @@ bool CStateMonsterAttackAbstract::check_home_point()
 {
 	if (this->prev_substate != eStateAttack_MoveToHomePoint)
 	{
-		if (get_state(eStateAttack_MoveToHomePoint)->check_start_conditions())
+		if (this->get_state(eStateAttack_MoveToHomePoint)->check_start_conditions())
 			return true;
 	}
 	else
 	{
-		if (!get_state(eStateAttack_MoveToHomePoint)->check_completion())
+		if (!this->get_state(eStateAttack_MoveToHomePoint)->check_completion())
 			return true;
 	}
 
@@ -220,12 +220,12 @@ bool CStateMonsterAttackAbstract::check_run_attack_state()
 
 	if (this->prev_substate == eStateAttack_Run)
 	{
-		if (get_state(eStateAttack_RunAttack)->check_start_conditions())
+		if (this->get_state(eStateAttack_RunAttack)->check_start_conditions())
 			return true;
 	}
 	else if (this->prev_substate == eStateAttack_RunAttack)
 	{
-		if (!get_state(eStateAttack_RunAttack)->check_completion())
+		if (!this->get_state(eStateAttack_RunAttack)->check_completion())
 			return true;
 	}
 
@@ -237,7 +237,7 @@ void CStateMonsterAttackAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_RunAway)
+	if (this->current_substate == eStateAttack_RunAway)
 	{
 		SStateHideFromPoint data;
 		data.point = this->object->EnemyMan.get_enemy_position();

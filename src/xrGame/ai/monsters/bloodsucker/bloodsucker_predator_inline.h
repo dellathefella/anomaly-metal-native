@@ -21,9 +21,9 @@
 TEMPLATE_SPECIALIZATION
 CStateBloodsuckerPredatorAbstract::CStateBloodsuckerPredator(_Object* obj) : inherited(obj)
 {
-	add_state(eStatePredator_MoveToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStatePredator_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
-	add_state(eStatePredator_Camp, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStatePredator_MoveToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStatePredator_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStatePredator_Camp, xr_new<CStateMonsterCustomAction<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -116,7 +116,7 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStatePredator_Camp)
+	if (this->current_substate == eStatePredator_Camp)
 	{
 		this->object->predator_freeze();
 		m_time_start_camp = time();
@@ -126,7 +126,7 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 		this->object->predator_unfreeze();
 	}
 
-	if (current_substate == eStatePredator_MoveToCover)
+	if (this->current_substate == eStatePredator_MoveToCover)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -146,7 +146,7 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePredator_LookOpenPlace)
+	if (this->current_substate == eStatePredator_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 
@@ -164,7 +164,7 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePredator_Camp)
+	if (this->current_substate == eStatePredator_Camp)
 	{
 		SStateDataAction data;
 
@@ -184,13 +184,13 @@ void CStateBloodsuckerPredatorAbstract::setup_substates()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorAbstract::check_force_state()
 {
-	if ((current_substate == eStatePredator_Camp) && (m_time_start_camp + TIME_TO_RESELECT_CAMP < time()))
+	if ((this->current_substate == eStatePredator_Camp) && (m_time_start_camp + TIME_TO_RESELECT_CAMP < time()))
 	{
-		if (current_substate != u32(-1))
+		if (this->current_substate != u32(-1))
 			this->get_state_current()->critical_finalize();
 
 		this->prev_substate = u32(-1);
-		current_substate = u32(-1);
+		this->current_substate = u32(-1);
 
 		CMonsterSquad* squad = monster_squad().get_squad(this->object);
 		squad->unlock_cover(m_target_node);

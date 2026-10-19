@@ -15,9 +15,9 @@
 TEMPLATE_SPECIALIZATION
 CStateGroupPanicAbstract::CStateGroupPanic(_Object* obj) : inherited(obj)
 {
-	add_state(eStatePanic_Run, xr_new<CStateGroupPanicRun<_Object>>(obj));
-	add_state(eStatePanic_FaceUnprotectedArea, xr_new<CStateMonsterLookToUnprotectedArea<_Object>>(obj));
-	add_state(eStatePanic_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStatePanic_Run, xr_new<CStateGroupPanicRun<_Object>>(obj));
+	this->add_state(eStatePanic_FaceUnprotectedArea, xr_new<CStateMonsterLookToUnprotectedArea<_Object>>(obj));
+	this->add_state(eStatePanic_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -34,7 +34,7 @@ void CStateGroupPanicAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateGroupPanicAbstract::reselect_state()
 {
-	if (get_state(eStatePanic_MoveToHomePoint)->check_start_conditions())
+	if (this->get_state(eStatePanic_MoveToHomePoint)->check_start_conditions())
 	{
 		this->select_state(eStatePanic_MoveToHomePoint);
 		return;
@@ -49,7 +49,7 @@ void CStateGroupPanicAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStatePanic_FaceUnprotectedArea)
+	if (this->current_substate == eStatePanic_FaceUnprotectedArea)
 	{
 		SStateDataAction data;
 
@@ -68,7 +68,7 @@ void CStateGroupPanicAbstract::setup_substates()
 TEMPLATE_SPECIALIZATION
 void CStateGroupPanicAbstract::check_force_state()
 {
-	if ((current_substate == eStatePanic_FaceUnprotectedArea))
+	if ((this->current_substate == eStatePanic_FaceUnprotectedArea))
 	{
 		// если видит врага
 		if (this->object->EnemyMan.get_enemy_time_last_seen() == Device.dwTimeGlobal)

@@ -17,15 +17,15 @@ namespace burer
 template <typename Object>
 CStateBurerAttack<Object>::CStateBurerAttack(Object* obj) : inherited(obj)
 {
-	add_state(eStateBurerAttack_Tele, xr_new<CStateBurerAttackTele<Object>>(obj));
-	add_state(eStateBurerAttack_Gravi, xr_new<CStateBurerAttackGravi<Object>>(obj));
-	add_state(eStateBurerAttack_Melee, xr_new<CStateBurerAttackMelee<Object>>(obj));
-	add_state(eStateBurerAttack_FaceEnemy, xr_new<CStateMonsterLookToPoint<Object>>(obj));
-	add_state(eStateBurerAttack_RunAround, xr_new<CStateBurerAttackRunAround<Object>>(obj));
-	add_state(eStateBurerAttack_Shield, xr_new<CStateBurerShield<Object>>(obj));
-	add_state(eStateBurerAttack_AntiAim, xr_new<CStateBurerAntiAim<Object>>(obj));
-	add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<Object>>(obj));
-	add_state(eStateCustomMoveToRestrictor, xr_new<CStateMonsterMoveToRestrictor<Object>>(obj));
+	this->add_state(eStateBurerAttack_Tele, xr_new<CStateBurerAttackTele<Object>>(obj));
+	this->add_state(eStateBurerAttack_Gravi, xr_new<CStateBurerAttackGravi<Object>>(obj));
+	this->add_state(eStateBurerAttack_Melee, xr_new<CStateBurerAttackMelee<Object>>(obj));
+	this->add_state(eStateBurerAttack_FaceEnemy, xr_new<CStateMonsterLookToPoint<Object>>(obj));
+	this->add_state(eStateBurerAttack_RunAround, xr_new<CStateBurerAttackRunAround<Object>>(obj));
+	this->add_state(eStateBurerAttack_Shield, xr_new<CStateBurerShield<Object>>(obj));
+	this->add_state(eStateBurerAttack_AntiAim, xr_new<CStateBurerAntiAim<Object>>(obj));
+	this->add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<Object>>(obj));
+	this->add_state(eStateCustomMoveToRestrictor, xr_new<CStateMonsterMoveToRestrictor<Object>>(obj));
 
 	m_allow_anti_aim = false;
 	m_wait_state_end = false;
@@ -86,18 +86,18 @@ void CStateBurerAttack<Object>::execute()
 		else
 		{
 			this->get_state_current()->execute();
-			this->prev_substate = current_substate;
+			this->prev_substate = this->current_substate;
 			return;
 		}
 	}
 
 	m_allow_anti_aim = true;
-	bool const anti_aim_ready = get_state(eStateBurerAttack_AntiAim)->check_start_conditions();
+	bool const anti_aim_ready = this->get_state(eStateBurerAttack_AntiAim)->check_start_conditions();
 	m_allow_anti_aim = false;
 
-	bool const gravi_ready = get_state(eStateBurerAttack_Gravi)->check_start_conditions();
-	bool const shield_ready = get_state(eStateBurerAttack_Shield)->check_start_conditions();
-	bool const tele_ready = get_state(eStateBurerAttack_Tele)->check_start_conditions();
+	bool const gravi_ready = this->get_state(eStateBurerAttack_Gravi)->check_start_conditions();
+	bool const shield_ready = this->get_state(eStateBurerAttack_Shield)->check_start_conditions();
+	bool const tele_ready = this->get_state(eStateBurerAttack_Tele)->check_start_conditions();
 
 	bool selected_state = true;
 
@@ -114,7 +114,7 @@ void CStateBurerAttack<Object>::execute()
 	{
 		this->select_state(eStateBurerAttack_AntiAim);
 	}
-	else if (tele_ready && current_substate != eStateBurerAttack_RunAround)
+	else if (tele_ready && this->current_substate != eStateBurerAttack_RunAround)
 	{
 		this->select_state(eStateBurerAttack_Tele);
 	}
@@ -127,7 +127,7 @@ void CStateBurerAttack<Object>::execute()
 	{
 		this->get_state_current()->execute();
 		m_wait_state_end = true;
-		this->prev_substate = current_substate;
+		this->prev_substate = this->current_substate;
 		return;
 	}
 
@@ -139,25 +139,25 @@ void CStateBurerAttack<Object>::execute()
 	bool const in_runaway_range = self2enemy_dist < this->object->m_runaway_distance;
 	bool const in_normal_range = self2enemy_dist < this->object->m_normal_distance;
 
-	if (current_substate == eStateCustomMoveToRestrictor)
+	if (this->current_substate == eStateCustomMoveToRestrictor)
 	{
 		if (!this->get_state_current()->check_completion())
 		{
 			this->get_state_current()->execute();
-			this->prev_substate = current_substate;
+			this->prev_substate = this->current_substate;
 			return;
 		}
 	}
 
-	if (get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
+	if (this->get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
 	{
 		this->select_state(eStateCustomMoveToRestrictor);
 		this->get_state_current()->execute();
-		this->prev_substate = current_substate;
+		this->prev_substate = this->current_substate;
 		return;
 	}
 
-	if (current_substate == eStateBurerAttack_RunAround)
+	if (this->current_substate == eStateBurerAttack_RunAround)
 	{
 		if (this->get_state_current()->check_completion())
 		{
@@ -169,7 +169,7 @@ void CStateBurerAttack<Object>::execute()
 		else
 		{
 			this->get_state_current()->execute();
-			this->prev_substate = current_substate;
+			this->prev_substate = this->current_substate;
 			return;
 		}
 	}
@@ -205,7 +205,7 @@ void CStateBurerAttack<Object>::execute()
 	}
 
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 }
 
 template <typename Object>

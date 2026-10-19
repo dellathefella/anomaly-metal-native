@@ -27,7 +27,7 @@ void CStateMonsterTestStateAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateCustom)
+	if (this->current_substate == eStateCustom)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -85,13 +85,13 @@ void CStateMonsterTestCoverAbstract::check_force_state()
 	if (m_last_node != this->object->m_target_node)
 	{
 		m_last_node = this->object->m_target_node;
-		current_substate = u32(-1);
+		this->current_substate = u32(-1);
 		return;
 	}
 
-	if (current_substate == eStateAttack_CampInCover)
+	if (this->current_substate == eStateAttack_CampInCover)
 		if (this->object->ai_location().level_vertex_id() != m_last_node)
-			current_substate = u32(-1);
+			this->current_substate = u32(-1);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -108,7 +108,7 @@ void CStateMonsterTestCoverAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_HideInCover)
+	if (this->current_substate == eStateAttack_HideInCover)
 	{
 		SStateDataMoveToPointEx data;
 		data.vertex = m_last_node;
@@ -127,7 +127,7 @@ void CStateMonsterTestCoverAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateAttack_CampInCover)
+	if (this->current_substate == eStateAttack_CampInCover)
 	{
 		SStateDataAction data;
 		data.action = ACT_STAND_IDLE;

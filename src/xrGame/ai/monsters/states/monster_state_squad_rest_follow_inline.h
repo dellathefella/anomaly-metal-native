@@ -60,7 +60,7 @@ void CStateMonsterSquadRestFollowAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateSquad_RestFollow_Idle)
+	if (this->current_substate == eStateSquad_RestFollow_Idle)
 	{
 		SStateDataAction data;
 		data.action = ACT_REST;
@@ -73,7 +73,7 @@ void CStateMonsterSquadRestFollowAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateSquad_RestFollow_WalkToPoint)
+	if (this->current_substate == eStateSquad_RestFollow_WalkToPoint)
 	{
 		SStateDataMoveToPointEx data;
 

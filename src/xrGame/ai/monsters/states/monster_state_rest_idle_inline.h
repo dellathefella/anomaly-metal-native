@@ -83,7 +83,7 @@ void CStateMonsterRestIdleAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateRest_WalkToCover)
+	if (this->current_substate == eStateRest_WalkToCover)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -103,7 +103,7 @@ void CStateMonsterRestIdleAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateRest_LookOpenPlace)
+	if (this->current_substate == eStateRest_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 
@@ -121,7 +121,7 @@ void CStateMonsterRestIdleAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateRest_Idle)
+	if (this->current_substate == eStateRest_Idle)
 	{
 		SStateDataAction data;
 

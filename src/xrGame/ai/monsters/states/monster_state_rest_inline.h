@@ -75,10 +75,10 @@ void CStateMonsterRestAbstract::execute()
 
 	if (this->prev_substate == eStateSmartTerrainTask)
 	{
-		if (!get_state(eStateSmartTerrainTask)->check_completion())
+		if (!this->get_state(eStateSmartTerrainTask)->check_completion())
 			captured_by_smart_terrain = true;
 	}
-	else if (get_state(eStateSmartTerrainTask)->check_start_conditions())
+	else if (this->get_state(eStateSmartTerrainTask)->check_start_conditions())
 		captured_by_smart_terrain = true;
 
 	if (captured_by_smart_terrain) this->select_state(eStateSmartTerrainTask);
@@ -89,10 +89,10 @@ void CStateMonsterRestAbstract::execute()
 
 		if (this->prev_substate == eStateCustomMoveToRestrictor)
 		{
-			if (!get_state(eStateCustomMoveToRestrictor)->check_completion())
+			if (!this->get_state(eStateCustomMoveToRestrictor)->check_completion())
 				move_to_restrictor = true;
 		}
-		else if (get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
+		else if (this->get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
 			move_to_restrictor = true;
 
 		if (move_to_restrictor) this->select_state(eStateCustomMoveToRestrictor);
@@ -103,10 +103,10 @@ void CStateMonsterRestAbstract::execute()
 
 			if (this->prev_substate == eStateRest_MoveToHomePoint)
 			{
-				if (!get_state(eStateRest_MoveToHomePoint)->check_completion())
+				if (!this->get_state(eStateRest_MoveToHomePoint)->check_completion())
 					move_to_home_point = true;
 			}
-			else if (get_state(eStateRest_MoveToHomePoint)->check_start_conditions())
+			else if (this->get_state(eStateRest_MoveToHomePoint)->check_start_conditions())
 				move_to_home_point = true;
 
 			if (move_to_home_point) this->select_state(eStateRest_MoveToHomePoint);
@@ -142,7 +142,7 @@ void CStateMonsterRestAbstract::execute()
 	}
 
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 }
 
 #undef TEMPLATE_SPECIALIZATION

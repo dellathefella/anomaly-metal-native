@@ -13,7 +13,7 @@
 TEMPLATE_SPECIALIZATION
 CStateCaptureJumpBloodsuckerAbstract::CStateCaptureJumpBloodsucker(_Object* obj) : inherited(obj)
 {
-	add_state(eStateCustom, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStateCustom, xr_new<CStateMonsterCustomAction<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -28,14 +28,14 @@ void CStateCaptureJumpBloodsuckerAbstract::execute()
 	this->select_state(eStateCustom);
 
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateCaptureJumpBloodsuckerAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
-	if (current_substate == eStateCustom)
+	if (this->current_substate == eStateCustom)
 	{
 		SStateDataAction data;
 

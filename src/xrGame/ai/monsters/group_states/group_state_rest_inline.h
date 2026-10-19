@@ -20,12 +20,12 @@
 TEMPLATE_SPECIALIZATION
 CStateGroupRestAbstract::CStateGroupRest(_Object* obj) : inherited(obj)
 {
-	add_state(eStateRest_Sleep, xr_new<CStateMonsterRestSleep<_Object>>(obj));
-	add_state(eStateCustomMoveToRestrictor, xr_new<CStateMonsterMoveToRestrictor<_Object>>(obj));
-	add_state(eStateRest_MoveToHomePoint, xr_new<CStateMonsterRestMoveToHomePoint<_Object>>(obj));
-	add_state(eStateSmartTerrainTask, xr_new<CStateMonsterSmartTerrainTask<_Object>>(obj));
-	add_state(eStateRest_Idle, xr_new<CStateGroupRestIdle<_Object>>(obj));
-	add_state(eStateCustom, xr_new<CStateCustomGroup<_Object>>(obj));
+	this->add_state(eStateRest_Sleep, xr_new<CStateMonsterRestSleep<_Object>>(obj));
+	this->add_state(eStateCustomMoveToRestrictor, xr_new<CStateMonsterMoveToRestrictor<_Object>>(obj));
+	this->add_state(eStateRest_MoveToHomePoint, xr_new<CStateMonsterRestMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStateSmartTerrainTask, xr_new<CStateMonsterSmartTerrainTask<_Object>>(obj));
+	this->add_state(eStateRest_Idle, xr_new<CStateGroupRestIdle<_Object>>(obj));
+	this->add_state(eStateCustom, xr_new<CStateCustomGroup<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -67,10 +67,10 @@ void CStateGroupRestAbstract::execute()
 
 	if (this->prev_substate == eStateSmartTerrainTask)
 	{
-		if (!get_state(eStateSmartTerrainTask)->check_completion())
+		if (!this->get_state(eStateSmartTerrainTask)->check_completion())
 			captured_by_smart_terrain = true;
 	}
-	else if (get_state(eStateSmartTerrainTask)->check_start_conditions())
+	else if (this->get_state(eStateSmartTerrainTask)->check_start_conditions())
 		captured_by_smart_terrain = true;
 
 	if (captured_by_smart_terrain) this->select_state(eStateSmartTerrainTask);
@@ -81,10 +81,10 @@ void CStateGroupRestAbstract::execute()
 
 		if (this->prev_substate == eStateCustomMoveToRestrictor)
 		{
-			if (!get_state(eStateCustomMoveToRestrictor)->check_completion())
+			if (!this->get_state(eStateCustomMoveToRestrictor)->check_completion())
 				move_to_restrictor = true;
 		}
-		else if (get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
+		else if (this->get_state(eStateCustomMoveToRestrictor)->check_start_conditions())
 			move_to_restrictor = true;
 
 		if (move_to_restrictor) this->select_state(eStateCustomMoveToRestrictor);
@@ -95,10 +95,10 @@ void CStateGroupRestAbstract::execute()
 
 			if (this->prev_substate == eStateRest_MoveToHomePoint)
 			{
-				if (!get_state(eStateRest_MoveToHomePoint)->check_completion())
+				if (!this->get_state(eStateRest_MoveToHomePoint)->check_completion())
 					move_to_home_point = true;
 			}
-			else if (get_state(eStateRest_MoveToHomePoint)->check_start_conditions())
+			else if (this->get_state(eStateRest_MoveToHomePoint)->check_start_conditions())
 				move_to_home_point = true;
 
 			if (move_to_home_point) this->select_state(eStateRest_MoveToHomePoint);
@@ -127,7 +127,7 @@ void CStateGroupRestAbstract::execute()
 						this->object->b_state_check = false;
 						this->select_state(eStateCustom);
 						this->get_state_current()->execute();
-						this->prev_substate = current_substate;
+						this->prev_substate = this->current_substate;
 						return;
 					}
 				}
@@ -136,7 +136,7 @@ void CStateGroupRestAbstract::execute()
 				{
 					this->select_state(eStateRest_Sleep);
 					this->get_state_current()->execute();
-					this->prev_substate = current_substate;
+					this->prev_substate = this->current_substate;
 					return;
 				}
 				bool use_to_do = false;
@@ -153,7 +153,7 @@ void CStateGroupRestAbstract::execute()
 						this->select_state(eStateCustom);
 						this->object->b_state_check = false;
 						this->get_state_current()->execute();
-						this->prev_substate = current_substate;
+						this->prev_substate = this->current_substate;
 						return;
 					}
 				}
@@ -168,7 +168,7 @@ void CStateGroupRestAbstract::execute()
 						use_to_do = true;
 						this->object->b_state_check = false;
 						this->get_state_current()->execute();
-						this->prev_substate = current_substate;
+						this->prev_substate = this->current_substate;
 						return;
 					}
 					else
@@ -180,7 +180,7 @@ void CStateGroupRestAbstract::execute()
 							this->select_state(eStateCustom);
 							this->object->b_state_check = false;
 							this->get_state_current()->execute();
-							this->prev_substate = current_substate;
+							this->prev_substate = this->current_substate;
 							return;
 						}
 						if (this->object->b_state_check)
@@ -199,7 +199,7 @@ void CStateGroupRestAbstract::execute()
 	}
 
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 }
 
 #undef TEMPLATE_SPECIALIZATION

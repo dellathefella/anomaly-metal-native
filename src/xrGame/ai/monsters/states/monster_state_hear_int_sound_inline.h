@@ -20,7 +20,7 @@ void CStateMonsterHearInterestingSoundAbstract::reselect_state()
 {
 	if (this->prev_substate == u32(-1))
 	{
-		if (get_state(eStateHearInterestingSound_MoveToDest)->check_start_conditions())
+		if (this->get_state(eStateHearInterestingSound_MoveToDest)->check_start_conditions())
 			this->select_state(eStateHearInterestingSound_MoveToDest);
 		else
 			this->select_state(eStateHearInterestingSound_LookAround);
@@ -35,7 +35,7 @@ void CStateMonsterHearInterestingSoundAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateHearInterestingSound_MoveToDest)
+	if (this->current_substate == eStateHearInterestingSound_MoveToDest)
 	{
 		SStateDataMoveToPoint data;
 		data.point = get_target_position();
@@ -54,7 +54,7 @@ void CStateMonsterHearInterestingSoundAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateHearInterestingSound_LookAround)
+	if (this->current_substate == eStateHearInterestingSound_LookAround)
 	{
 		SStateDataActionLook data;
 		data.action = ACT_LOOK_AROUND;

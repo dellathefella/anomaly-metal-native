@@ -63,7 +63,7 @@ void occRasterizer::clear()
     size_t size = occ_dim * occ_dim;
     float f = 1.f;
     ZeroMemory(bufFrame, sizeof(bufFrame));
-    MemFill32(bufDepth, *(u32 *)(&f), size);
+    Memory.mem_fill32(bufDepth, *(u32 *)(&f), size);
 }
 
 BOOL shared(occTri* T1, occTri* T2);

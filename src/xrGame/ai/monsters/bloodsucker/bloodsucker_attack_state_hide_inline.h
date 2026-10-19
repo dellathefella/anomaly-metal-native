@@ -23,8 +23,8 @@
 TEMPLATE_SPECIALIZATION
 CBloodsuckerStateAttackHideAbstract::CBloodsuckerStateAttackHide(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttack_HideInCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateAttack_CampInCover, xr_new<CStateBloodsuckerPredatorLite<_Object>>(obj));
+	this->add_state(eStateAttack_HideInCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateAttack_CampInCover, xr_new<CStateBloodsuckerPredatorLite<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -77,7 +77,7 @@ void CBloodsuckerStateAttackHideAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 bool CBloodsuckerStateAttackHideAbstract::check_completion()
 {
-	if (current_substate == eStateAttack_CampInCover)
+	if (this->current_substate == eStateAttack_CampInCover)
 		return (this->get_state_current()->check_completion());
 
 	return false;
@@ -89,7 +89,7 @@ void CBloodsuckerStateAttackHideAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_HideInCover)
+	if (this->current_substate == eStateAttack_HideInCover)
 	{
 		select_camp_point();
 

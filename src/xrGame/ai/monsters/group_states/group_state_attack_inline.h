@@ -22,19 +22,19 @@
 TEMPLATE_SPECIALIZATION
 CStateGroupAttackAbstract::CStateGroupAttack(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttack_Run, xr_new<CStateGroupAttackRun<_Object>>(obj));
-	add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
-	add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
-	add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
-	add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
-	add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
+	this->add_state(eStateAttack_Run, xr_new<CStateGroupAttackRun<_Object>>(obj));
+	this->add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<_Object>>(obj));
+	this->add_state(eStateAttack_RunAttack, xr_new<CStateMonsterAttackRunAttack<_Object>>(obj));
+	this->add_state(eStateAttack_Attack_On_Run, xr_new<CStateMonsterAttackOnRun<_Object>>(obj));
+	this->add_state(eStateAttack_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateAttack_FindEnemy, xr_new<CStateMonsterFindEnemy<_Object>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<_Object>>(obj));
 
-	add_state(eStateCustom, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
-	add_state(eStateAttack_AttackHidden, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
-	add_state(eStateAttackCamp, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
-	add_state(eStateAttack_Steal, xr_new<CStateGroupSquadMoveToRadiusEx<_Object>>(obj));
-	add_state(eStateAttack_ControlFire, xr_new<CStateCustomGroup<_Object>>(obj));
+	this->add_state(eStateCustom, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
+	this->add_state(eStateAttack_AttackHidden, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
+	this->add_state(eStateAttackCamp, xr_new<CStateGroupSquadMoveToRadius<_Object>>(obj));
+	this->add_state(eStateAttack_Steal, xr_new<CStateGroupSquadMoveToRadiusEx<_Object>>(obj));
+	this->add_state(eStateAttack_ControlFire, xr_new<CStateCustomGroup<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -205,7 +205,7 @@ void CStateGroupAttackAbstract::execute()
 				b_melee = true;
 			}
 		}
-		else if (get_state(eStateAttack_Melee)->check_start_conditions())
+		else if (this->get_state(eStateAttack_Melee)->check_start_conditions())
 		{
 			b_melee = true;
 		}
@@ -321,14 +321,14 @@ void CStateGroupAttackAbstract::execute()
 	}
 
 	// clear behinder var if not melee state selected
-	if (current_substate != eStateAttack_Melee)
+	if (this->current_substate != eStateAttack_Melee)
 	{
 		m_time_start_check_behinder = 0;
 	}
 
 	this->get_state_current()->execute();
 
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 
 	// Notify squad	
 	if (squad)
@@ -353,14 +353,14 @@ bool CStateGroupAttackAbstract::check_home_point()
 
 	if (this->prev_substate != eStateAttack_MoveToHomePoint)
 	{
-		if (get_state(eStateAttack_MoveToHomePoint)->check_start_conditions())
+		if (this->get_state(eStateAttack_MoveToHomePoint)->check_start_conditions())
 		{
 			return true;
 		}
 	}
 	else
 	{
-		if (!get_state(eStateAttack_MoveToHomePoint)->check_completion())
+		if (!this->get_state(eStateAttack_MoveToHomePoint)->check_completion())
 		{
 			return true;
 		}
@@ -374,7 +374,7 @@ void CStateGroupAttackAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_Steal)
+	if (this->current_substate == eStateAttack_Steal)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -395,7 +395,7 @@ void CStateGroupAttackAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateAttack_AttackHidden)
+	if (this->current_substate == eStateAttack_AttackHidden)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -416,7 +416,7 @@ void CStateGroupAttackAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateCustom)
+	if (this->current_substate == eStateCustom)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -445,7 +445,7 @@ void CStateGroupAttackAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateAttack_RunAway)
+	if (this->current_substate == eStateAttack_RunAway)
 	{
 		SStateHideFromPoint data;
 		data.point = this->object->EnemyMan.get_enemy()->Position();

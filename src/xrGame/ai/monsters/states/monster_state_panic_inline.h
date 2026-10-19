@@ -35,7 +35,7 @@ void CStateMonsterPanicAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterPanicAbstract::reselect_state()
 {
-	if (get_state(eStatePanic_MoveToHomePoint)->check_start_conditions())
+	if (this->get_state(eStatePanic_MoveToHomePoint)->check_start_conditions())
 	{
 		this->select_state(eStatePanic_MoveToHomePoint);
 		return;
@@ -50,7 +50,7 @@ void CStateMonsterPanicAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStatePanic_FaceUnprotectedArea)
+	if (this->current_substate == eStatePanic_FaceUnprotectedArea)
 	{
 		SStateDataAction data;
 
@@ -69,7 +69,7 @@ void CStateMonsterPanicAbstract::setup_substates()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterPanicAbstract::check_force_state()
 {
-	if ((current_substate == eStatePanic_FaceUnprotectedArea))
+	if ((this->current_substate == eStatePanic_FaceUnprotectedArea))
 	{
 		// если видит врага
 		if (this->object->EnemyMan.get_enemy_time_last_seen() == Device.dwTimeGlobal)

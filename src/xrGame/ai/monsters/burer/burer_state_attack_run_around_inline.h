@@ -12,7 +12,7 @@
 TEMPLATE_SPECIALIZATION
 CStateBurerAttackRunAroundAbstract::CStateBurerAttackRunAround(_Object* obj) : inherited(obj)
 {
-	time_started = 0;
+	this->time_started = 0;
 }
 
 TEMPLATE_SPECIALIZATION
@@ -20,7 +20,7 @@ void CStateBurerAttackRunAroundAbstract::initialize()
 {
 	inherited::initialize();
 
-	time_started = Device.dwTimeGlobal;
+	this->time_started = Device.dwTimeGlobal;
 	dest_direction.set(0.f, 0.f, 0.f);
 
 	// select point
@@ -85,7 +85,7 @@ bool CStateBurerAttackRunAroundAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStateBurerAttackRunAroundAbstract::check_completion()
 {
-	if ((time_started + this->object->m_max_runaway_time < Device.dwTimeGlobal) ||
+	if ((this->time_started + this->object->m_max_runaway_time < Device.dwTimeGlobal) ||
 		(this->object->control().path_builder().is_moving_on_path() && this->object->control().path_builder().is_path_end(2.f)))
 	{
 		this->object->dir().face_target(this->object->EnemyMan.get_enemy());

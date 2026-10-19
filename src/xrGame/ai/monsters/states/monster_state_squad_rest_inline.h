@@ -44,7 +44,7 @@ void CStateMonsterSquadRestAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateSquad_Rest_Idle)
+	if (this->current_substate == eStateSquad_Rest_Idle)
 	{
 		SStateDataAction data;
 		data.action = ACT_REST;
@@ -57,7 +57,7 @@ void CStateMonsterSquadRestAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateSquad_Rest_WalkAroundLeader)
+	if (this->current_substate == eStateSquad_Rest_WalkAroundLeader)
 	{
 		SStateDataMoveToPoint data;
 		CMonsterSquad* squad = monster_squad().get_squad(this->object);

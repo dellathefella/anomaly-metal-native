@@ -25,14 +25,14 @@ CStateGroupEatAbstract::CStateGroupEat(_Object* obj) : inherited(obj)
 {
 	corpse = NULL;
 	m_time_last_eat = 0;
-	add_state(eStateEat_CorpseApproachRun, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
-	add_state(eStateEat_CorpseApproachWalk, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
-	add_state(eStateEat_CheckCorpse, xr_new<CStateMonsterCustomAction<_Object>>(obj));
-	add_state(eStateEat_Eat, xr_new<CStateGroupEating<_Object>>(obj));
-	add_state(eStateEat_WalkAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateEat_Rest, xr_new<CStateMonsterCustomAction<_Object>>(obj));
-	add_state(eStateEat_Drag, xr_new<CStateGroupDrag<_Object>>(obj));
-	add_state(eStateCustom, xr_new<CStateCustomGroup<_Object>>(obj));
+	this->add_state(eStateEat_CorpseApproachRun, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
+	this->add_state(eStateEat_CorpseApproachWalk, xr_new<CStateMonsterMoveToPoint<_Object>>(obj));
+	this->add_state(eStateEat_CheckCorpse, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStateEat_Eat, xr_new<CStateGroupEating<_Object>>(obj));
+	this->add_state(eStateEat_WalkAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateEat_Rest, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStateEat_Drag, xr_new<CStateGroupDrag<_Object>>(obj));
+	this->add_state(eStateCustom, xr_new<CStateCustomGroup<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -118,7 +118,7 @@ void CStateGroupEatAbstract::reselect_state()
 		if (this->prev_substate == eStateEat_CheckCorpse) { 
 			if (this->object->ability_can_drag()) this->select_state(eStateEat_Drag);
 			else {							
-				if (get_state(eStateEat_Eat)->check_start_conditions())
+				if (this->get_state(eStateEat_Eat)->check_start_conditions())
 					this->select_state(eStateEat_Eat);					
 				else 
 					this->select_state(eStateEat_CorpseApproachWalk);
@@ -134,7 +134,7 @@ void CStateGroupEatAbstract::reselect_state()
 
 	if (this->prev_substate == eStateEat_CorpseApproachWalk)
 	{
-		if (!get_state(eStateEat_CorpseApproachWalk)->check_completion())
+		if (!this->get_state(eStateEat_CorpseApproachWalk)->check_completion())
 		{
 			this->select_state(eStateEat_CorpseApproachWalk);
 			return;
@@ -146,7 +146,7 @@ void CStateGroupEatAbstract::reselect_state()
 		}
 		else
 		{
-			if (get_state(eStateEat_Eat)->check_start_conditions())
+			if (this->get_state(eStateEat_Eat)->check_start_conditions())
 				this->select_state(eStateEat_Eat);
 			else
 				this->select_state(eStateEat_CorpseApproachWalk);
@@ -156,13 +156,13 @@ void CStateGroupEatAbstract::reselect_state()
 
 	if (this->prev_substate == eStateEat_Drag)
 	{
-		if (!get_state(eStateEat_Drag)->check_completion())
+		if (!this->get_state(eStateEat_Drag)->check_completion())
 		{
 			this->select_state(eStateEat_Drag);
 			return;
 		}
 
-		if (get_state(eStateEat_Eat)->check_start_conditions())
+		if (this->get_state(eStateEat_Eat)->check_start_conditions())
 		{
 			this->object->set_current_animation(15);
 			this->object->saved_state = eStateEat_Eat;
@@ -207,7 +207,7 @@ void CStateGroupEatAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateEat_CorpseApproachRun)
+	if (this->current_substate == eStateEat_CorpseApproachRun)
 	{
 		// Определить позицию ближайшей боны у трупа
 		Fvector nearest_bone_pos;
@@ -233,7 +233,7 @@ void CStateGroupEatAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateEat_CheckCorpse)
+	if (this->current_substate == eStateEat_CheckCorpse)
 	{
 		SStateDataAction data;
 		data.action = ACT_STAND_IDLE;
@@ -247,7 +247,7 @@ void CStateGroupEatAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateEat_WalkAway)
+	if (this->current_substate == eStateEat_WalkAway)
 	{
 		SStateHideFromPoint data;
 
@@ -268,7 +268,7 @@ void CStateGroupEatAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateEat_Rest)
+	if (this->current_substate == eStateEat_Rest)
 	{
 		SStateDataAction data;
 		data.action = ACT_STAND_IDLE;
@@ -282,7 +282,7 @@ void CStateGroupEatAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateEat_CorpseApproachWalk)
+	if (this->current_substate == eStateEat_CorpseApproachWalk)
 	{
 		// Определить позицию ближайшей боны у трупа
 		Fvector nearest_bone_pos;

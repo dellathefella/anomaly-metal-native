@@ -20,9 +20,9 @@
 TEMPLATE_SPECIALIZATION
 CStateControllerAttackAbstract::CStateControllerAttack(_Object* obj) : inherited(obj)
 {
-	add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<CController>>(obj));
-	add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<CController>>(obj));
-	add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<CController>>(obj));
+	this->add_state(eStateAttack_MoveToHomePoint, xr_new<CStateMonsterAttackMoveToHomePoint<CController>>(obj));
+	this->add_state(eStateAttack_Run, xr_new<CStateMonsterAttackRun<CController>>(obj));
+	this->add_state(eStateAttack_Melee, xr_new<CStateMonsterAttackMelee<CController>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -36,11 +36,11 @@ bool CStateControllerAttackAbstract::check_home_point()
 {
 	if (this->prev_substate != eStateAttack_MoveToHomePoint)
 	{
-		if (get_state(eStateAttack_MoveToHomePoint)->check_start_conditions()) return true;
+		if (this->get_state(eStateAttack_MoveToHomePoint)->check_start_conditions()) return true;
 	}
 	else
 	{
-		if (!get_state(eStateAttack_MoveToHomePoint)->check_completion()) return true;
+		if (!this->get_state(eStateAttack_MoveToHomePoint)->check_completion()) return true;
 	}
 
 	return false;
@@ -55,23 +55,23 @@ void CStateControllerAttackAbstract::execute()
 	{
 		this->select_state(eStateAttack_MoveToHomePoint);
 		this->get_state_current()->execute();
-		this->prev_substate = current_substate;
+		this->prev_substate = this->current_substate;
 		return;
 	}
 
 	EMonsterState state_id = eStateUnknown;
 	const CEntityAlive* enemy = this->object->EnemyMan.get_enemy();
 
-	if (current_substate == eStateAttack_Melee)
+	if (this->current_substate == eStateAttack_Melee)
 	{
-		if (get_state(eStateAttack_Melee)->check_completion())
+		if (this->get_state(eStateAttack_Melee)->check_completion())
 			state_id = eStateAttack_Run;
 		else
 			state_id = eStateAttack_Melee;
 	}
 	else
 	{
-		if (get_state(eStateAttack_Melee)->check_start_conditions())
+		if (this->get_state(eStateAttack_Melee)->check_start_conditions())
 			state_id = eStateAttack_Melee;
 		else
 			state_id = eStateAttack_Run;
@@ -79,8 +79,8 @@ void CStateControllerAttackAbstract::execute()
 
 	if (!this->object->enemy_accessible() && state_id == eStateAttack_Run)
 	{
-		current_substate = (u32)eStateUnknown;
-		this->prev_substate = current_substate;
+		this->current_substate = (u32)eStateUnknown;
+		this->prev_substate = this->current_substate;
 
 		Fvector dir_xz = this->object->Direction();
 		dir_xz.y = 0;
@@ -102,7 +102,7 @@ void CStateControllerAttackAbstract::execute()
 
 	this->select_state(state_id);
 	this->get_state_current()->execute();
-	this->prev_substate = current_substate;
+	this->prev_substate = this->current_substate;
 }
 
 TEMPLATE_SPECIALIZATION

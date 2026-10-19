@@ -21,9 +21,9 @@
 TEMPLATE_SPECIALIZATION
 CStateBloodsuckerPredatorLiteAbstract::CStateBloodsuckerPredatorLite(_Object* obj) : inherited(obj)
 {
-	add_state(eStatePredator_Camp, xr_new<CStateMonsterCustomAction<_Object>>(obj));
-	add_state(eStatePredator_MoveToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStatePredator_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStatePredator_Camp, xr_new<CStateMonsterCustomAction<_Object>>(obj));
+	this->add_state(eStatePredator_MoveToCover, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStatePredator_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -121,7 +121,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStatePredator_Camp)
+	if (this->current_substate == eStatePredator_Camp)
 	{
 		this->object->predator_freeze();
 		m_freezed = true;
@@ -132,7 +132,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		m_freezed = false;
 	}
 
-	if (current_substate == eStatePredator_MoveToCover)
+	if (this->current_substate == eStatePredator_MoveToCover)
 	{
 		select_camp_point();
 
@@ -153,7 +153,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePredator_LookOpenPlace)
+	if (this->current_substate == eStatePredator_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 
@@ -171,7 +171,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePredator_Camp)
+	if (this->current_substate == eStatePredator_Camp)
 	{
 		SStateDataAction data;
 
@@ -201,7 +201,7 @@ void CStateBloodsuckerPredatorLiteAbstract::check_force_state()
 				this->object->set_berserk();
 			}
 			else
-				current_substate = u32(-1);
+				this->current_substate = u32(-1);
 		}
 	}
 }

@@ -118,7 +118,7 @@ void CStateMonsterDangerMoveToHomePointAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStatePanic_HomePoint_Hide)
+	if (this->current_substate == eStatePanic_HomePoint_Hide)
 	{
 		SStateDataMoveToPointEx data;
 
@@ -138,7 +138,7 @@ void CStateMonsterDangerMoveToHomePointAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePanic_HomePoint_LookOpenPlace)
+	if (this->current_substate == eStatePanic_HomePoint_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 
@@ -156,7 +156,7 @@ void CStateMonsterDangerMoveToHomePointAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStatePanic_HomePoint_Camp)
+	if (this->current_substate == eStatePanic_HomePoint_Camp)
 	{
 		SStateDataAction data;
 

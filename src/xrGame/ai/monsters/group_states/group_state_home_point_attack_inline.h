@@ -32,8 +32,8 @@ CStateGroupAttackMoveToHomePointAbstract::CStateGroupAttackMoveToHomePoint(_Obje
 	m_target_node = 0;
 	m_skip_camp = false;
 	m_state_started = 0;
-	add_state(eStateAttack_HomePoint_Hide, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
-	add_state(eStateAttack_HomePoint_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
+	this->add_state(eStateAttack_HomePoint_Hide, xr_new<CStateMonsterMoveToPointEx<_Object>>(obj));
+	this->add_state(eStateAttack_HomePoint_LookOpenPlace, xr_new<CStateMonsterLookToPoint<_Object>>(obj));
 
 	m_last_tick_enemy_inaccessible = 0;
 	m_first_tick_enemy_inaccessible = 0;
@@ -192,7 +192,7 @@ void CStateGroupAttackMoveToHomePointAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateAttack_HomePoint_Hide)
+	if (this->current_substate == eStateAttack_HomePoint_Hide)
 	{
 		const CEntityAlive* enemy = this->object->EnemyMan.get_enemy();
 
@@ -231,7 +231,7 @@ void CStateGroupAttackMoveToHomePointAbstract::setup_substates()
 		return;
 	}
 
-	if (current_substate == eStateAttack_HomePoint_LookOpenPlace)
+	if (this->current_substate == eStateAttack_HomePoint_LookOpenPlace)
 	{
 		SStateDataLookToPoint data;
 

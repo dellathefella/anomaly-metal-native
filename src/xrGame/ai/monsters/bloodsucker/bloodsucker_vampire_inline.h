@@ -16,10 +16,10 @@
 TEMPLATE_SPECIALIZATION
 CStateBloodsuckerVampireAbstract::CStateBloodsuckerVampire(_Object* obj) : inherited(obj)
 {
-	add_state(eStateVampire_ApproachEnemy, xr_new<CStateBloodsuckerVampireApproach<_Object>>(obj));
-	add_state(eStateVampire_Execute, xr_new<CStateBloodsuckerVampireExecute<_Object>>(obj));
-	add_state(eStateVampire_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
-	add_state(eStateVampire_Hide, xr_new<CStateBloodsuckerVampireHide<_Object>>(obj));
+	this->add_state(eStateVampire_ApproachEnemy, xr_new<CStateBloodsuckerVampireApproach<_Object>>(obj));
+	this->add_state(eStateVampire_Execute, xr_new<CStateBloodsuckerVampireExecute<_Object>>(obj));
+	this->add_state(eStateVampire_RunAway, xr_new<CStateMonsterHideFromPoint<_Object>>(obj));
+	this->add_state(eStateVampire_Hide, xr_new<CStateBloodsuckerVampireHide<_Object>>(obj));
 }
 
 TEMPLATE_SPECIALIZATION
@@ -47,7 +47,7 @@ void CStateBloodsuckerVampireAbstract::reselect_state()
 	// check if we can start execute
 	if (this->prev_substate == eStateVampire_ApproachEnemy)
 	{
-		if (get_state(eStateVampire_Execute)->check_start_conditions()) state_id = eStateVampire_Execute;
+		if (this->get_state(eStateVampire_Execute)->check_start_conditions()) state_id = eStateVampire_Execute;
 	}
 
 	// check if we executed 
@@ -74,8 +74,8 @@ void CStateBloodsuckerVampireAbstract::check_force_state()
 	// check if we can start execute
 	if (this->prev_substate == eStateVampire_ApproachEnemy)
 	{
-		if (get_state(eStateVampire_Execute)->check_start_conditions())
-			current_substate = u32(-1);
+		if (this->get_state(eStateVampire_Execute)->check_start_conditions())
+			this->current_substate = u32(-1);
 	}
 }
 
@@ -123,7 +123,7 @@ TEMPLATE_SPECIALIZATION
 bool CStateBloodsuckerVampireAbstract::check_completion()
 {
 	// если убежал
-	if ((current_substate == eStateVampire_Hide) &&
+	if ((this->current_substate == eStateVampire_Hide) &&
 		this->get_state_current()->check_completion())
 		return true;
 
@@ -131,7 +131,7 @@ bool CStateBloodsuckerVampireAbstract::check_completion()
 	if (enemy != this->object->EnemyMan.get_enemy()) return true;
 
 	// если актера уже контролит другой кровосос
-	if ((current_substate != eStateVampire_Execute) &&
+	if ((this->current_substate != eStateVampire_Execute) &&
 		this->object->CControlledActor::is_controlling())
 		return true;
 
@@ -144,7 +144,7 @@ void CStateBloodsuckerVampireAbstract::setup_substates()
 {
 	state_ptr state = this->get_state_current();
 
-	if (current_substate == eStateVampire_RunAway)
+	if (this->current_substate == eStateVampire_RunAway)
 	{
 		SStateHideFromPoint data;
 		data.point = this->object->EnemyMan.get_enemy_position();

@@ -80,7 +80,7 @@ void R_dsgraph_structure::insert_dynamic(IRenderable* root, dxRender_Visual* pVi
         return;
 
     // HUD rendering
-    if (root && root->renderable_HUD())
+    if (RImplementation.p4_hud_feed())
     {
         if (sh->flags.bStrictB2F)
         {
@@ -100,7 +100,7 @@ void R_dsgraph_structure::insert_dynamic(IRenderable* root, dxRender_Visual* pVi
 #if RENDER == R_R1
     RI.L_Shadows->add_element(_MatrixItem{ SSA, root, pVisual, xform });
 #endif
-    if (root && root->renderable_Invisible())
+    if (RImplementation.p4_invisible_feed())
         return;
 
     // strict-sorting selection
@@ -316,7 +316,7 @@ void R_dsgraph_structure::add_leafs_dynamic(IRenderable* root, dxRender_Visual* 
             pV->CalculateBones(TRUE);
             if (o.phase == CRender::PHASE_NORMAL)
             {
-                pV->CalculateWallmarks(root ? root->renderable_HUD() : false); //. bug?
+                pV->CalculateWallmarks(RImplementation.p4_hud_feed()); //. bug?
             }
             for (auto& i : pV->children)
             {
@@ -526,7 +526,7 @@ BOOL R_dsgraph_structure::add_Dynamic(dxRender_Visual* pVisual, u32 planes) // n
         else
         {
             pV->CalculateBones(TRUE);
-            pV->CalculateWallmarks(val_pObject ? val_pObject->renderable_HUD() : false); //. bug?
+            pV->CalculateWallmarks(RImplementation.p4_hud_feed()); //. bug?
             for (auto& i : pV->children)
                 add_leafs_Dynamic(i);
         }
@@ -735,7 +735,7 @@ void R_dsgraph_structure::build_subspace()
     if (o.is_main_pass && (o.sector_id == IRender_Sector::INVALID_SECTOR_ID))
     {
         if (g_pGameLevel)
-            g_pGameLevel->pHUD->Render_Last(context_id);
+            // p4: xrGame drives pHUD itself through the set_HUD feed path
         return;
     }
 
@@ -791,15 +791,15 @@ void R_dsgraph_structure::build_subspace()
     if (collect_dynamic_any)
     {
         // Traverse object database
-        g_pGamePersistent->SpatialSpace.q_frustum(lstRenderables, o.spatial_traverse_flags, o.spatial_types, o.view_frustum);
+        g_SpatialSpace->q_frustum(lstRenderables, o.spatial_traverse_flags, o.spatial_types, o.view_frustum);
 
         if (o.spatial_traverse_flags & ISpatial_DB::O_ORDERED) // this should be inside of query functions
         {
             // Exact sorting order (front-to-back)
             std::sort(lstRenderables.begin(), lstRenderables.end(), [&](ISpatial* s1, ISpatial* s2)
                 {
-                    const float d1 = s1->GetSpatialData().sphere.P.distance_to_sqr(o.view_pos);
-                    const float d2 = s2->GetSpatialData().sphere.P.distance_to_sqr(o.view_pos);
+                    const float d1 = s1->spatial.sphere.P.distance_to_sqr(o.view_pos);
+                    const float d2 = s2->spatial.sphere.P.distance_to_sqr(o.view_pos);
                     return d1 < d2;
                 });
         }
@@ -814,10 +814,10 @@ void R_dsgraph_structure::build_subspace()
                     uID_LTRACK = RImplementation.uLastLTRACK % lstRenderables.size();
 
                 // update light-vis for current entity / actor
-                IGameObject* O = g_pGameLevel->CurrentViewEntity();
+                CObject* O = g_pGameLevel->CurrentViewEntity(); // p4: monolith returns CObject*
                 if (O)
                 {
-                    CROS_impl* R = (CROS_impl*)O->ROS();
+                    CROS_impl* R = (CROS_impl*)O->renderable_ROS();
                     if (R)
                         R->update(O);
                 }
@@ -832,14 +832,14 @@ void R_dsgraph_structure::build_subspace()
             ISpatial* spatial = lstRenderables[o_it];
             // Re-detect the sector only when it was invalidated by a move (spatial_move). Static objects keep
             // their cached sector and skip the 2 ray_query casts entirely - this is the bulk of per-frame rays.
-            if (o.is_main_pass && (spatial->GetSpatialData().type & STYPEFLAG_INVALIDSECTOR))
-            {
-                const auto& entity_pos = spatial->spatial_sector_point();
-                const auto sector_id = detect_sector(entity_pos);
-                spatial->spatial_updatesector(sector_id);
-            }
-            const auto& data = spatial->GetSpatialData();
-            const auto& [type, sphere, sector_id] = std::tuple(data.type, data.sphere, data.sector_id);
+            if (o.is_main_pass && (spatial->spatial.type & STYPEFLAG_INVALIDSECTOR))
+                spatial->spatial_updatesector(); // p4: engine-side re-detect (::Render->detectSector cycle)
+            const auto& data = spatial->spatial;
+            const auto& type = data.type;
+            const auto& sphere = data.sphere;
+            // p4: monolith ISpatial carries an IRender_Sector* (the renderer's own
+            // CSector); its unique_id is the dsgraph Sectors index.
+            const auto sector_id = data.sector ? data.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID;
             if (sector_id == IRender_Sector::INVALID_SECTOR_ID)
                 continue; // disassociated from S/P structure
             auto* sector = Sectors[sector_id];
@@ -865,7 +865,7 @@ void R_dsgraph_structure::build_subspace()
             for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
             {
                 const CFrustum& view = sector->r_frustums[v_it];
-                if (!view.testSphere_dirty(spatial->GetSpatialData().sphere.P, spatial->GetSpatialData().sphere.R))
+                if (!view.testSphere_dirty(spatial->spatial.sphere.P, spatial->spatial.sphere.R))
                     continue;
 
                 if (o.is_main_pass)
@@ -882,7 +882,7 @@ void R_dsgraph_structure::build_subspace()
                         vis_data v_copy = v_orig;
                         v_copy.box.xform(renderable->GetRenderData().xform);
                         BOOL bVisible = RImplementation.HOM.visible(v_copy);
-                        memcpy(v_orig.marker, v_copy.marker, sizeof(v_copy.marker));
+                        v_orig.marker = v_copy.marker; // p4: monolith vis_data.marker is a single u32
                         v_orig.accept_frame = v_copy.accept_frame;
                         v_orig.hom_frame = v_copy.hom_frame;
                         v_orig.hom_tested = v_copy.hom_tested;
@@ -898,7 +898,7 @@ void R_dsgraph_structure::build_subspace()
                         }
 
                         // Rendering
-                        renderable->renderable_Render(context_id, renderable);
+                        renderable->renderable_Render(); // p4: monolith signature; feed state is renderer-side
                     }
                     break; // exit loop on frustums
                 }
@@ -909,7 +909,7 @@ void R_dsgraph_structure::build_subspace()
                     if (nullptr == renderable)
                         continue; // unknown, but renderable object (r1_glow???)
 
-                    renderable->renderable_Render(context_id, nullptr);
+                    renderable->renderable_Render(); // p4: monolith signature
                 }
             }
         }
@@ -922,12 +922,12 @@ void R_dsgraph_structure::build_subspace()
             {
                 do
                 {
-                    IGameObject* viewEntity = g_pGameLevel->CurrentViewEntity();
+                    CObject* viewEntity = g_pGameLevel->CurrentViewEntity(); // p4: monolith returns CObject*
                     if (viewEntity == nullptr)
                         break;
-                    const auto& entity_pos = viewEntity->spatial_sector_point();
-                    viewEntity->spatial_updatesector(detect_sector(entity_pos));
-                    const auto sector_id = viewEntity->GetSpatialData().sector_id;
+                    viewEntity->spatial_updatesector(); // p4: engine-side re-detect (::Render->detectSector cycle)
+                    // p4: monolith sector handle -> Sectors index via renderer unique_id
+                    const auto sector_id = viewEntity->spatial.sector ? viewEntity->spatial.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID;
                     if (sector_id == IRender_Sector::INVALID_SECTOR_ID)
                         break; // disassociated from S/P structure
                     CSector* sector = Sectors[sector_id];
@@ -936,18 +936,18 @@ void R_dsgraph_structure::build_subspace()
                     for (const CFrustum& view : sector->r_frustums)
                     {
                         if (!view.testSphere_dirty(
-                            viewEntity->GetSpatialData().sphere.P, viewEntity->GetSpatialData().sphere.R))
+                            viewEntity->spatial.sphere.P, viewEntity->spatial.sphere.R))
                             continue;
 
                         // renderable
-                        g_pGameLevel->pHUD->Render_First(context_id);
+                        // p4: xrGame drives pHUD itself through the set_HUD feed path
                     }
                 } while (0);
             }
 #endif
 
             if (o.is_main_pass)
-                g_pGameLevel->pHUD->Render_Last(context_id);
+                // p4: xrGame drives pHUD itself through the set_HUD feed path
         }
     }
 

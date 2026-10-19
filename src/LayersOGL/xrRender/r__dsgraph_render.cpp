@@ -171,7 +171,7 @@ public:
 
         Fmatrix prj_new;
         prj_new.build_projection(deg2rad(psHUD_FOV * Device.fFOV /* *Device.fASPECT*/), Device.fASPECT,
-            HUD_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+            R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
         cmd_list.set_xform_project(prj_new);
 
         RImplementation.rmNear(cmd_list);
@@ -194,7 +194,9 @@ public:
 
     static void apply_custom_state(CBackend& cmd_list)
     {
-        if (!isActive || !psHUD_Flags.test(HUD_LEFT_HANDED))
+        // p4: monolith HUD handedness is applied game-side (CCustomHUD mesh
+        // transforms); the dev renderer-side flag hook has no feed here.
+        if (!isActive)
             return;
 
         // Change culling mode if HUD meshes were flipped
@@ -261,31 +263,12 @@ void R_dsgraph_structure::render_hud()
 void R_dsgraph_structure::render_hud_ui()
 {
     ZoneScoped;
-    CCustomHUD* levelHud = g_pGameLevel->pHUD;
-    VERIFY(levelHud && levelHud->RenderActiveItemUIQuery());
-
-    PIX_EVENT_CTX(cmd_list, dsgraph_render_hud_ui);
-
-    hud_transform_helper helper{ cmd_list };
-
-#if RENDER != R_R1
-    // Targets, use accumulator for temporary storage
-    const ref_rt rt_null;
-    cmd_list.set_RT(0, 1);
-    cmd_list.set_RT(0, 2);
-    auto zb = RImplementation.Target->rt_Base_Depth;
-
-#if (RENDER == R_R3) || (RENDER == R_R4) || (RENDER==R_GL)
-    if (RImplementation.o.msaa)
-        zb = RImplementation.Target->rt_MSAADepth;
-#endif
-
-    RImplementation.Target->u_setrt(cmd_list,
-        RImplementation.o.albedo_wo ? RImplementation.Target->rt_Accumulator : RImplementation.Target->rt_Color,
-        rt_null, rt_null, zb);
-#endif // RENDER!=R_R1
-
-    levelHud->RenderActiveItemUI();
+    // p4 (t2 gap): dev drives the PDA/secondVP UI render-target through
+    // IGame_Level::pHUD (CCustomHUD), which the monolith engine does not
+    // expose engine-side; xrGame feeds HUD visuals via the set_HUD path
+    // instead. The UI-RT path is tracked as the RenderToTarget gap.
+    // (dev body: set u_target to the base color RT and
+    // levelHud->RenderActiveItemUI() — dropped with the pHUD surface.)
 }
 
 //////////////////////////////////////////////////////////////////////////

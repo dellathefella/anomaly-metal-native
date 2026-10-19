@@ -418,6 +418,27 @@ public:
             *_it = cur;
     }
 
+    // p4: plain-allocator convenience overloads — the staged graph's scratch
+    // vectors use monolith's default xr_vector allocator.
+    void get_any_p(xr_vector<value_type*>& D_out)
+    {
+        xr_vector<value_type*, xr_static_allocator<value_type*>> tmp;
+        get_any_p(tmp);
+        D_out.assign(tmp.begin(), tmp.end());
+    }
+    void get_left_right(xr_vector<T>& D_out)
+    {
+        xr_vector<T, xr_static_allocator<T>> tmp;
+        get_left_right(tmp);
+        D_out.assign(tmp.begin(), tmp.end());
+    }
+    void get_right_left(xr_vector<T>& D_out)
+    {
+        xr_vector<T, xr_static_allocator<T>> tmp;
+        get_right_left(tmp);
+        D_out.assign(tmp.begin(), tmp.end());
+    }
+
     void setup(callback CB)
     {
         for (size_t i = 0; i < limit; i++)

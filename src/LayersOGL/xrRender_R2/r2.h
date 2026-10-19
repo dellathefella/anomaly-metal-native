@@ -406,6 +406,11 @@ public:
     void set_Transform(Fmatrix* M) override { m_p4_xform = M; }
     void set_HUD(BOOL V) override { m_p4_hud = (V != FALSE); }
     BOOL get_HUD() override { return m_p4_hud ? TRUE : FALSE; }
+    // p4: feed-state accessors for the dsgraph; dev consulted per-object
+    // IRenderable flags, the monolith signals HUD/invisible globally via these
+    // feed setters (xrGame wraps the corresponding renders with them).
+    bool p4_hud_feed() const { return m_p4_hud; }
+    bool p4_invisible_feed() const { return m_p4_invisible; }
     void set_Invisible(BOOL V) override { m_p4_invisible = (V != FALSE); }
     void flush() override;
     void set_Object(IRenderable* O) override { m_p4_object = O; }

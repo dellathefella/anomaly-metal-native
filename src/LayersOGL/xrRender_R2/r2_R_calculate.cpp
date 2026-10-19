@@ -114,17 +114,15 @@ void CRender::Calculate()
     g_pGamePersistent->SpatialSpace.q_sphere(spatial_lights, 0, STYPE_LIGHTSOURCE, Device.vCameraPosition, EPS_L);
     for (auto spatial : spatial_lights)
     {
-        if (spatial->GetSpatialData().type & STYPEFLAG_INVALIDSECTOR)
-        {
-            const auto& entity_pos = spatial->spatial_sector_point();
-            spatial->spatial_updatesector(dsgraph_main.detect_sector(entity_pos));
-        }
+        if (spatial->spatial.type & STYPEFLAG_INVALIDSECTOR)
+            spatial->spatial_updatesector(); // p4: engine-side re-detect (::Render->detectSector cycle)
 
-        const auto sector_id = spatial->GetSpatialData().sector_id;
+        // p4: monolith sector handle -> Sectors index via renderer unique_id
+        const auto sector_id = spatial->spatial.sector ? spatial->spatial.sector->unique_id : IRender_Sector::INVALID_SECTOR_ID;
         if (sector_id == IRender_Sector::INVALID_SECTOR_ID)
             continue; // disassociated from S/P structure
 
-        VERIFY(spatial->GetSpatialData().type & STYPE_LIGHTSOURCE);
+        VERIFY(spatial->spatial.type & STYPE_LIGHTSOURCE);
         // lightsource
         light* L = (light*)spatial->dcast_Light();
         VERIFY(L);

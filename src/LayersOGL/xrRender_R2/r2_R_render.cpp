@@ -285,7 +285,9 @@ void CRender::Render()
         Target->phase_scene_end();
     }
 
-    if (g_pGameLevel->pHUD && g_pGameLevel->pHUD->RenderActiveItemUIQuery())
+    // p4: dev gates the PDA UI-RT pass on IGame_Level::pHUD (not an engine-side
+    // surface in the monolith; render_hud_ui is a tracked stub) — never fires.
+    if (false)
     {
         Target->phase_wallmarks();
         dsgraph.render_hud_ui();

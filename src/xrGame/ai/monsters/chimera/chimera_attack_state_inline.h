@@ -117,7 +117,7 @@ bool ChimeraAttackState<Object>::check_if_jump_possible(Fvector const& target)
 template <class Object>
 bool ChimeraAttackState<Object>::jump(Fvector const& target, bool attack_jump)
 {
-	// получить вектор направления и его мир угол
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	float dir_yaw = (target - this->object->Position()).getH();
 	dir_yaw = angle_normalize(-dir_yaw);
 	float yaw_current, yaw_target;
@@ -187,7 +187,8 @@ bool ChimeraAttackState<Object>::select_target_for_move()
 		float const move_scan_points = 8;
 		float const move_scan_angle = deg2rad(360.f) / move_scan_points;
 
-		for (u32 index = 0;
+		u32 index = 0; // p4: hoisted for-scope var (MSVC leak; read after the loop below)
+		for (;
 		     index < move_scan_points;
 		     ++index)
 		{

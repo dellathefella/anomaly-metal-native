@@ -34,7 +34,7 @@ void CStateControllerAttackAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 bool CStateControllerAttackAbstract::check_home_point()
 {
-	if (prev_substate != eStateAttack_MoveToHomePoint)
+	if (this->prev_substate != eStateAttack_MoveToHomePoint)
 	{
 		if (get_state(eStateAttack_MoveToHomePoint)->check_start_conditions()) return true;
 	}
@@ -54,13 +54,13 @@ void CStateControllerAttackAbstract::execute()
 	if (check_home_point())
 	{
 		this->select_state(eStateAttack_MoveToHomePoint);
-		get_state_current()->execute();
+		this->get_state_current()->execute();
 		this->prev_substate = current_substate;
 		return;
 	}
 
 	EMonsterState state_id = eStateUnknown;
-	const CEntityAlive* enemy = object->EnemyMan.get_enemy();
+	const CEntityAlive* enemy = this->object->EnemyMan.get_enemy();
 
 	if (current_substate == eStateAttack_Melee)
 	{
@@ -77,21 +77,21 @@ void CStateControllerAttackAbstract::execute()
 			state_id = eStateAttack_Run;
 	}
 
-	if (!object->enemy_accessible() && state_id == eStateAttack_Run)
+	if (!this->object->enemy_accessible() && state_id == eStateAttack_Run)
 	{
 		current_substate = (u32)eStateUnknown;
 		this->prev_substate = current_substate;
 
-		Fvector dir_xz = object->Direction();
+		Fvector dir_xz = this->object->Direction();
 		dir_xz.y = 0;
-		Fvector self_to_enemy_xz = enemy->Position() - object->Position();
+		Fvector self_to_enemy_xz = enemy->Position() - this->object->Position();
 		self_to_enemy_xz.y = 0;
 
 		float const angle = angle_between_vectors(dir_xz, self_to_enemy_xz);
 
 		if (_abs(angle) > deg2rad(30.f))
 		{
-			bool const rotate_right = object->control().direction().is_from_right(enemy->Position());
+			bool const rotate_right = this->object->control().direction().is_from_right(enemy->Position());
 			this->object->anim().set_override_animation(rotate_right ? eAnimStandTurnRight : eAnimStandTurnLeft, 0);
 			this->object->dir().face_target(enemy);
 		}
@@ -101,7 +101,7 @@ void CStateControllerAttackAbstract::execute()
 	}
 
 	this->select_state(state_id);
-	get_state_current()->execute();
+	this->get_state_current()->execute();
 	this->prev_substate = current_substate;
 }
 
@@ -119,14 +119,14 @@ TEMPLATE_SPECIALIZATION
 void CStateControllerAttackAbstract::finalize()
 {
 	inherited::finalize();
-	//object->set_mental_state(CController::eStateIdle);
+	//this->object->set_mental_state(CController::eStateIdle);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateControllerAttackAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
-	//object->set_mental_state(CController::eStateIdle);
+	//this->object->set_mental_state(CController::eStateIdle);
 }
 
 #undef TEMPLATE_SPECIALIZATION

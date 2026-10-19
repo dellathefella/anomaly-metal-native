@@ -22,12 +22,12 @@ TEMPLATE_SPECIALIZATION
 void CMonsterStateManagerAbstract::update()
 {
 	// Lain: added
-	if (!detail::object_exists_in_alife_registry(object->ID()))
+	if (!detail::object_exists_in_alife_registry(this->object->ID()))
 	{
 		return;
 	}
 
-	if (!object->g_Alive())
+	if (!this->object->g_Alive())
 	{
 		return;
 	}
@@ -46,13 +46,13 @@ TEMPLATE_SPECIALIZATION
 void CMonsterStateManagerAbstract::execute_script_state()
 {
 	// выполнить текущее состояние
-	get_state_current()->execute();
+	this->get_state_current()->execute();
 }
 
 TEMPLATE_SPECIALIZATION
 bool CMonsterStateManagerAbstract::can_eat()
 {
-	if (!object->CorpseMan.get_corpse()) return false;
+	if (!this->object->CorpseMan.get_corpse()) return false;
 
 	return check_state(eStateEat);
 }
@@ -60,9 +60,9 @@ bool CMonsterStateManagerAbstract::can_eat()
 TEMPLATE_SPECIALIZATION
 bool CMonsterStateManagerAbstract::check_state(u32 state_id)
 {
-	if (prev_substate == state_id)
+	if (this->prev_substate == state_id)
 	{
-		if (!get_state_current()->check_completion()) return true;
+		if (!this->get_state_current()->check_completion()) return true;
 	}
 	else
 	{

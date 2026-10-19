@@ -27,14 +27,14 @@ void CStateCaptureJumpBloodsuckerAbstract::execute()
 	// check alife control
 	this->select_state(eStateCustom);
 
-	get_state_current()->execute();
+	this->get_state_current()->execute();
 	this->prev_substate = current_substate;
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateCaptureJumpBloodsuckerAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 	if (current_substate == eStateCustom)
 	{
 		SStateDataAction data;
@@ -42,7 +42,7 @@ void CStateCaptureJumpBloodsuckerAbstract::setup_substates()
 		data.action = ACT_STAND_IDLE;
 		data.time_out = 0; // do not use time out
 		/*data.sound_type	= MonsterSound::eMonsterSoundIdle;
-		data.sound_delay = object->db().m_dwIdleSndDelay;
+		data.sound_delay = this->object->db().m_dwIdleSndDelay;
 		*/
 		state->fill_data_with(&data, sizeof(SStateDataAction));
 

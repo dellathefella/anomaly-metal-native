@@ -11,7 +11,7 @@ CStateAbstract::CState(_Object* obj, void* data)
 {
 	reset();
 
-	object = obj;
+	this->object = obj;
 	_data = data;
 }
 
@@ -24,7 +24,7 @@ CStateAbstract::~CState()
 TEMPLATE_SPECIALIZATION
 void CStateAbstract::reinit()
 {
-	if (current_substate != u32(-1)) get_state_current()->critical_finalize();
+	if (current_substate != u32(-1)) this->get_state_current()->critical_finalize();
 
 	for (STATE_MAP_IT it = substates.begin(); it != substates.end(); it++)
 		it->second->reinit();
@@ -45,7 +45,7 @@ void CStateAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateAbstract::execute()
 {
-	VERIFY(object->g_Alive());
+	VERIFY(this->object->g_Alive());
 	// проверить внешние условия изменения состояния
 	check_force_state();
 
@@ -59,7 +59,7 @@ void CStateAbstract::execute()
 			if ( current_substate == u32(-1) )
 			{
 				debug::text_tree tree;
-				if ( CBaseMonster* p_monster = smart_cast<CBaseMonster*>(object) )
+				if ( CBaseMonster* p_monster = smart_cast<CBaseMonster*>(this->object) )
 				{
 					p_monster->add_debug_info(tree);
 				}
@@ -94,7 +94,7 @@ void CStateAbstract::finalize()
 TEMPLATE_SPECIALIZATION
 void CStateAbstract::critical_finalize()
 {
-	if (current_substate != u32(-1)) get_state_current()->critical_finalize();
+	if (current_substate != u32(-1)) this->get_state_current()->critical_finalize();
 	reset();
 }
 
@@ -207,7 +207,7 @@ EMonsterState CStateAbstract::get_state_type()
 {
 	if (substates.empty() || (current_substate == u32(-1))) return eStateUnknown;
 
-	EMonsterState state = get_state_current()->get_state_type();
+	EMonsterState state = this->get_state_current()->get_state_type();
 	return ((state == eStateUnknown) ? EMonsterState(current_substate) : state);
 }
 
@@ -217,13 +217,13 @@ void CStateAbstract::remove_links(CObject* object)
 	typename SubStates::iterator i = substates.begin();
 	typename SubStates::iterator e = substates.end();
 	for (; i != e; ++i)
-		(*i).second->remove_links(object);
+		(*i).second->remove_links(object);;
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateAbstract::check_control_start_conditions(ControlCom::EControlType type)
 {
-	CState* child = get_state_current();
+	CState* child = this->get_state_current();
 	if (child && !child->check_control_start_conditions(type))
 	{
 		return false;

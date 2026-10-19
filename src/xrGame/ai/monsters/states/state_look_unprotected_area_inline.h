@@ -24,10 +24,10 @@ void CStateMonsterLookToUnprotectedAreaAbstract::initialize()
 	inherited::initialize();
 
 	Fvector position;
-	position = object->Position();
+	position = this->object->Position();
 	position.y += 0.3f;
 
-	float angle = ai().level_graph().vertex_high_cover_angle(object->ai_location().level_vertex_id(), PI_DIV_6,
+	float angle = ai().level_graph().vertex_high_cover_angle(this->object->ai_location().level_vertex_id(), PI_DIV_6,
 	                                                         std::less<float>());
 
 	Fvector dir;
@@ -35,7 +35,7 @@ void CStateMonsterLookToUnprotectedAreaAbstract::initialize()
 	dir.setHP(angle + PI, 0.f);
 	dir.normalize();
 
-	target_point.mad(object->Position(), dir, 1.f);
+	target_point.mad(this->object->Position(), dir, 1.f);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -59,9 +59,9 @@ bool CStateMonsterLookToUnprotectedAreaAbstract::check_completion()
 {
 	if (data.time_out != 0)
 	{
-		if (time_state_started + data.time_out < Device.dwTimeGlobal) return true;
+		if (this->time_state_started + data.time_out < Device.dwTimeGlobal) return true;
 	}
-	else if (!object->control().direction().is_turning()) return true;
+	else if (!this->object->control().direction().is_turning()) return true;
 
 	return false;
 }

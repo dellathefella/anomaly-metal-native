@@ -36,10 +36,10 @@ void CStateMonsterRestFunAbstract::execute()
 	float dist;
 
 	Fvector dir;
-	dir.sub(object->CorpseMan.get_corpse_position(), object->Position());
+	dir.sub(this->object->CorpseMan.get_corpse_position(), this->object->Position());
 	dist = dir.magnitude();
 	dir.normalize();
-	point.mad(object->CorpseMan.get_corpse_position(), dir, 2.0f);
+	point.mad(this->object->CorpseMan.get_corpse_position(), dir, 2.0f);
 
 	this->object->set_action(ACT_RUN);
 	this->object->path().set_target_point(point);
@@ -51,15 +51,15 @@ void CStateMonsterRestFunAbstract::execute()
 
 	this->object->set_state_sound(MonsterSound::eMonsterSoundIdle);
 
-	if ((dist < object->db().m_fDistToCorpse + 0.5f) && (time_last_hit + MIN_DELAY < Device.dwTimeGlobal))
+	if ((dist < this->object->db().m_fDistToCorpse + 0.5f) && (time_last_hit + MIN_DELAY < Device.dwTimeGlobal))
 	{
-		CEntityAlive* corpse = const_cast<CEntityAlive *>(object->CorpseMan.get_corpse());
+		CEntityAlive* corpse = const_cast<CEntityAlive *>(this->object->CorpseMan.get_corpse());
 		CPhysicsShellHolder* target = smart_cast<CPhysicsShellHolder *>(corpse);
 
 		if (target && target->m_pPhysicsShell)
 		{
 			Fvector dir;
-			dir.add(Fvector().sub(target->Position(), object->Position()), object->Direction());
+			dir.add(Fvector().sub(target->Position(), this->object->Position()), this->object->Direction());
 
 			float h, p;
 			dir.getHP(h, p);
@@ -83,14 +83,14 @@ void CStateMonsterRestFunAbstract::execute()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterRestFunAbstract::check_start_conditions()
 {
-	return ((object->CorpseMan.get_corpse() != 0) && object->Home->at_home(object->CorpseMan.get_corpse()->Position()));
+	return ((this->object->CorpseMan.get_corpse() != 0) && this->object->Home->at_home(this->object->CorpseMan.get_corpse()->Position()));
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterRestFunAbstract::check_completion()
 {
-	if (!object->CorpseMan.get_corpse()) return true;
-	if (time_state_started + TIME_IN_STATE < Device.dwTimeGlobal) return true;
+	if (!this->object->CorpseMan.get_corpse()) return true;
+	if (this->time_state_started + TIME_IN_STATE < Device.dwTimeGlobal) return true;
 	return false;
 }
 

@@ -20,8 +20,8 @@ void CStateControllerTubeAbstract::execute()
 TEMPLATE_SPECIALIZATION
 bool CStateControllerTubeAbstract::check_start_conditions()
 {
-	if (object->EnemyMan.see_enemy_duration() < SEE_ENEMY_DURATION) return false;
-	if (!object->m_psy_hit->check_start_conditions()) return false;
+	if (this->object->EnemyMan.see_enemy_duration() < SEE_ENEMY_DURATION) return false;
+	if (!this->object->m_psy_hit->check_start_conditions()) return false;
 
 	return true;
 }
@@ -29,7 +29,7 @@ bool CStateControllerTubeAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStateControllerTubeAbstract::check_completion()
 {
-	return (!object->m_psy_hit->is_active());
+	return (!this->object->m_psy_hit->is_active());
 }
 
 #undef TEMPLATE_SPECIALIZATION

@@ -54,7 +54,7 @@ void light::gi_generate()
                 /*.P =*/ Fvector().mad(position, dir, R->range),
                 /*.D =*/ Fvector().reflect(dir, TN),
                 /*.E =*/ e,
-                /*.S =*/ spatial.sector_id //. BUG
+                /*.S =*/ spatial.sector //. BUG
             }
         );
     }

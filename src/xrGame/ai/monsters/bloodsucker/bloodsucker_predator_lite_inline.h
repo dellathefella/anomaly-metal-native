@@ -46,31 +46,31 @@ void CStateBloodsuckerPredatorLiteAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::reselect_state()
 {
-	if (prev_substate == u32(-1))
+	if (this->prev_substate == u32(-1))
 	{
-		if (enemy_see_me()) select_state(eStatePredator_MoveToCover);
-		else select_state(eStatePredator_LookOpenPlace);
+		if (enemy_see_me()) this->select_state(eStatePredator_MoveToCover);
+		else this->select_state(eStatePredator_LookOpenPlace);
 		return;
 	}
 
-	if (prev_substate == eStatePredator_MoveToCover)
+	if (this->prev_substate == eStatePredator_MoveToCover)
 	{
 		if (enemy_see_me())
 		{
 			this->select_state(eStatePredator_MoveToCover);
 			this->object->set_berserk();
 		}
-		else select_state(eStatePredator_LookOpenPlace);
+		else this->select_state(eStatePredator_LookOpenPlace);
 		return;
 	}
 
-	if (prev_substate == eStatePredator_LookOpenPlace)
+	if (this->prev_substate == eStatePredator_LookOpenPlace)
 	{
 		this->select_state(eStatePredator_Camp);
 		return;
 	}
 
-	if (prev_substate == eStatePredator_Camp)
+	if (this->prev_substate == eStatePredator_Camp)
 	{
 		this->select_state(eStatePredator_MoveToCover);
 		return;
@@ -84,10 +84,10 @@ void CStateBloodsuckerPredatorLiteAbstract::finalize()
 {
 	inherited::finalize();
 	this->object->predator_stop();
-	if (m_freezed) object->predator_unfreeze();
+	if (m_freezed) this->object->predator_unfreeze();
 
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -95,22 +95,22 @@ void CStateBloodsuckerPredatorLiteAbstract::critical_finalize()
 {
 	inherited::critical_finalize();
 	this->object->predator_stop();
-	if (m_freezed) object->predator_unfreeze();
+	if (m_freezed) this->object->predator_unfreeze();
 
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateBloodsuckerPredatorLiteAbstract::check_completion()
 {
-	if (object->EnemyMan.see_enemy_now() && (object->Position().distance_to(object->EnemyMan.get_enemy()->Position()) <
+	if (this->object->EnemyMan.see_enemy_now() && (this->object->Position().distance_to(this->object->EnemyMan.get_enemy()->Position()) <
 		4.f))
 	{
 		this->object->set_berserk();
 		return true;
 	}
-	if (object->conditions().health() > 0.9f) return true;
+	if (this->object->conditions().health() > 0.9f) return true;
 
 	return false;
 }
@@ -119,7 +119,7 @@ bool CStateBloodsuckerPredatorLiteAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStatePredator_Camp)
 	{
@@ -147,7 +147,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		data.braking = true;
 		data.accel_type = eAT_Aggressive;
 		data.action.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.action.sound_delay = object->db().m_dwIdleSndDelay;
+		data.action.sound_delay = this->object->db().m_dwIdleSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataMoveToPointEx));
 		return;
@@ -160,11 +160,11 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		Fvector dir;
 		this->object->CoverMan->less_cover_direction(dir);
 
-		data.point.mad(object->Position(), dir, 10.f);
+		data.point.mad(this->object->Position(), dir, 10.f);
 		data.action.action = ACT_STAND_IDLE;
 		data.action.time_out = 2000;
 		data.action.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.action.sound_delay = object->db().m_dwIdleSndDelay;
+		data.action.sound_delay = this->object->db().m_dwIdleSndDelay;
 		data.face_delay = 0;
 
 		state->fill_data_with(&data, sizeof(SStateDataLookToPoint));
@@ -178,7 +178,7 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 		data.action = ACT_STAND_IDLE;
 		data.time_out = 0; // do not use time out
 		data.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.sound_delay = object->db().m_dwIdleSndDelay;
+		data.sound_delay = this->object->db().m_dwIdleSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataAction));
 
@@ -191,12 +191,12 @@ void CStateBloodsuckerPredatorLiteAbstract::setup_substates()
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::check_force_state()
 {
-	if (prev_substate == eStatePredator_Camp)
+	if (this->prev_substate == eStatePredator_Camp)
 	{
-		if (object->HitMemory.get_last_hit_time() > time_state_started)
+		if (this->object->HitMemory.get_last_hit_time() > this->time_state_started)
 		{
-			if (object->EnemyMan.get_enemy() &&
-				(object->EnemyMan.get_enemy()->Position().distance_to(object->Position()) < 10.f))
+			if (this->object->EnemyMan.get_enemy() &&
+				(this->object->EnemyMan.get_enemy()->Position().distance_to(this->object->Position()) < 10.f))
 			{
 				this->object->set_berserk();
 			}
@@ -210,21 +210,21 @@ TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerPredatorLiteAbstract::select_camp_point()
 {
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 
 	m_target_node = u32(-1);
-	if (object->Home->has_home())
+	if (this->object->Home->has_home())
 	{
-		m_target_node = object->Home->get_place_in_cover();
+		m_target_node = this->object->Home->get_place_in_cover();
 		if (m_target_node == u32(-1))
 		{
-			m_target_node = object->Home->get_place();
+			m_target_node = this->object->Home->get_place();
 		}
 	}
 
 	if (m_target_node == u32(-1))
 	{
-		const CCoverPoint* point = object->CoverMan->find_cover(object->Position(), 20.f, 30.f);
+		const CCoverPoint* point = this->object->CoverMan->find_cover(this->object->Position(), 20.f, 30.f);
 		if (point)
 		{
 			m_target_node = point->level_vertex_id();
@@ -232,19 +232,19 @@ void CStateBloodsuckerPredatorLiteAbstract::select_camp_point()
 	}
 
 	if (m_target_node == u32(-1))
-		m_target_node = object->ai_location().level_vertex_id();
+		m_target_node = this->object->ai_location().level_vertex_id();
 
-	monster_squad().get_squad(object)->lock_cover(m_target_node);
+	monster_squad().get_squad(this->object)->lock_cover(m_target_node);
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateBloodsuckerPredatorLiteAbstract::enemy_see_me()
 {
-	//if (object->EnemyMan.get_enemy() == Actor()) 
-	//	return (Actor()->memory().visual().visible_now(object));
+	//if (this->object->EnemyMan.get_enemy() == Actor()) 
+	//	return (Actor()->memory().visual().visible_now(this->object));
 
 	// if I see enemy then probably enemy see me :-)
-	return object->EnemyMan.enemy_see_me_now();
+	return this->object->EnemyMan.enemy_see_me_now();
 }
 
 

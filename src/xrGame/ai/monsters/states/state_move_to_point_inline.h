@@ -40,14 +40,14 @@ bool CStateMonsterMoveToPointAbstract::check_completion()
 {
 	if (data.action.time_out != 0)
 	{
-		if (time_state_started + data.action.time_out < Device.dwTimeGlobal) return true;
+		if (this->time_state_started + data.action.time_out < Device.dwTimeGlobal) return true;
 	}
 
 	bool real_path_end = ((fis_zero(data.completion_dist))
-		                      ? (data.point.distance_to_xz(object->Position()) < ai().level_graph().header().cell_size()
+		                      ? (data.point.distance_to_xz(this->object->Position()) < ai().level_graph().header().cell_size()
 		                      )
 		                      : true);
-	if (object->control().path_builder().is_path_end(data.completion_dist) && real_path_end) return true;
+	if (this->object->control().path_builder().is_path_end(data.completion_dist) && real_path_end) return true;
 
 	return false;
 }
@@ -105,15 +105,15 @@ bool CStateMonsterMoveToPointExAbstract::check_completion()
 {
 	if (data.action.time_out != 0)
 	{
-		if (time_state_started + data.action.time_out < Device.dwTimeGlobal)
+		if (this->time_state_started + data.action.time_out < Device.dwTimeGlobal)
 			return true;
 	}
 
-	Fvector const self_pos = object->Position();
+	Fvector const self_pos = this->object->Position();
 	float const dist_to_target = data.point.distance_to_xz(self_pos);
 	float const completion_dist = _max(data.completion_dist, ai().level_graph().header().cell_size());
 
-	if (Device.dwTimeGlobal < time_state_started + 200)
+	if (Device.dwTimeGlobal < this->time_state_started + 200)
 	{
 		if (dist_to_target > completion_dist)
 			return false;
@@ -123,7 +123,7 @@ bool CStateMonsterMoveToPointExAbstract::check_completion()
 		                           ? dist_to_target < ai().level_graph().header().cell_size()
 		                           : true;
 
-	if (object->control().path_builder().is_path_end(data.completion_dist) && real_path_end)
+	if (this->object->control().path_builder().is_path_end(data.completion_dist) && real_path_end)
 		return true;
 
 	return false;

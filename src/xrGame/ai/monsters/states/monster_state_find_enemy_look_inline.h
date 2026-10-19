@@ -32,8 +32,8 @@ void CStateMonsterFindEnemyLookAbstract::initialize()
 	current_stage = 0;
 	target_point = Fvector().set(0.f, 0.f, 0.f);
 
-	current_dir = object->Direction();
-	start_position = object->Position();
+	current_dir = this->object->Direction();
+	start_position = this->object->Position();
 }
 
 
@@ -52,7 +52,7 @@ void CStateMonsterFindEnemyLookAbstract::reselect_state()
 		this->select_state(
 			(Random.randI(2)) ? eStateFindEnemy_LookAround_MoveToPoint : eStateFindEnemy_LookAround_TurnToPoint);
 	}
-	else select_state(eStateFindEnemy_LookAround_LookAround);
+	else this->select_state(eStateFindEnemy_LookAround_LookAround);
 
 	current_stage++;
 }
@@ -67,7 +67,7 @@ bool CStateMonsterFindEnemyLookAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterFindEnemyLookAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStateFindEnemy_LookAround_MoveToPoint)
 	{
@@ -79,7 +79,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 		data.accel_type = eAT_Aggressive;
 		data.action.action = ACT_RUN;
 		data.action.sound_type = MonsterSound::eMonsterSoundAggressive;
-		data.action.sound_delay = object->db().m_dwAttackSndDelay;
+		data.action.sound_delay = this->object->db().m_dwAttackSndDelay;
 
 
 		state->fill_data_with(&data, sizeof(SStateDataMoveToPoint));
@@ -94,7 +94,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 		data.action = ACT_LOOK_AROUND;
 		data.time_out = 2000;
 		data.sound_type = MonsterSound::eMonsterSoundAggressive;
-		data.sound_delay = object->db().m_dwAttackSndDelay;
+		data.sound_delay = this->object->db().m_dwAttackSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataAction));
 
@@ -108,7 +108,7 @@ void CStateMonsterFindEnemyLookAbstract::setup_substates()
 		data.point = target_point;
 		data.action.action = ACT_STAND_IDLE;
 		data.action.sound_type = MonsterSound::eMonsterSoundAggressive;
-		data.action.sound_delay = object->db().m_dwAttackSndDelay;
+		data.action.sound_delay = this->object->db().m_dwAttackSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataLookToPoint));
 

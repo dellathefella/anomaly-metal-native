@@ -27,7 +27,7 @@ void CStateControllerHideAbstract::execute()
 {
 	if (m_state_fast_run)
 	{
-		if (target.position.distance_to(object->Position()) < 5.f)
+		if (target.position.distance_to(this->object->Position()) < 5.f)
 		{
 			m_state_fast_run = false;
 			this->object->set_mental_state(CController::eStateDanger);
@@ -44,17 +44,17 @@ void CStateControllerHideAbstract::execute()
 	this->object->anim().accel_activate(eAT_Aggressive);
 	this->object->anim().accel_set_braking(false);
 
-	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, this->object->db().m_dwAttackSndDelay);
 
-	if (object->HitMemory.get_last_hit_time() > object->EnemyMan.get_enemy_time_last_seen())
+	if (this->object->HitMemory.get_last_hit_time() > this->object->EnemyMan.get_enemy_time_last_seen())
 	{
 		Fvector pos;
-		pos.mad(object->Position(), object->HitMemory.get_last_hit_dir(), 5.f);
+		pos.mad(this->object->Position(), this->object->HitMemory.get_last_hit_dir(), 5.f);
 		pos.y += 1.5f;
 		this->object->custom_dir().head_look_point(pos);
 	}
 	else
-		this->object->custom_dir().head_look_point(object->EnemyMan.get_enemy_position());
+		this->object->custom_dir().head_look_point(this->object->EnemyMan.get_enemy_position());
 
 	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoRun, CControllerAnimation::eLegsTypeRun);
 }
@@ -82,7 +82,7 @@ void CStateControllerHideAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 bool CStateControllerHideAbstract::check_completion()
 {
-	return ((object->ai_location().level_vertex_id() == target.node) && !object
+	return ((this->object->ai_location().level_vertex_id() == target.node) && !this->object
 	                                                                     ->control().path_builder().is_moving_on_path()
 	);
 }
@@ -94,7 +94,7 @@ void CStateControllerHideAbstract::select_target_point()
 	DBG().level_info(this).clear();
 #endif
 
-	const CCoverPoint* point = object->CoverMan->find_cover(object->EnemyMan.get_enemy_position(), 10.f, 30.f);
+	const CCoverPoint* point = this->object->CoverMan->find_cover(this->object->EnemyMan.get_enemy_position(), 10.f, 30.f);
 	if (point)
 	{
 		target.node = point->level_vertex_id();
@@ -106,7 +106,7 @@ void CStateControllerHideAbstract::select_target_point()
 		target.position = ai().level_graph().vertex_position(target.node);
 	}
 
-	m_state_fast_run = (target.position.distance_to(object->Position()) > 20.f);
+	m_state_fast_run = (target.position.distance_to(this->object->Position()) > 20.f);
 	if (m_state_fast_run && (Random.randI(100) < 50))
 		this->object->set_mental_state(CController::eStateIdle);
 }

@@ -26,7 +26,7 @@ void CBloodsuckerStateAttackAbstract::initialize()
 {
 	inherited::initialize();
 	m_time_stop_invis = 0;
-	m_last_health = object->conditions().GetHealth();
+	m_last_health = this->object->conditions().GetHealth();
 }
 
 TEMPLATE_SPECIALIZATION
@@ -56,21 +56,21 @@ namespace detail
 TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackAbstract::execute()
 {
-	if (check_home_point()) select_state(eStateAttack_MoveToHomePoint);
-	else if (check_vampire()) select_state(eStateVampire_Execute);
-	else if (check_steal_state()) select_state(eStateAttack_Steal);
-	else if (check_camp_state()) select_state(eStateAttackCamp);
-	else if (check_find_enemy_state()) select_state(eStateAttack_FindEnemy);
-	else if (check_hiding()) select_state(eStateAttack_Hide);
-	else if (check_run_attack_state()) select_state(eStateAttack_RunAttack);
+	if (check_home_point()) this->select_state(eStateAttack_MoveToHomePoint);
+	else if (check_vampire()) this->select_state(eStateVampire_Execute);
+	else if (check_steal_state()) this->select_state(eStateAttack_Steal);
+	else if (check_camp_state()) this->select_state(eStateAttackCamp);
+	else if (check_find_enemy_state()) this->select_state(eStateAttack_FindEnemy);
+	else if (check_hiding()) this->select_state(eStateAttack_Hide);
+	else if (check_run_attack_state()) this->select_state(eStateAttack_RunAttack);
 	else
 	{
 		// определить тип атаки
 		bool b_melee = false;
 
-		if (prev_substate == eStateAttack_Melee)
+		if (this->prev_substate == eStateAttack_Melee)
 		{
-			if (!get_state_current()->check_completion())
+			if (!this->get_state_current()->check_completion())
 			{
 				b_melee = true;
 			}
@@ -80,7 +80,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 			b_melee = true;
 		}
 
-		if (!b_melee && (prev_substate == eStateAttack_Melee))
+		if (!b_melee && (this->prev_substate == eStateAttack_Melee))
 		{
 			this->select_state(eStateAttack_Hide);
 		}
@@ -91,7 +91,7 @@ void CBloodsuckerStateAttackAbstract::execute()
 				// check if enemy is behind me for a long time
 				// [TODO] make specific state and replace run_away state (to avoid ratation jumps)
 				//if (check_behinder()) 
-				//	select_state(eStateAttack_RunAway);
+				//	this->select_state(eStateAttack_RunAway);
 				//else 
 				this->select_state(eStateAttack_Melee);
 			}
@@ -111,26 +111,26 @@ void CBloodsuckerStateAttackAbstract::execute()
 		this->object->clear_runaway_invisible();
 	}
 
-	get_state_current()->execute();
+	this->get_state_current()->execute();
 	this->prev_substate = current_substate;
 
 	// Notify squad	
-	CMonsterSquad* squad = monster_squad().get_squad(object);
+	CMonsterSquad* squad = monster_squad().get_squad(this->object);
 	if (squad)
 	{
 		SMemberGoal goal;
 
 		goal.type = MG_AttackEnemy;
-		goal.entity = const_cast<CEntityAlive*>(object->EnemyMan.get_enemy());
+		goal.entity = const_cast<CEntityAlive*>(this->object->EnemyMan.get_enemy());
 
-		squad->UpdateGoal(object, goal);
+		squad->UpdateGoal(this->object, goal);
 	}
 }
 
 TEMPLATE_SPECIALIZATION
 bool CBloodsuckerStateAttackAbstract::check_vampire()
 {
-	if (prev_substate != eStateVampire_Execute)
+	if (this->prev_substate != eStateVampire_Execute)
 	{
 		if (get_state(eStateVampire_Execute)->check_start_conditions()) return true;
 	}
@@ -144,19 +144,19 @@ bool CBloodsuckerStateAttackAbstract::check_vampire()
 TEMPLATE_SPECIALIZATION
 bool CBloodsuckerStateAttackAbstract::check_hiding()
 {
-	const bool health_step_lost = object->conditions().GetHealth() <
+	const bool health_step_lost = this->object->conditions().GetHealth() <
 		m_last_health - detail::bloodsucker::loose_health_diff;
 
 	if (health_step_lost)
 	{
 		this->object->start_runaway_invisible();
-		m_last_health = object->conditions().GetHealth();
+		m_last_health = this->object->conditions().GetHealth();
 		m_start_with_encircle = true;
 		return true;
 	}
 
 	// if we get here before 1 sec after last critical hit: 
-	u32 last_critical_hit_tick = object->get_last_critical_hit_tick();
+	u32 last_critical_hit_tick = this->object->get_last_critical_hit_tick();
 	if (last_critical_hit_tick && time() < last_critical_hit_tick + 1000)
 	{
 		this->object->clear_last_critical_hit_tick();
@@ -166,7 +166,7 @@ bool CBloodsuckerStateAttackAbstract::check_hiding()
 
 	if (current_substate == eStateAttack_Hide)
 	{
-		return !get_state_current()->check_completion();
+		return !this->get_state_current()->check_completion();
 	}
 
 	m_start_with_encircle = false;
@@ -176,7 +176,7 @@ bool CBloodsuckerStateAttackAbstract::check_hiding()
 TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStateAttack_Hide)
 	{
@@ -190,7 +190,7 @@ void CBloodsuckerStateAttackAbstract::setup_substates()
 		data.braking = false;
 		data.accel_type = eAT_Aggressive;
 		data.action.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.action.sound_delay = object->db().m_dwIdleSndDelay;
+		data.action.sound_delay = this->object->db().m_dwIdleSndDelay;
 		data.start_with_encircle = m_start_with_encircle;
 
 		state->fill_data_with(&data, sizeof(CStateMonsterBackstubEnemy<_Object>::StateParams));
@@ -212,7 +212,7 @@ void CStateMonsterBackstubEnemy<_Object>::initialize()
 {
 	inherited::initialize();
 	this->object->path().prepare_builder();
-	m_last_health = object->conditions().GetHealth();
+	m_last_health = this->object->conditions().GetHealth();
 	m_encircle = data.start_with_encircle;
 	m_encircle_end_tick = Device.dwTimeGlobal + detail::bloodsucker::encircle_time;
 	m_next_change_behaviour_tick = 0;
@@ -222,11 +222,11 @@ template <class _Object>
 void CStateMonsterBackstubEnemy<_Object>::execute()
 {
 	// on hit, change behaviour
-	if (object->conditions().GetHealth() < m_last_health - detail::bloodsucker::loose_health_diff &&
+	if (this->object->conditions().GetHealth() < m_last_health - detail::bloodsucker::loose_health_diff &&
 		Device.dwTimeGlobal > m_next_change_behaviour_tick)
 	{
 		m_next_change_behaviour_tick = Device.dwTimeGlobal + detail::bloodsucker::change_behaviour_time;
-		m_last_health = object->conditions().GetHealth();
+		m_last_health = this->object->conditions().GetHealth();
 		m_encircle = !m_encircle;
 		if (m_encircle)
 		{
@@ -236,7 +236,7 @@ void CStateMonsterBackstubEnemy<_Object>::execute()
 
 	if (Device.dwTimeGlobal > m_encircle_end_tick)
 	{
-		if (object->EnemyMan.enemy_see_me_now())
+		if (this->object->EnemyMan.enemy_see_me_now())
 		{
 			m_encircle = false;
 		}
@@ -245,11 +245,11 @@ void CStateMonsterBackstubEnemy<_Object>::execute()
 	this->object->set_action(data.action.action);
 	this->object->anim().SetSpecParams(data.action.spec_params);
 
-	data.point = object->EnemyMan.get_enemy_position();
+	data.point = this->object->EnemyMan.get_enemy_position();
 	data.vertex = 0;
 
 	data.target_direction = Fvector().set(0.f, 0.f, 0.f);
-	const CEntityAlive* enemy = object->EnemyMan.get_enemy();
+	const CEntityAlive* enemy = this->object->EnemyMan.get_enemy();
 	VERIFY(enemy);
 
 	const SRotation rot = enemy->Orientation();
@@ -288,31 +288,31 @@ void CStateMonsterBackstubEnemy<_Object>::execute()
 template <class _Object>
 bool CStateMonsterBackstubEnemy<_Object>::check_start_conditions()
 {
-	if (!object->Home->at_home(object->EnemyMan.get_enemy_position()))
+	if (!this->object->Home->at_home(this->object->EnemyMan.get_enemy_position()))
 	{
 		return false;
 	}
 
-	float dist = object->MeleeChecker.distance_to_enemy(object->EnemyMan.get_enemy());
+	float dist = this->object->MeleeChecker.distance_to_enemy(this->object->EnemyMan.get_enemy());
 
-	return dist > object->MeleeChecker.get_min_distance();
+	return dist > this->object->MeleeChecker.get_min_distance();
 }
 
 template <class _Object>
 bool CStateMonsterBackstubEnemy<_Object>::check_completion()
 {
-	if (!object->Home->at_home(object->EnemyMan.get_enemy_position()))
+	if (!this->object->Home->at_home(this->object->EnemyMan.get_enemy_position()))
 	{
 		return true;
 	}
 
 	const bool real_path_end = fis_zero(data.completion_dist)
-		                           ? (data.point.distance_to_xz(object->Position()) < ai()
+		                           ? (data.point.distance_to_xz(this->object->Position()) < ai()
 		                                                                              .level_graph().header().
 		                                                                              cell_size())
 		                           : true;
 
-	if (object->control().path_builder().is_path_end(data.completion_dist) && real_path_end)
+	if (this->object->control().path_builder().is_path_end(data.completion_dist) && real_path_end)
 	{
 		// in straight-mode we're done
 		if (!m_encircle)
@@ -320,9 +320,9 @@ bool CStateMonsterBackstubEnemy<_Object>::check_completion()
 			return true;
 		}
 
-		if (object->EnemyMan.see_enemy_now() && !object->EnemyMan.enemy_see_me_now())
+		if (this->object->EnemyMan.see_enemy_now() && !this->object->EnemyMan.enemy_see_me_now())
 		{
-			// object->sound().play(MonsterSound::eMonsterSoundSteal);
+			// this->object->sound().play(MonsterSound::eMonsterSoundSteal);
 			return true;
 		}
 	}

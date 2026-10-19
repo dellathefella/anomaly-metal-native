@@ -26,12 +26,12 @@ void CStateMonsterHitObjectAbstract::execute()
 	this->object->set_action(ACT_STAND_IDLE);
 	this->object->anim().SetSpecParams(ASP_CHECK_CORPSE);
 
-	if (!m_hitted && (time_state_started + TIME_POINTBREAK < Device.dwTimeGlobal))
+	if (!m_hitted && (this->time_state_started + TIME_POINTBREAK < Device.dwTimeGlobal))
 	{
 		m_hitted = true;
 
 		Fvector dir;
-		dir.add(Fvector().sub(target->Position(), object->Position()), object->Direction());
+		dir.add(Fvector().sub(target->Position(), this->object->Position()), this->object->Direction());
 		dir.normalize();
 		target->m_pPhysicsShell->applyImpulse(dir,IMPULSE * target->m_pPhysicsShell->getMass());
 	}
@@ -44,7 +44,7 @@ bool CStateMonsterHitObjectAbstract::check_start_conditions()
 
 	// получить физ. объекты в радиусе
 	m_nearest_objects.clear_not_free();
-	Level().ObjectSpace.GetNearest(m_nearest_objects, object->Position(), object->Radius() - 0.5f, object());
+	Level().ObjectSpace.GetNearest(m_nearest_objects, this->object->Position(), this->object->Radius() - 0.5f, this->object());
 
 	typename xr_vector<CObject*>::iterator B = m_nearest_objects.begin();
 	typename xr_vector<CObject*>::iterator E = m_nearest_objects.end();
@@ -56,7 +56,7 @@ bool CStateMonsterHitObjectAbstract::check_start_conditions()
 
 		// определить дистанцию до врага
 		Fvector d;
-		d.sub(obj->Position(), object->Position());
+		d.sub(obj->Position(), this->object->Position());
 
 		// проверка на  Field-Of-Hit
 		float my_h, my_p;
@@ -85,7 +85,7 @@ bool CStateMonsterHitObjectAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterHitObjectAbstract::check_completion()
 {
-	if (time_state_started + TIME_OUT_STATE < Device.dwTimeGlobal) return true;
+	if (this->time_state_started + TIME_OUT_STATE < Device.dwTimeGlobal) return true;
 	return false;
 }
 

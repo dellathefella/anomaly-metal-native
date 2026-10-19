@@ -35,13 +35,13 @@ void CStateBurerShield<Object>::execute()
 		this->object->m_shield_keep_particle != 0 &&
 		current_time() > m_next_particle_allowed)
 	{
-		this->object->CParticlesPlayer::StartParticles(object->m_shield_keep_particle,
+		this->object->CParticlesPlayer::StartParticles(this->object->m_shield_keep_particle,
 		                                         Fvector().set(0, 1, 0),
 		                                         this->object->ID(),
 		                                         -1,
 		                                         true);
 
-		m_next_particle_allowed = current_time() + object->m_shield_keep_particle_period;
+		m_next_particle_allowed = current_time() + this->object->m_shield_keep_particle_period;
 	}
 
 	this->object->face_enemy();
@@ -69,10 +69,10 @@ void CStateBurerShield<Object>::critical_finalize()
 template <class Object>
 bool CStateBurerShield<Object>::check_start_conditions()
 {
-	if (current_time() < m_last_shield_started + object->m_shield_time + object->m_shield_cooldown)
+	if (current_time() < m_last_shield_started + this->object->m_shield_time + this->object->m_shield_cooldown)
 		return false;
 
-	if (!object->EnemyMan.enemy_see_me_now())
+	if (!this->object->EnemyMan.enemy_see_me_now())
 		return false;
 
 	return true;
@@ -81,10 +81,10 @@ bool CStateBurerShield<Object>::check_start_conditions()
 template <class Object>
 bool CStateBurerShield<Object>::check_completion()
 {
-	if (current_time() > m_last_shield_started + object->m_shield_time)
+	if (current_time() > m_last_shield_started + this->object->m_shield_time)
 		return true;
 
-	CEntityAlive const* enemy = object->EnemyMan.get_enemy();
+	CEntityAlive const* enemy = this->object->EnemyMan.get_enemy();
 	if (!enemy)
 		return true;
 
@@ -94,7 +94,7 @@ bool CStateBurerShield<Object>::check_completion()
 			return true;
 	}
 
-	if (!object->EnemyMan.get_enemy())
+	if (!this->object->EnemyMan.get_enemy())
 		return true;
 
 	return false;

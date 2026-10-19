@@ -5,7 +5,7 @@ namespace xray::render::RENDER_NAMESPACE
 {
 static constexpr float RSQRTDIV2 = 0.70710678118654752440084436210485f;
 
-light::light() : SpatialBase(*g_SpatialSpace) // p4: monolith global spatial DB (dev uses CGamePersistent::SpatialSpace)
+light::light() : ISpatial(g_SpatialSpace) // p4: monolith global spatial DB (dev uses CGamePersistent::SpatialSpace)
 {
     spatial.type = STYPE_LIGHTSOURCE;
     flags.type = POINT;
@@ -209,7 +209,7 @@ void light::spatial_move()
     }
 
     // update spatial DB
-    SpatialBase::spatial_move();
+    ISpatial::spatial_move();
 
 #if (RENDER == R_R2) || (RENDER == R_R3) || (RENDER == R_R4) || (RENDER == R_GL)
     if (flags.bActive)
@@ -347,7 +347,7 @@ void light::Export(light_Package& package)
                 L->set_range(range);
                 L->set_virtual_size(virtual_size);
                 L->set_color(color);
-                L->spatial.sector_id = spatial.sector_id; //. dangerous?
+                L->spatial.sector = spatial.sector; //. dangerous?
                 L->s_spot = s_spot;
                 L->s_point = s_point;
 

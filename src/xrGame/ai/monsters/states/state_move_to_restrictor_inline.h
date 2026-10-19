@@ -13,8 +13,8 @@ void CStateMonsterMoveToRestrictorAbstract::initialize()
 	this->object->path().prepare_builder();
 
 	Fvector position;
-	u32 node = object->control().path_builder().restrictions().accessible_nearest(object->Position(), position);
-	if (node != (u32)-1 && object->control().path_builder().restrictions().accessible(node))
+	u32 node = this->object->control().path_builder().restrictions().accessible_nearest(this->object->Position(), position);
+	if (node != (u32)-1 && this->object->control().path_builder().restrictions().accessible(node))
 		this->object->path().set_target_point(ai().level_graph().vertex_position(node), node);
 }
 
@@ -31,13 +31,13 @@ void CStateMonsterMoveToRestrictorAbstract::execute()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterMoveToRestrictorAbstract::check_start_conditions()
 {
-	return (!object->control().path_builder().accessible(object->Position()));
+	return (!this->object->control().path_builder().accessible(this->object->Position()));
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterMoveToRestrictorAbstract::check_completion()
 {
-	return (object->control().path_builder().accessible(object->Position()));
+	return (this->object->control().path_builder().accessible(this->object->Position()));
 }
 
 #undef TEMPLATE_SPECIALIZATION

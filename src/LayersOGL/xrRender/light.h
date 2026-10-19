@@ -10,7 +10,7 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
-class light : public IRender_Light, public SpatialBase
+class light : public IRender_Light, public ISpatial
 {
 public:
     struct

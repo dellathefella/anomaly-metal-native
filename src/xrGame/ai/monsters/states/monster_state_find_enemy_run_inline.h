@@ -25,11 +25,11 @@ void CStateMonsterFindEnemyRunAbstract::initialize()
 	this->object->path().prepare_builder();
 
 
-	target_point = object->EnemyMan.get_enemy_position();
-	target_vertex = object->EnemyMan.get_enemy_vertex();
+	target_point = this->object->EnemyMan.get_enemy_position();
+	target_vertex = this->object->EnemyMan.get_enemy_vertex();
 
 	Fvector dir;
-	dir.sub(target_point, object->Position());
+	dir.sub(target_point, this->object->Position());
 	dir.normalize();
 
 	Fvector test_position;
@@ -64,8 +64,8 @@ void CStateMonsterFindEnemyRunAbstract::execute()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterFindEnemyRunAbstract::check_completion()
 {
-	if ((object->ai_location().level_vertex_id() == target_vertex) &&
-		!object->control().path_builder().is_moving_on_path())
+	if ((this->object->ai_location().level_vertex_id() == target_vertex) &&
+		!this->object->control().path_builder().is_moving_on_path())
 		return true;
 
 	return false;

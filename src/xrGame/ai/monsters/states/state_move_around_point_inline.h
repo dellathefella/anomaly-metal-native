@@ -15,22 +15,22 @@ void CStateMonsterMoveAroundPointAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterMoveAroundPointAbstract::execute()
 {
-	//if (data.vertex != u32(-1)) object->MoveToTarget(data.point, data.vertex);
-	//else object->MoveToTarget(data.point);
+	//if (data.vertex != u32(-1)) this->object->MoveToTarget(data.point, data.vertex);
+	//else this->object->MoveToTarget(data.point);
 
-	//object->anim().m_tAction				= data.action.action;
-	//object->anim().SetSpecParams			(data.action.spec_params);
+	//this->object->anim().m_tAction				= data.action.action;
+	//this->object->anim().SetSpecParams			(data.action.spec_params);
 
 	//if (data.accelerated) {
-	//	object->anim().accel_activate	(EAccelType(data.accel_type));
-	//	object->anim().accel_set_braking (data.braking);
+	//	this->object->anim().accel_activate	(EAccelType(data.accel_type));
+	//	this->object->anim().accel_set_braking (data.braking);
 	//}
 
 	//if (data.action.sound_type != u32(-1)) {
 	//	if (data.action.sound_delay != u32(-1))
-	//		object->sound().play(data.action.sound_type, 0,0,data.action.sound_delay);
+	//		this->object->sound().play(data.action.sound_type, 0,0,data.action.sound_delay);
 	//	else 
-	//		object->sound().play(data.action.sound_type);
+	//		this->object->sound().play(data.action.sound_type);
 	//}
 }
 

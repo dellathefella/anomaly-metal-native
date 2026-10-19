@@ -41,12 +41,12 @@ bool CStateMonsterHideFromPointAbstract::check_completion()
 {
 	if (data.action.time_out != 0)
 	{
-		if (time_state_started + data.action.time_out < Device.dwTimeGlobal)
+		if (this->time_state_started + data.action.time_out < Device.dwTimeGlobal)
 			return true;
 	}
 
 	//if (!fis_zero(data.distance)) {
-	//	if (object->Position().distance_to(data.point) > data.distance) 
+	//	if (this->object->Position().distance_to(data.point) > data.distance) 
 	//		return true;
 	//}
 

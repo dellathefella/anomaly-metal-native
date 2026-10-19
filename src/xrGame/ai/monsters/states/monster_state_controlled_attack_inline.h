@@ -42,7 +42,7 @@ void CStateMonsterControlledAttackAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 const CEntityAlive*CStateMonsterControlledAttackAbstract::get_enemy()
 {
-	CControlledEntityBase* entity = smart_cast<CControlledEntityBase *>(object);
+	CControlledEntityBase* entity = smart_cast<CControlledEntityBase *>(this->object);
 	VERIFY(entity);
 	return smart_cast<const CEntityAlive*>(entity->get_data().m_object);
 }

@@ -46,7 +46,7 @@ void CBloodsuckerStateAttackHideAbstract::initialize()
 TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackHideAbstract::reselect_state()
 {
-	if (prev_substate == u32(-1))
+	if (this->prev_substate == u32(-1))
 	{
 		this->select_state(eStateAttack_HideInCover);
 		return;
@@ -61,7 +61,7 @@ void CBloodsuckerStateAttackHideAbstract::finalize()
 	inherited::finalize();
 
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -70,7 +70,7 @@ void CBloodsuckerStateAttackHideAbstract::critical_finalize()
 	inherited::critical_finalize();
 
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 }
 
 
@@ -78,7 +78,7 @@ TEMPLATE_SPECIALIZATION
 bool CBloodsuckerStateAttackHideAbstract::check_completion()
 {
 	if (current_substate == eStateAttack_CampInCover)
-		return (get_state_current()->check_completion());
+		return (this->get_state_current()->check_completion());
 
 	return false;
 }
@@ -87,7 +87,7 @@ bool CBloodsuckerStateAttackHideAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackHideAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStateAttack_HideInCover)
 	{
@@ -105,7 +105,7 @@ void CBloodsuckerStateAttackHideAbstract::setup_substates()
 		data.braking = true;
 		data.accel_type = eAT_Aggressive;
 		data.action.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.action.sound_delay = object->db().m_dwIdleSndDelay;
+		data.action.sound_delay = this->object->db().m_dwIdleSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataMoveToPointEx));
 		return;
@@ -121,21 +121,21 @@ TEMPLATE_SPECIALIZATION
 void CBloodsuckerStateAttackHideAbstract::select_camp_point()
 {
 	if (m_target_node != u32(-1))
-		monster_squad().get_squad(object)->unlock_cover(m_target_node);
+		monster_squad().get_squad(this->object)->unlock_cover(m_target_node);
 
 	m_target_node = u32(-1);
-	if (object->Home->has_home())
+	if (this->object->Home->has_home())
 	{
-		m_target_node = object->Home->get_place_in_cover();
+		m_target_node = this->object->Home->get_place_in_cover();
 		if (m_target_node == u32(-1))
 		{
-			m_target_node = object->Home->get_place();
+			m_target_node = this->object->Home->get_place();
 		}
 	}
 
 	if (m_target_node == u32(-1))
 	{
-		const CCoverPoint* point = object->CoverMan->find_cover(object->Position(), 10.f, 30.f);
+		const CCoverPoint* point = this->object->CoverMan->find_cover(this->object->Position(), 10.f, 30.f);
 		if (point)
 		{
 			m_target_node = point->level_vertex_id();
@@ -143,10 +143,10 @@ void CBloodsuckerStateAttackHideAbstract::select_camp_point()
 	}
 
 	if (m_target_node == u32(-1))
-		m_target_node = object->ai_location().level_vertex_id();
+		m_target_node = this->object->ai_location().level_vertex_id();
 
 
-	monster_squad().get_squad(object)->lock_cover(m_target_node);
+	monster_squad().get_squad(this->object)->lock_cover(m_target_node);
 }
 
 #undef TEMPLATE_SPECIALIZATION

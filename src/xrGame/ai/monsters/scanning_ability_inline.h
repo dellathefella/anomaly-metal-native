@@ -10,7 +10,7 @@
 TEMPLATE_SPECIALIZATION
 void CScanningAbilityAbstract::on_destroy()
 {
-	if (m_this_scan) object->can_scan = true;
+	if (m_this_scan) this->object->can_scan = true;
 	m_this_scan = false;
 }
 
@@ -72,7 +72,7 @@ void CScanningAbilityAbstract::schedule_update()
 	}
 
 	if (state == eStateDisabled) return;
-	if (!object->g_Alive()) return;
+	if (!this->object->g_Alive()) return;
 
 	CActor* scan_obj = smart_cast<CActor *>(Level().CurrentEntity());
 	if (!scan_obj) return;
@@ -80,7 +80,7 @@ void CScanningAbilityAbstract::schedule_update()
 	// проверка на активность
 	if (state == eStateNotActive)
 	{
-		if (scan_obj->Position().distance_to(object->Position()) < scan_radius) state = eStateScanning;
+		if (scan_obj->Position().distance_to(this->object->Position()) < scan_radius) state = eStateScanning;
 	}
 
 	if (state == eStateNotActive) return;
@@ -101,7 +101,7 @@ void CScanningAbilityAbstract::schedule_update()
 			if (sound_scan._feedback()) sound_scan.set_position(scan_obj->Position());
 			else
 			{
-				if (object->can_scan)
+				if (this->object->can_scan)
 				{
 					// играть звук
 					::Sound->play_at_pos(sound_scan, 0, scan_obj->Position());

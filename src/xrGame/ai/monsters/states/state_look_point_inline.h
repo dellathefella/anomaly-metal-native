@@ -43,9 +43,9 @@ bool CStateMonsterLookToPointAbstract::check_completion()
 {
 	if (data.action.time_out != 0)
 	{
-		if (time_state_started + data.action.time_out < Device.dwTimeGlobal) return true;
+		if (this->time_state_started + data.action.time_out < Device.dwTimeGlobal) return true;
 	}
-	else if (!object->control().direction().is_turning()) return true;
+	else if (!this->object->control().direction().is_turning()) return true;
 	return false;
 }
 

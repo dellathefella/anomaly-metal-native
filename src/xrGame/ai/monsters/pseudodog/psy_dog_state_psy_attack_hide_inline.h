@@ -30,7 +30,7 @@ void CStatePsyDogHideAbstract::execute()
 	this->object->anim().accel_activate(eAT_Aggressive);
 	this->object->anim().accel_set_braking(false);
 
-	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, this->object->db().m_dwAttackSndDelay);
 }
 
 TEMPLATE_SPECIALIZATION
@@ -42,7 +42,7 @@ bool CStatePsyDogHideAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStatePsyDogHideAbstract::check_completion()
 {
-	return ((object->ai_location().level_vertex_id() == target.node) && !object
+	return ((this->object->ai_location().level_vertex_id() == target.node) && !this->object
 	                                                                     ->control().path_builder().is_moving_on_path()
 	);
 }
@@ -50,16 +50,16 @@ bool CStatePsyDogHideAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStatePsyDogHideAbstract::select_target_point()
 {
-	const CCoverPoint* point = object->CoverMan->find_cover(object->EnemyMan.get_enemy_position(), 10.f, 30.f);
-	if (point && (object->Position().distance_to(point->position()) > 2.f))
+	const CCoverPoint* point = this->object->CoverMan->find_cover(this->object->EnemyMan.get_enemy_position(), 10.f, 30.f);
+	if (point && (this->object->Position().distance_to(point->position()) > 2.f))
 	{
 		target.node = point->level_vertex_id();
 		target.position = point->position();
 	}
 	else
 	{
-		const CCoverPoint* point = object->CoverMan->find_cover(object->Position(), 10.f, 30.f);
-		if (point && (object->Position().distance_to(point->position()) > 2.f))
+		const CCoverPoint* point = this->object->CoverMan->find_cover(this->object->Position(), 10.f, 30.f);
+		if (point && (this->object->Position().distance_to(point->position()) > 2.f))
 		{
 			target.node = point->level_vertex_id();
 			target.position = point->position();

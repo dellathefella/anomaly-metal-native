@@ -20,8 +20,8 @@ CStateMonsterHearHelpSoundAbstract::CStateMonsterHearHelpSound(_Object* obj) : i
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterHearHelpSoundAbstract::check_start_conditions()
 {
-	if (!object->SoundMemory.hear_help_sound()) return false;
-	if (object->Home->has_home()) return object->Home->at_home(
+	if (!this->object->SoundMemory.hear_help_sound()) return false;
+	if (this->object->Home->has_home()) return this->object->Home->at_home(
 		ai().level_graph().vertex_position(
 			this->object->SoundMemory.hear_help_sound_node()));
 
@@ -38,22 +38,22 @@ bool CStateMonsterHearHelpSoundAbstract::check_completion()
 TEMPLATE_SPECIALIZATION
 void CStateMonsterHearHelpSoundAbstract::reselect_state()
 {
-	if (prev_substate == u32(-1))
+	if (this->prev_substate == u32(-1))
 		this->select_state(eStateHearHelpSound_MoveToDest);
-	else if (prev_substate == eStateHearHelpSound_MoveToDest)
+	else if (this->prev_substate == eStateHearHelpSound_MoveToDest)
 		this->select_state(eStateHearHelpSound_LookAround);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateMonsterHearHelpSoundAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStateHearHelpSound_MoveToDest)
 	{
 		SStateDataMoveToPointEx data;
 
-		data.vertex = object->SoundMemory.hear_help_sound_node();
+		data.vertex = this->object->SoundMemory.hear_help_sound_node();
 		data.point = ai().level_graph().vertex_position(data.vertex);
 		data.action.action = ACT_RUN;
 		data.action.time_out = 0; // do not use time out
@@ -63,7 +63,7 @@ void CStateMonsterHearHelpSoundAbstract::setup_substates()
 		data.braking = true;
 		data.accel_type = eAT_Aggressive;
 		data.action.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.action.sound_delay = object->db().m_dwIdleSndDelay;
+		data.action.sound_delay = this->object->db().m_dwIdleSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataMoveToPointEx));
 
@@ -76,7 +76,7 @@ void CStateMonsterHearHelpSoundAbstract::setup_substates()
 		data.action = ACT_LOOK_AROUND;
 		data.time_out = 3000;
 		data.sound_type = MonsterSound::eMonsterSoundIdle;
-		data.sound_delay = object->db().m_dwIdleSndDelay;
+		data.sound_delay = this->object->db().m_dwIdleSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataAction));
 

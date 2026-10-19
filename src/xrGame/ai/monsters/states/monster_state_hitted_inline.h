@@ -32,13 +32,13 @@ void CStateMonsterHittedAbstract::reselect_state()
 		return;
 	}
 
-	if (prev_substate == u32(-1))
+	if (this->prev_substate == u32(-1))
 	{
 		this->select_state(eStateHitted_Hide);
 		return;
 	}
 
-	if (prev_substate == eStateHitted_Hide)
+	if (this->prev_substate == eStateHitted_Hide)
 	{
 		this->select_state(eStateHitted_MoveOut);
 		return;

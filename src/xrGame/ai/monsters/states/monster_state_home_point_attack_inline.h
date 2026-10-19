@@ -31,15 +31,15 @@ CStateMonsterAttackMoveToHomePointAbstract::CStateMonsterAttackMoveToHomePoint(_
 TEMPLATE_SPECIALIZATION
 void CStateMonsterAttackMoveToHomePointAbstract::select_target()
 {
-	CMonsterSquad* const squad = monster_squad().get_squad(object);
-	u32 const self_node = object->ai_location().level_vertex_id();
+	CMonsterSquad* const squad = monster_squad().get_squad(this->object);
+	u32 const self_node = this->object->ai_location().level_vertex_id();
 
 	if (m_target_node != u32(-1))
 		squad->unlock_cover(m_target_node);
 
 	for (u32 i = 0; i < 5; ++i)
 	{
-		m_target_node = object->Home->get_place_in_cover();
+		m_target_node = this->object->Home->get_place_in_cover();
 		if (m_target_node != self_node)
 			break;
 		m_target_node = u32(-1);
@@ -49,7 +49,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::select_target()
 	{
 		for (u32 i = 0; i < 5; ++i)
 		{
-			m_target_node = object->Home->get_place();
+			m_target_node = this->object->Home->get_place();
 			if (m_target_node != self_node)
 				break;
 			m_target_node = u32(-1);
@@ -75,7 +75,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::initialize()
 
 	m_selected_target_time = 0;
 	m_target_node = u32(-1);
-	m_target_pos = object->Position();
+	m_target_pos = this->object->Position();
 	select_target();
 }
 
@@ -89,7 +89,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::execute()
 	}
 	else
 	{
-		float const dist_to_target = object->Position().distance_to_xz(m_target_pos);
+		float const dist_to_target = this->object->Position().distance_to_xz(m_target_pos);
 		if (dist_to_target < 2)
 			select_target();
 	}
@@ -97,7 +97,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::execute()
 	if (m_target_node == u32(-1))
 	{
 		this->object->set_action(ACT_STAND_IDLE);
-		this->object->path().set_target_point(object->EnemyMan.get_enemy()->Position(),
+		this->object->path().set_target_point(this->object->EnemyMan.get_enemy()->Position(),
 		                                this->object->EnemyMan.get_enemy()->ai_location().level_vertex_id());
 	}
 	else
@@ -133,7 +133,7 @@ void CStateMonsterAttackMoveToHomePointAbstract::clean()
 
 	if (m_target_node != u32(-1))
 	{
-		CMonsterSquad* squad = monster_squad().get_squad(object);
+		CMonsterSquad* squad = monster_squad().get_squad(this->object);
 		squad->unlock_cover(m_target_node);
 	}
 }
@@ -153,13 +153,13 @@ void CStateMonsterAttackMoveToHomePointAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterAttackMoveToHomePointAbstract::check_start_conditions()
 {
-	if (!object->at_home())
+	if (!this->object->at_home())
 		return true;
 
-	if (!object->run_home_point_when_enemy_inaccessible())
+	if (!this->object->run_home_point_when_enemy_inaccessible())
 		return false;
 
-	if (!object->enemy_accessible())
+	if (!this->object->enemy_accessible())
 		return true;
 
 	return false;
@@ -168,12 +168,12 @@ bool CStateMonsterAttackMoveToHomePointAbstract::check_start_conditions()
 TEMPLATE_SPECIALIZATION
 bool CStateMonsterAttackMoveToHomePointAbstract::check_completion()
 {
-	if (!object->at_home())
+	if (!this->object->at_home())
 		return false;
 
-	if (object->run_home_point_when_enemy_inaccessible())
+	if (this->object->run_home_point_when_enemy_inaccessible())
 	{
-		if (!object->enemy_accessible())
+		if (!this->object->enemy_accessible())
 			return false;
 	}
 

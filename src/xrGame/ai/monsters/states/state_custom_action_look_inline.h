@@ -38,7 +38,7 @@ bool CStateMonsterCustomActionLookAbstract::check_completion()
 {
 	if (data.time_out)
 	{
-		if (time_state_started + data.time_out < time()) return true;
+		if (this->time_state_started + data.time_out < time()) return true;
 	}
 
 	return false;

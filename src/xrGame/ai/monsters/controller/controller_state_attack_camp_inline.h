@@ -17,7 +17,7 @@ void CStateControlCampAbstract::initialize()
 {
 	inherited::initialize();
 
-	float angle = ai().level_graph().vertex_low_cover_angle(object->ai_location().level_vertex_id(),deg(10),
+	float angle = ai().level_graph().vertex_low_cover_angle(this->object->ai_location().level_vertex_id(),deg(10),
 	                                                        std::greater<float>());
 
 	collide::rq_result l_rq;
@@ -34,7 +34,7 @@ void CStateControlCampAbstract::initialize()
 	{
 		direction.setHP(ang, 0.f);
 
-		if (Level().ObjectSpace.RayPick(trace_from, direction, TRACE_STATIC_DIST, collide::rqtStatic, l_rq, object))
+		if (Level().ObjectSpace.RayPick(trace_from, direction, TRACE_STATIC_DIST, collide::rqtStatic, l_rq, this->object))
 		{
 			if ((l_rq.range < TRACE_STATIC_DIST))
 			{
@@ -49,7 +49,7 @@ void CStateControlCampAbstract::initialize()
 	{
 		direction.setHP(ang, 0.f);
 
-		if (Level().ObjectSpace.RayPick(trace_from, direction, TRACE_STATIC_DIST, collide::rqtStatic, l_rq, object))
+		if (Level().ObjectSpace.RayPick(trace_from, direction, TRACE_STATIC_DIST, collide::rqtStatic, l_rq, this->object))
 		{
 			if ((l_rq.range < TRACE_STATIC_DIST))
 			{
@@ -64,7 +64,7 @@ void CStateControlCampAbstract::initialize()
 	m_target_angle = m_angle_from;
 
 	Fvector pos;
-	pos.mad(object->Position(), Fvector().setHP(angle, 0.f), 3.f);
+	pos.mad(this->object->Position(), Fvector().setHP(angle, 0.f), 3.f);
 	this->object->dir().face_target(pos);
 }
 
@@ -74,7 +74,7 @@ void CStateControlCampAbstract::execute()
 	update_target_angle();
 
 	Fvector point;
-	point.mad(object->Position(), Fvector().setHP(m_target_angle, 0.f), 3.f);
+	point.mad(this->object->Position(), Fvector().setHP(m_target_angle, 0.f), 3.f);
 
 	this->object->custom_dir().head_look_point(point);
 	this->object->custom_anim().set_body_state(CControllerAnimation::eTorsoIdle, CControllerAnimation::eLegsTypeSteal);
@@ -83,15 +83,15 @@ void CStateControlCampAbstract::execute()
 TEMPLATE_SPECIALIZATION
 bool CStateControlCampAbstract::check_start_conditions()
 {
-	if (object->EnemyMan.see_enemy_now()) return false;
+	if (this->object->EnemyMan.see_enemy_now()) return false;
 	return true;
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateControlCampAbstract::check_completion()
 {
-	if (object->EnemyMan.see_enemy_now()) return true;
-	if (time_state_started + 2000 < time()) return true;
+	if (this->object->EnemyMan.see_enemy_now()) return true;
+	if (this->time_state_started + 2000 < time()) return true;
 
 	return false;
 }

@@ -40,14 +40,14 @@ void CStateGroupPanicAbstract::reselect_state()
 		return;
 	}
 
-	if (prev_substate == eStatePanic_Run) select_state(eStatePanic_FaceUnprotectedArea);
-	else select_state(eStatePanic_Run);
+	if (this->prev_substate == eStatePanic_Run) this->select_state(eStatePanic_FaceUnprotectedArea);
+	else this->select_state(eStatePanic_Run);
 }
 
 TEMPLATE_SPECIALIZATION
 void CStateGroupPanicAbstract::setup_substates()
 {
-	state_ptr state = get_state_current();
+	state_ptr state = this->get_state_current();
 
 	if (current_substate == eStatePanic_FaceUnprotectedArea)
 	{
@@ -57,7 +57,7 @@ void CStateGroupPanicAbstract::setup_substates()
 		data.spec_params = ASP_STAND_SCARED;
 		data.time_out = 3000;
 		data.sound_type = MonsterSound::eMonsterSoundPanic;
-		data.sound_delay = object->db().m_dwAttackSndDelay;
+		data.sound_delay = this->object->db().m_dwAttackSndDelay;
 
 		state->fill_data_with(&data, sizeof(SStateDataAction));
 
@@ -71,13 +71,13 @@ void CStateGroupPanicAbstract::check_force_state()
 	if ((current_substate == eStatePanic_FaceUnprotectedArea))
 	{
 		// если видит врага
-		if (object->EnemyMan.get_enemy_time_last_seen() == Device.dwTimeGlobal)
+		if (this->object->EnemyMan.get_enemy_time_last_seen() == Device.dwTimeGlobal)
 		{
 			this->select_state(eStatePanic_Run);
 			return;
 		}
 		// если получил hit
-		if (object->HitMemory.get_last_hit_time() + 5000 > Device.dwTimeGlobal)
+		if (this->object->HitMemory.get_last_hit_time() + 5000 > Device.dwTimeGlobal)
 		{
 			this->select_state(eStatePanic_Run);
 			return;

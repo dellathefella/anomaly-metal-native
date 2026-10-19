@@ -48,7 +48,7 @@ void CStateControllerControlHitAbstract::execute()
 		break;
 
 	case eActionWaitTripleEnd:
-		if (!object->com_man().ta_is_active())
+		if (!this->object->com_man().ta_is_active())
 		{
 			m_action = eActionCompleted;
 		}
@@ -58,18 +58,18 @@ void CStateControllerControlHitAbstract::execute()
 	}
 
 	this->object->anim().m_tAction = ACT_STAND_IDLE;
-	this->object->dir().face_target(object->EnemyMan.get_enemy(), 1200);
+	this->object->dir().face_target(this->object->EnemyMan.get_enemy(), 1200);
 
-	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, object->db().m_dwAttackSndDelay);
+	this->object->sound().play(MonsterSound::eMonsterSoundAggressive, 0, 0, this->object->db().m_dwAttackSndDelay);
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateControllerControlHitAbstract::check_start_conditions()
 {
-	float dist = object->Position().distance_to(object->EnemyMan.get_enemy_position());
+	float dist = this->object->Position().distance_to(this->object->EnemyMan.get_enemy_position());
 	if (dist < GOOD_DISTANCE_FOR_CONTROL_HIT) return false;
 
-	if (!object->EnemyMan.see_enemy_now()) return false;
+	if (!this->object->EnemyMan.see_enemy_now()) return false;
 
 	// всё ок, можно начать атаку
 	return true;
@@ -101,7 +101,7 @@ void CStateControllerControlHitAbstract::critical_finalize()
 TEMPLATE_SPECIALIZATION
 void CStateControllerControlHitAbstract::execute_hit_prepare()
 {
-	this->object->com_man().ta_activate(object->anim_triple_control);
+	this->object->com_man().ta_activate(this->object->anim_triple_control);
 	this->object->play_control_sound_start();
 
 	time_control_started = Device.dwTimeGlobal;
@@ -122,7 +122,7 @@ void CStateControllerControlHitAbstract::execute_hit_fire()
 {
 	this->object->com_man().ta_pointbreak();
 
-	if (object->EnemyMan.see_enemy_now()) object->control_hit();
+	if (this->object->EnemyMan.see_enemy_now()) this->object->control_hit();
 }
 
 #undef TEMPLATE_SPECIALIZATION

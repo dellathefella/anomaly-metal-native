@@ -107,7 +107,7 @@ static class cl_water_intensity : public R_constant_setup
 {
     void setup(CBackend& cmd_list, R_constant* C) override
     {
-        const auto& env = g_pGamePersistent->Environment().CurrentEnv;
+        const auto& env = *g_pGamePersistent->Environment().CurrentEnv;
         const float fValue = env.m_fWaterIntensity;
         cmd_list.set_c(C, fValue, fValue, fValue, 0.f);
     }
@@ -117,7 +117,7 @@ static class cl_sun_shafts_intensity : public R_constant_setup
 {
     void setup(CBackend& cmd_list, R_constant* C) override
     {
-        const auto& env = g_pGamePersistent->Environment().CurrentEnv;
+        const auto& env = *g_pGamePersistent->Environment().CurrentEnv;
         const float fValue = env.m_fSunShaftsIntensity;
         cmd_list.set_c(C, fValue, fValue, fValue, 0.f);
     }

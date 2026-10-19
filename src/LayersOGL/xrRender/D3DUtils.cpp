@@ -489,7 +489,7 @@ void CDrawUtilities::DrawRomboid(const Fvector& p, float r, u32 c)
     static const u16 IT[24] = {2, 4, 0, 4, 3, 0, 3, 5, 0, 5, 2, 0, 4, 2, 1, 2, 5, 1, 5, 3, 1, 3, 4, 1};
     u32 vBase, iBase;
 
-    const u32 c1 = Fcolor(c).mul_rgb(0.75).get();
+    const u32 c1 = Fcolor().set(c).mul_rgb(0.75).get();
 
     int k;
     FVF::L* pv;

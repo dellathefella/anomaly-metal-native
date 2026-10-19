@@ -173,7 +173,7 @@ void CLight_DB::Update()
     if (sun)
     {
         light* _sun = (light*)sun._get();
-        const auto& E = g_pGamePersistent->Environment().CurrentEnv;
+        const auto& E = *g_pGamePersistent->Environment().CurrentEnv;
         VERIFY(_valid(E.sun_dir));
 #ifdef DEBUG
         if (E.sun_dir.y >= 0)

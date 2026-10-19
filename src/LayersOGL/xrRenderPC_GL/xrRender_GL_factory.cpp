@@ -34,6 +34,9 @@
 // such switch; Anomaly always uses the enhanced resource set.
 bool ShadowOfChernobylMode = false;
 
+// p4: dev's xrAPI GEnv (only isDedicatedServer is read by staged code).
+xr_genv_shim GEnv{ g_dedicated_server };
+
 namespace xray::render::render_gl
 {
 	extern CRender RImplementation;

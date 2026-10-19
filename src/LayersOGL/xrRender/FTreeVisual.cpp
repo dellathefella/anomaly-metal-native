@@ -117,7 +117,7 @@ struct FTreeVisual_setup
     void calculate()
     {
         dwFrame = Device.dwFrame;
-        CEnvDescriptor& desc = g_pGamePersistent->Environment().CurrentEnv;
+        CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
 
         // Calc wind-vector3, scale
         float tm_rot = PI_MUL_2 * Device.fTimeGlobal / desc.m_fTreeRotation;
@@ -155,7 +155,7 @@ void FTreeVisual::Render(CBackend& cmd_list, float /*LOD*/, bool use_fast_geo)
     cmd_list.tree.set_c_scale(s * c_scale.rgb.x, s * c_scale.rgb.y, s * c_scale.rgb.z, s * c_scale.hemi); // scale
     cmd_list.tree.set_c_bias(s * c_bias.rgb.x, s * c_bias.rgb.y, s * c_bias.rgb.z, s * c_bias.hemi); // bias
 #else
-    const auto& desc = g_pGamePersistent->Environment().CurrentEnv;
+    const auto& desc = *g_pGamePersistent->Environment().CurrentEnv; // p4: CurrentEnv is a pointer in the monolith
     cmd_list.tree.set_c_scale(s * c_scale.rgb.x, s * c_scale.rgb.y, s * c_scale.rgb.z, s * c_scale.hemi); // scale
     cmd_list.tree.set_c_bias(s * c_bias.rgb.x + desc.ambient.x, s * c_bias.rgb.y + desc.ambient.y,
         s * c_bias.rgb.z + desc.ambient.z, s * c_bias.hemi); // bias

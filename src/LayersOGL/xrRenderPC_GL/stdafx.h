@@ -44,6 +44,15 @@ using cpstr = char* const;
 // no such switch — defined false in xrRender_GL_factory.cpp.
 extern bool ShadowOfChernobylMode;
 
+// p4: dev's xrAPI EngineGlobalEnvironment (xrAPI.h) — the staged renderer only
+// reads GEnv.isDedicatedServer; the monolith's flag is g_dedicated_server
+// (xrEngine/IGame_Persistent.h). Defined in xrRender_GL_factory.cpp.
+struct xr_genv_shim
+{
+	bool& isDedicatedServer;
+};
+extern xr_genv_shim GEnv;
+
 // OpenXRay's xr_types.h spelling used by the staged layers (xrCore untouched).
 using cpcstr = const char* const;
 

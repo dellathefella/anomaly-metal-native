@@ -4,7 +4,7 @@ namespace xray::render::RENDER_NAMESPACE
 {
 void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
 {
-    float fRainFactor = g_pGamePersistent->Environment().CurrentEnv.rain_density;
+    float fRainFactor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
 
     // Common calc for quad-rendering
     u32 Offset;

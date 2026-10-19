@@ -33,6 +33,9 @@ public:
     virtual void FlushPrimitive();
 
     virtual LPCSTR UpdateShaderName(LPCSTR tex_name, LPCSTR sh_name);
+    // p4: Anomaly UI-scaling query (UIRender.h boundary) — mirrors the
+    // monolith's active-texture resolution read.
+    virtual void GetActiveTextureResolution(Fvector2& res) override;
 
     virtual void CacheSetXformWorld(const Fmatrix& M);
     virtual void CacheSetCullMode(CullMode);

@@ -147,8 +147,8 @@ class cl_fog_plane : public R_constant_setup
             plane.mul(denom);
 
             // Near/Far
-            float A = g_pGamePersistent->Environment().CurrentEnv.fog_near;
-            float B = 1 / (g_pGamePersistent->Environment().CurrentEnv.fog_far - A);
+            float A = g_pGamePersistent->Environment().CurrentEnv->fog_near;
+            float B = 1 / (g_pGamePersistent->Environment().CurrentEnv->fog_far - A);
             result.set(-plane.x * B, -plane.y * B, -plane.z * B, 1 - (plane.w - A) * B); // view-plane
         }
         cmd_list.set_c(C, result);
@@ -166,8 +166,8 @@ class cl_fog_params : public R_constant_setup
         if (marker != Device.dwFrame)
         {
             // Near/Far
-            float n = g_pGamePersistent->Environment().CurrentEnv.fog_near;
-            float f = g_pGamePersistent->Environment().CurrentEnv.fog_far;
+            float n = g_pGamePersistent->Environment().CurrentEnv->fog_near;
+            float f = g_pGamePersistent->Environment().CurrentEnv->fog_far;
             float r = 1 / (f - n);
             result.set(-n * r, r, r, r);
         }

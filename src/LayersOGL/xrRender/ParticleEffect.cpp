@@ -677,7 +677,7 @@ void CParticleEffect::Render(CBackend& cmd_list, float, bool use_fast_geo)
                 if (GetHudMode())
                 {
                     Device.mProject.build_projection(deg2rad(psHUD_FOV * Device.fFOV), Device.fASPECT, HUD_VIEWPORT_NEAR,
-                        g_pGamePersistent->Environment().CurrentEnv.far_plane);
+                        g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
                     Device.mFullTransform.mul(Device.mProject, Device.mView);
                     cmd_list.set_xform_project(Device.mProject);
@@ -844,7 +844,7 @@ void CParticleEffect::Render(float, bool)
                 if (GetHudMode())
                 {
                     Device.mProject.build_projection(deg2rad(psHUD_FOV * Device.fFOV), Device.fASPECT, HUD_VIEWPORT_NEAR,
-                        g_pGamePersistent->Environment().CurrentEnv.far_plane);
+                        g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
                     Device.mFullTransform.mul(Device.mProject, Device.mView);
                     RCache.set_xform_project(Device.mProject);

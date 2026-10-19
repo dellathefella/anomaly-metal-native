@@ -8,8 +8,9 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
-class dxRenderFactory : public IRenderFactory
+class dxRenderFactory // p4: monolith boundary has no IRenderFactory (all-commented)
 {
+public: // p4: the monolith dxRenderFactory bridge delegates to these directly
 #ifndef _EDITOR
     RENDER_FACTORY_DECLARE(UISequenceVideoItem)
     RENDER_FACTORY_DECLARE(UIShader)

@@ -49,11 +49,11 @@ dxRenderFactory RenderFactoryImpl;
 #define GL_FACTORY_DELEGATE(Class)                                                    \
 	I##Class* dxRenderFactory::Create##Class()                                        \
 	{                                                                                 \
-		return render_gl::RenderFactoryImpl.Create##Class();                          \
+		return xray::render::render_gl::RenderFactoryImpl.Create##Class();                          \
 	}                                                                                 \
 	void dxRenderFactory::Destroy##Class(I##Class* pObject)                           \
 	{                                                                                 \
-		render_gl::RenderFactoryImpl.Destroy##Class(pObject);                         \
+		xray::render::render_gl::RenderFactoryImpl.Destroy##Class(pObject);                         \
 	}
 
 GL_FACTORY_DELEGATE(UISequenceVideoItem)

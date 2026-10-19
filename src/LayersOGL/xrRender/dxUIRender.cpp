@@ -149,6 +149,17 @@ void dxUIRender::SetScissor(Irect* rect)
 #endif //	(RENDER == R_R3) || (RENDER == R_R4)
 }
 
+// p4: Anomaly UI-scaling query — mirrors the monolith's active-texture read
+// (Layers/xrRender/dxUIRender.cpp) with a pre-bind fallback.
+void dxUIRender::GetActiveTextureResolution(Fvector2& res)
+{
+    CTexture* T = RCache.get_ActiveTexture(0);
+    if (T)
+        res.set(float(T->get_Width()), float(T->get_Height()));
+    else
+        res.set(2048.f, 2048.f);
+}
+
 LPCSTR dxUIRender::UpdateShaderName(LPCSTR tex_name, LPCSTR sh_name)
 {
     string_path buff;

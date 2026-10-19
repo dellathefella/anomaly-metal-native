@@ -4,7 +4,7 @@
 #include "xrEngine/IGame_Persistent.h"
 #define MAX_Flares 24
 
-#define FAR_DIST g_pGamePersistent->Environment().CurrentEnv.far_plane
+#define FAR_DIST g_pGamePersistent->Environment().CurrentEnv->far_plane
 
 namespace xray::render::RENDER_NAMESPACE
 {

@@ -44,7 +44,7 @@ void dxRainRender::Copy(IRainRender& _in) { *this = *(dxRainRender*)&_in; }
 
 void dxRainRender::Render(CEffect_Rain& owner)
 {
-    float factor = g_pGamePersistent->Environment().CurrentEnv.rain_density;
+    float factor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
     if (factor < EPS_L)
         return;
 
@@ -64,7 +64,7 @@ void dxRainRender::Render(CEffect_Rain& owner)
 
     // visual
     const float factor_visual = factor / 2.f + .5f;
-    const Fvector3 f_rain_color = g_pGamePersistent->Environment().CurrentEnv.rain_color;
+    const Fvector3 f_rain_color = g_pGamePersistent->Environment().CurrentEnv->rain_color;
     const u32 u_rain_color = color_rgba_f(f_rain_color.x, f_rain_color.y, f_rain_color.z, factor_visual);
 
     const float b_radius_wrap_sqr = _sqr((source_radius + .5f));

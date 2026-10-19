@@ -162,7 +162,7 @@ public:
         //     customFOV = psHUD_FOV * Device.fFOV;
         //
         // Device.mProject.build_projection(deg2rad(customFOV), Device.fASPECT,
-        //    VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv.far_plane);
+        //    VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
         //
         // Look at the function:
         // void __fastcall sorted_L1_HUD(mapSorted_Node* N)
@@ -171,7 +171,7 @@ public:
 
         Fmatrix prj_new;
         prj_new.build_projection(deg2rad(psHUD_FOV * Device.fFOV /* *Device.fASPECT*/), Device.fASPECT,
-            HUD_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv.far_plane);
+            HUD_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
         cmd_list.set_xform_project(prj_new);
 
         RImplementation.rmNear(cmd_list);

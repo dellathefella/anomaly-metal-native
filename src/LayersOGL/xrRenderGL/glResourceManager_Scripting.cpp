@@ -346,7 +346,7 @@ void CResourceManager::LS_Load()
                 .def("fmag_none",     &adopt_sampler::_fmag_none,     return_reference_to<1>(boost::arg<1>()))
                 .def("fmag_point",    &adopt_sampler::_fmag_point,    return_reference_to<1>(boost::arg<1>()))
                 .def("fmag_linear",   &adopt_sampler::_fmag_linear,   return_reference_to<1>(boost::arg<1>()))
-                .def("comp_less",     &adopt_sampler::_comp_less,     return_reference_to<1>(boost::arg<1>()) \),
+                .def("comp_less",     &adopt_sampler::_comp_less,     return_reference_to<1>(boost::arg<1>())),
 
             class_<adopt_compiler>("_compiler")
                 .def(constructor<const adopt_compiler&>())

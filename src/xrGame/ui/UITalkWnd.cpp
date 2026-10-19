@@ -286,11 +286,11 @@ void CUITalkWnd::AskQuestion()
 		{
 			string128 s;
 			xr_sprintf(s, "ID = [%s] of selected question is out of range of available dialogs ",
-			           UITalkDialogWnd->m_ClickedQuestionID);
+			           UITalkDialogWnd->m_ClickedQuestionID.c_str()); // p4: shared_str through varargs
 			VERIFY2(FALSE, s);
 		}
 
-		m_pCurrentDialog = m_pOurDialogManager->GetDialogByID(UITalkDialogWnd->m_ClickedQuestionID);
+		m_pCurrentDialog = m_pOurDialogManager->GetDialogByID(UITalkDialogWnd->m_ClickedQuestionID.c_str()); // p4: shared_str through varargs
 
 		m_pOurDialogManager->InitDialog(m_pOthersDialogManager, m_pCurrentDialog);
 		phrase_id = "0";

@@ -7,7 +7,7 @@
 class ENGINE_API IInputReceiver;
 
 //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-//описание класса
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 const int mouse_device_key = 1;
 const int keyboard_device_key = 2;
 const int all_device_key = mouse_device_key | keyboard_device_key;
@@ -67,6 +67,7 @@ private:
 
 	void MouseUpdate();
 	void KeyUpdate();
+	void ControllerUpdate(); // SDL gamepad backend (synthesizes keyboard/mouse)
 
 public:
 	sxr_mouse mouse_property;

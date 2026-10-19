@@ -24,6 +24,9 @@
 #define WHEEL_DELTA 120
 #endif
 
+// xr_input_controller.cpp — gamepad rumble (SDL haptic)
+void xr_controller_rumble(u16 low, u16 high, float seconds);
+
 CInput* pInput = NULL;
 IInputReceiver dummyController;
 
@@ -179,6 +182,10 @@ static int sdl_button_to_engine(int sdl_btn)
 // ---------------------------------------------------------------------------
 static std::deque<XrRawInputEvent> g_pending_keys;
 static std::deque<XrRawInputEvent> g_pending_mouse;
+static std::deque<XrRawInputEvent> g_pending_controller;
+
+// consumed by xr_input_controller.cpp
+std::deque<XrRawInputEvent>& xr_pending_controller_events() { return g_pending_controller; }
 
 static void pump_sdl_events()
 {
@@ -195,13 +202,19 @@ static void pump_sdl_events()
 		case XrRawInputEvent::MouseButtonDown:
 		case XrRawInputEvent::MouseButtonUp:
 		case XrRawInputEvent::MouseWheel: g_pending_mouse.push_back(ev); break;
-		case XrRawInputEvent::Controller: break; // t4 (gamepad backend)
+		case XrRawInputEvent::ControllerButtonDown:
+		case XrRawInputEvent::ControllerButtonUp:
+		case XrRawInputEvent::ControllerAxis:
+		case XrRawInputEvent::ControllerDeviceAdded:
+		case XrRawInputEvent::ControllerDeviceRemoved: g_pending_controller.push_back(ev); break;
 		}
 	}
 	if (g_pending_keys.size() > 4096)
 		g_pending_keys.clear();
 	if (g_pending_mouse.size() > 4096)
 		g_pending_mouse.clear();
+	if (g_pending_controller.size() > 4096)
+		g_pending_controller.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -514,6 +527,7 @@ void CInput::OnFrame(void)
 	dwCurTime = RDEVICE.TimerAsync_MMT();
 	KeyUpdate();
 	MouseUpdate();
+	ControllerUpdate();
 	RDEVICE.Statistic->Input.End();
 }
 
@@ -670,8 +684,8 @@ bool CInput::get_dik_name(int dik, LPSTR dest_str, int dest_sz)
 
 //-----------------------------------------------------------------------------
 
-void CInput::feedback(u16 /*s1*/, u16 /*s2*/, float time)
+void CInput::feedback(u16 s1, u16 s2, float time)
 {
-	// Force feedback: gamepad rumble lands with the SDL controller backend (t4)
 	stop_vibration_time = RDEVICE.fTimeGlobal + time;
+	xr_controller_rumble(s1, s2, time);
 }

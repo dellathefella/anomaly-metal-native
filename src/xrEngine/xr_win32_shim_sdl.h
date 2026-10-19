@@ -337,18 +337,23 @@ struct XrRawInputEvent
         MouseButtonDown,
         MouseButtonUp,
         MouseWheel,
-        Controller, // t4: gamepad events (payload = SDL event index in .a)
+        ControllerButtonDown, // a = SDL button, b = instance id
+        ControllerButtonUp,   // a = SDL button, b = instance id
+        ControllerAxis,       // a = SDL axis, b = value (-32767..32767)
+        ControllerDeviceAdded,   // a = joystick index
+        ControllerDeviceRemoved, // a = instance id
     };
     Type type;
     int a; // key: SDL scancode; button: SDL button; wheel: y; motion: dx
-    int b; // motion: dy
+    int b; // motion: dy; controller button/axis: instance id / axis value
+    int c; // controller axis: instance id
 };
 inline std::deque<XrRawInputEvent>& xr_raw_input_queue()
 {
     static std::deque<XrRawInputEvent> q;
     return q;
 }
-inline void xr_raw_input_push(XrRawInputEvent::Type t, int a, int b = 0)
+inline void xr_raw_input_push(XrRawInputEvent::Type t, int a, int b = 0, int c = 0)
 {
     if (xr_raw_input_queue().size() < 8192)
     {
@@ -356,6 +361,7 @@ inline void xr_raw_input_push(XrRawInputEvent::Type t, int a, int b = 0)
         ev.type = t;
         ev.a = a;
         ev.b = b;
+        ev.c = c;
         xr_raw_input_queue().push_back(ev);
     }
 }
@@ -454,6 +460,22 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         m.message = WM_MOUSEWHEEL;
         m.wParam = (WPARAM)(short)(e.wheel.y * 120);
         ok = true;
+        break;
+    case SDL_CONTROLLERBUTTONDOWN:
+        xr_raw_input_push(XrRawInputEvent::ControllerButtonDown, e.cbutton.button, e.cbutton.which);
+        break;
+    case SDL_CONTROLLERBUTTONUP:
+        xr_raw_input_push(XrRawInputEvent::ControllerButtonUp, e.cbutton.button, e.cbutton.which);
+        break;
+    case SDL_CONTROLLERAXISMOTION:
+        xr_raw_input_push(XrRawInputEvent::ControllerAxis, e.caxis.axis, e.caxis.value,
+                          e.caxis.which);
+        break;
+    case SDL_CONTROLLERDEVICEADDED:
+        xr_raw_input_push(XrRawInputEvent::ControllerDeviceAdded, e.cdevice.which);
+        break;
+    case SDL_CONTROLLERDEVICEREMOVED:
+        xr_raw_input_push(XrRawInputEvent::ControllerDeviceRemoved, e.cdevice.which);
         break;
     case SDL_JOYDEVICEADDED:
     case SDL_JOYDEVICEREMOVED:

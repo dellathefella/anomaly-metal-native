@@ -280,7 +280,8 @@ void CInput::KeyUpdate()
 		XrRawInputEvent ev = g_pending_keys.front();
 		g_pending_keys.pop_front();
 
-		int dik = sdl_scancode_to_dik(ev.a);
+		int dik = (ev.a & 0x10000) ? (ev.a & 0xffff) // MCP raw-DIK passthrough (e.g. 337=MOUSE_1)
+			: sdl_scancode_to_dik(ev.a);
 		if (!dik)
 			continue;
 		const bool pressed = ev.type == XrRawInputEvent::KeyDown;

@@ -320,21 +320,27 @@ namespace
             if (sscanf(args, " %63s %f", nm, &secs) < 1)
                 nm[0] = 0;
             int sc = 0;
+            bool named = false;
             for (auto& k : keys)
                 if (!xr_stricmp(nm, k.name))
                 {
                     sc = k.sc;
+                    named = true;
                     break;
                 }
+            if (!sc && !named && nm[0] >= '0' && nm[0] <= '9')
+                sc = std::atoi(nm); // raw dik passthrough: 'key 337' = MOUSE_1 (fire), etc.
             if (!sc)
                 return push_resp("ERR unknown key");
+            const bool raw_dik = !named; // numeric values are DIK codes verbatim
+            const int wire_sc = raw_dik ? (0x10000 | sc) : sc; // marker: use value as DIK directly
             const bool is_mouse = sc < 0;
             auto press = [&](bool down)
             {
                 if (is_mouse)
                     xr_raw_input_push(down ? XrRawInputEvent::MouseButtonDown : XrRawInputEvent::MouseButtonUp, 1);
                 else
-                    xr_raw_input_push(down ? XrRawInputEvent::KeyDown : XrRawInputEvent::KeyUp, sc);
+                    xr_raw_input_push(down ? XrRawInputEvent::KeyDown : XrRawInputEvent::KeyUp, wire_sc);
             };
             if (!is_hold)
             {
@@ -348,7 +354,7 @@ namespace
                                 .count() +
                             (secs > 0.f ? secs : 1.f);
             g_release_mouse = is_mouse;
-            g_release_sc = sc;
+            g_release_sc = wire_sc;
             return push_resp("OK hold");
         }
         if (raw.compare(0, 10, "screenshot") == 0)

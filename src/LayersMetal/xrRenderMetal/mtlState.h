@@ -54,14 +54,20 @@ private:
     float m_uiMipLODBias;
 
     // Recorded sampler states per stage (DX9 TSS sim), consumed by the pass
-    // manager to pick MTLSamplerStates at draw time.
+    // manager to pick MTLSamplerStates at draw time. Raw DX9 enum values are
+    // kept; mapping to Metal happens in mtlRuntime.mm (mtl_dx9_map.h).
     struct sSamplerState
     {
-        uint32_t AddressU, AddressV, AddressW;
+        uint32_t AddressU, AddressV, AddressW; // D3DTEXTUREADDRESS
+        // Packed filters: bits 0..1 min, 8..9 mag, 16..17 mip (D3DTEXTUREFILTER)
         uint32_t Filter;
         uint32_t MaxAnisotropy;
-        uint32_t MipMapLODBias;
-        uint32_t BorderColor;
+        uint32_t MipMapLODBias; // fixed-point DWORD (GL parity)
+        uint32_t MaxMipLevel;
+        uint32_t BorderColor; // D3DCOLOR
+        uint32_t CompareEnable; // XRDX11SAMP_COMPARISONFILTER
+        uint32_t CompareFunc; // D3DCMPFUNC values
+        uint32_t MinLOD; // XRDX11SAMP_MINLOD
         bool valid;
     };
     // CTexture::mtMaxCombinedShaderTextures (16 ps + 4 vs + 16 gs) — inlined

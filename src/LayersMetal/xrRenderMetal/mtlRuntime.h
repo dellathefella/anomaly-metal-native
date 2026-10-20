@@ -55,6 +55,9 @@ void MtlSetScissor(bool enabled, int32_t l, int32_t t, int32_t r, int32_t b);
 // --- state -------------------------------------------------------------------
 // mtlState::Apply() records the simulated DX9 state into the pass manager.
 void MtlApplyRecordedState(const mtlState* state);
+// Global texture-filter LOD bias (ps_r__tf_Mipbias cvar; applied onto every
+// sampler descriptor at draw time).
+void MtlSetGlobalMipBias(float bias);
 // Direct setters (CBackend::set_Z etc. — values are D3D enum raw values).
 void MtlSetCull(uint32_t d3dCullMode);
 void MtlSetDepth(uint32_t enable, uint32_t func, uint32_t writeMask);

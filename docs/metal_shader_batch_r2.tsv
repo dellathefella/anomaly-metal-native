@@ -40,7 +40,7 @@ file	status	detail
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/clouds.vs	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_1.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_1.vs	MSL_OK	
-/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2.ps:74:10: error: no matching function for call to 'combine_bloom'
+/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2.ps:75:10: error: no matching function for call to 'combine_bloom'
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2_aa.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2_aa_d.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/combine_2_naa.ps	MSL_OK	
@@ -183,10 +183,10 @@ file	status	detail
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/simple_color.vs	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/sky2.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/sky2.vs	MSL_OK	
-/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao.ps:111:20: error: use of undeclared identifier 'm_v2w'
-/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_blur.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_blur.ps:5:25: error: semantic string missing for shader input variable 'centerTC'
+/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao.ps:112:20: error: use of undeclared identifier 'm_v2w'
+/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_blur.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_blur.ps:6:25: error: semantic string missing for shader input variable 'centerTC'
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_calc.ps	MSL_OK	
-/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_hbao.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_hbao.ps:52:22: error: use of undeclared identifier 's_position'
+/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_hbao.ps	DXC_FAIL	/Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/ssao_hbao.ps:53:22: error: use of undeclared identifier 's_position'
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/stub_default.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/vert.ps	MSL_OK	
 /Users/jdella/Desktop/anomaly-metal-native/repos/searge-coc/res/gamedata/shaders/r2/vert.vs	MSL_OK	

@@ -14,6 +14,7 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <map>
@@ -40,6 +41,9 @@ namespace xray::metal
 		int presentInterval = 1;
 		bool ignoreDisplay = false;
 		// Ownership arena for NewBuffer/NewTexture2D (see mtl_device.h).
+		// ARC keeps each pushed object alive for the arena's lifetime; the
+		// void* handles handed out are borrowed against it (ReleaseResource
+		// erases the entry and lets ARC retire the object).
 		std::vector<id<NSObject>> arena;
 		// Drawables handed out but not yet presented+GPU-complete. macOS SDK's
 		// CAMetalLayer exposes no available-drawable count (nextDrawable always
@@ -47,6 +51,16 @@ namespace xray::metal
 		// via command-buffer completed handlers and skip frames instead.
 		std::shared_ptr<std::atomic<int>> inFlight = std::make_shared<std::atomic<int>>(0);
 		std::map<std::pair<int, int>, id<MTLSamplerState>> samplers;
+		std::map<std::array<uint32_t, 8>, id<MTLSamplerState>> samplersFull;
+		std::map<std::pair<void*, uint32_t>, id<MTLTexture>> sliceViews;
+
+		// Push into the arena (ARC retains); returns the object.
+		id<NSObject> retain(id<NSObject> obj)
+		{
+			if (obj)
+				arena.push_back(obj);
+			return obj;
+		}
 	};
 
 	MetalDevice::MetalDevice() : m_impl(new Impl()) {}
@@ -356,6 +370,266 @@ namespace xray::metal
 				 withBytes:pixels
 			   bytesPerRow:4 * w];
 		return true;
+	}
+
+	// ---------------------------------------------------------------------------
+	// p5 t2 renderer substrate additions (device-layer contract)
+	// ---------------------------------------------------------------------------
+
+	static MTLTextureDescriptor* baseDesc(MTLPixelFormat fmt, uint32_t w, uint32_t h, uint32_t mips,
+	                                      bool framebufferOnly, bool shaderReadable)
+	{
+		MTLTextureDescriptor* td = [MTLTextureDescriptor new];
+		td.pixelFormat = fmt;
+		td.width = w;
+		td.height = h;
+		td.mipmapLevelCount = mips == 0 ? (NSUInteger)(std::log2((double)(w > h ? w : h))) + 1
+		                  : mips > 1   ? mips
+		                               : 1;
+		td.usage = MTLTextureUsageRenderTarget;
+		if (shaderReadable || !framebufferOnly)
+			td.usage |= MTLTextureUsageShaderRead;
+		return td;
+	}
+
+	void* MetalDevice::NewTexture3D(uint32_t w, uint32_t h, uint32_t d, uint32_t mips, int pixelFormat,
+	                                bool shaderReadable)
+	{
+		if (!m_impl->device || w == 0 || h == 0 || d == 0)
+			return nullptr;
+		MTLTextureDescriptor* td = baseDesc((MTLPixelFormat)pixelFormat, w, h, mips, /*fbOnly*/ false, shaderReadable);
+		td.textureType = MTLTextureType3D;
+		td.depth = d;
+		td.usage = MTLTextureUsageShaderRead; // volumes are sampled, never rendered to
+		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
+		return (__bridge void*)m_impl->retain(tex);
+	}
+
+	void* MetalDevice::NewTextureCube(uint32_t size, uint32_t mips, int pixelFormat,
+	                                  bool framebufferOnly, bool shaderReadable)
+	{
+		if (!m_impl->device || size == 0)
+			return nullptr;
+		MTLTextureDescriptor* td = baseDesc((MTLPixelFormat)pixelFormat, size, size, mips, framebufferOnly, shaderReadable);
+		td.textureType = MTLTextureTypeCube;
+		td.arrayLength = 1;
+		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
+		return (__bridge void*)m_impl->retain(tex);
+	}
+
+	void* MetalDevice::NewTexture2DArray(uint32_t w, uint32_t h, uint32_t count, uint32_t mips, int pixelFormat,
+	                                     bool framebufferOnly, bool shaderReadable)
+	{
+		if (!m_impl->device || w == 0 || h == 0 || count == 0)
+			return nullptr;
+		MTLTextureDescriptor* td = baseDesc((MTLPixelFormat)pixelFormat, w, h, mips, framebufferOnly, shaderReadable);
+		td.textureType = MTLTextureType2DArray;
+		td.arrayLength = count;
+		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
+		return (__bridge void*)m_impl->retain(tex);
+	}
+
+	void* MetalDevice::TextureSliceView(void* texture, uint32_t slice)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex)
+			return nullptr;
+		if (tex.textureType == MTLTextureType2D)
+			return texture; // convenience: plain 2D returns itself
+		auto key = std::make_pair(texture, slice);
+		auto it = m_impl->sliceViews.find(key);
+		if (it != m_impl->sliceViews.end())
+			return (__bridge void*)it->second;
+		id<MTLTexture> view = [tex newTextureViewWithPixelFormat:tex.pixelFormat
+														textureType:MTLTextureType2D
+														   levels:NSMakeRange(0, tex.mipmapLevelCount)
+														   slices:NSMakeRange(slice, 1)];
+		if (view)
+			m_impl->sliceViews[key] = view; // map holds it; parent texture keeps storage alive
+		return (__bridge void*)view;
+	}
+
+	void* MetalDevice::SamplerFull(const SamplerDesc& desc)
+	{
+		if (!m_impl->device)
+			return nullptr;
+		std::array<uint32_t, 8> key{};
+		key[0] = (uint32_t)desc.addressU | ((uint32_t)desc.addressV << 3) | ((uint32_t)desc.addressW << 6) |
+		         ((uint32_t)desc.minFilter << 9) | ((uint32_t)desc.magFilter << 10) | ((uint32_t)desc.mipFilter << 11);
+		key[1] = (uint32_t)desc.maxAnisotropy;
+		key[2] = (uint32_t)desc.compareFunc;
+		key[3] = (uint32_t)desc.borderColor;
+		key[4] = *(const uint32_t*)&desc.lodBias;
+		key[5] = *(const uint32_t*)&desc.minLod;
+		key[6] = *(const uint32_t*)&desc.maxLod;
+		auto it = m_impl->samplersFull.find(key);
+		if (it != m_impl->samplersFull.end())
+			return (__bridge void*)it->second;
+
+		auto am = [](int m) {
+			switch (m)
+			{
+			case 1: return MTLSamplerAddressModeRepeat;
+			case 2: return MTLSamplerAddressModeMirrorRepeat;
+			case 3: return MTLSamplerAddressModeClampToBorderColor;
+			default: return MTLSamplerAddressModeClampToEdge;
+			}
+		};
+		MTLSamplerDescriptor* sd = [MTLSamplerDescriptor new];
+		sd.sAddressMode = am(desc.addressU);
+		sd.tAddressMode = am(desc.addressV);
+		sd.rAddressMode = am(desc.addressW);
+		const bool aniso = desc.maxAnisotropy > 1;
+		sd.minFilter = (aniso || desc.minFilter == 1) ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+		sd.magFilter = (aniso || desc.magFilter == 1) ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+		sd.mipFilter = desc.mipFilter == 1 ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
+		if (aniso)
+		{
+			sd.maxAnisotropy = (NSUInteger)desc.maxAnisotropy;
+			// lodAccuracy via KVC below
+		}
+		// minLod/maxLod/lodAccuracy/lodBias are not (portably) declared by the
+		// CLT SDK's MTLSamplerDescriptor although the runtime implements them
+		// since Metal 1 — set via KVC (bypasses SDK declaration/availability gaps).
+		[sd setValue:@(desc.lodBias) forKey:@"lodBias"];
+		[sd setValue:@(desc.minLod) forKey:@"minLod"];
+		[sd setValue:@(desc.maxLod) forKey:@"maxLod"];
+		if (aniso)
+			[sd setValue:@(0.0f) forKey:@"lodAccuracy"];
+		switch (desc.borderColor)
+		{
+		case 1: sd.borderColor = MTLSamplerBorderColorOpaqueWhite; break;
+		case 2: sd.borderColor = MTLSamplerBorderColorTransparentBlack; break;
+		default: sd.borderColor = MTLSamplerBorderColorOpaqueBlack; break;
+		}
+		if (desc.compareFunc >= 0)
+		{
+			// compareFunction alone enables depth-compare sampling on macOS
+			// (MTLSamplerCompareMode is not in this SDK).
+			sd.compareFunction = (MTLCompareFunction)desc.compareFunc;
+		}
+		id<MTLSamplerState> s = [m_impl->device newSamplerStateWithDescriptor:sd];
+		if (s)
+			m_impl->samplersFull[key] = s;
+		return (__bridge void*)s;
+	}
+
+	bool MetalDevice::WriteTextureRegion(void* texture, uint32_t slice, uint32_t mip, const void* pixels,
+	                                     uint32_t w, uint32_t h, uint32_t bytesPerPixel, std::string& error)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex || !pixels)
+		{
+			error = "null texture/pixels";
+			return false;
+		}
+		const NSUInteger rowBytes = (NSUInteger)bytesPerPixel * w;
+		if (tex.textureType == MTLTextureType2D && mip == 0 && slice == 0)
+		{
+			[tex replaceRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:0 withBytes:pixels bytesPerRow:rowBytes];
+			return true;
+		}
+		// General path: one (slice, mip) image. For volumes, origin.z picks the
+		// z-slice; for arrays/cube faces, the slice: argument picks the slice.
+		const MTLRegion region = MTLRegionMake3D(0, 0, (NSInteger)slice, (NSInteger)w, (NSInteger)h, 1);
+		[tex replaceRegion:region
+			  mipmapLevel:mip
+					slice:slice
+				withBytes:pixels
+			  bytesPerRow:rowBytes
+			bytesPerImage:(tex.textureType == MTLTextureType3D ? rowBytes * h : 0)];
+		return true;
+	}
+
+	bool MetalDevice::ReadbackSlice(void* texture, void* dst, uint32_t bytesPerRow, uint32_t w, uint32_t h,
+	                                uint32_t slice, uint32_t mip, std::string& error)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex)
+		{
+			error = "null texture";
+			return false;
+		}
+		if ((tex.usage & MTLTextureUsageShaderRead) == 0)
+		{
+			error = "texture is framebufferOnly — not readable";
+			return false;
+		}
+		[tex getBytes:dst bytesPerRow:bytesPerRow
+		   fromRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:mip];
+		(void)slice; // slice textures: use TextureSliceView first
+		return true;
+	}
+
+	uint32_t MetalDevice::TextureBpp(void* texture)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex)
+			return 0;
+		switch (tex.pixelFormat)
+		{
+		case MTLPixelFormatR8Unorm:
+		case MTLPixelFormatR8Unorm_sRGB: return 1;
+		case MTLPixelFormatR16Unorm:
+		case MTLPixelFormatR16Float: return 2;
+		case MTLPixelFormatRGBA8Unorm:
+		case MTLPixelFormatRGBA8Unorm_sRGB:
+		case MTLPixelFormatBGRA8Unorm:
+		case MTLPixelFormatBGRA8Unorm_sRGB:
+		case MTLPixelFormatDepth32Float:
+		case MTLPixelFormatR32Float: return 4;
+		case MTLPixelFormatRGBA16Unorm:
+		case MTLPixelFormatRGBA16Float: return 8;
+		case MTLPixelFormatRGBA32Float: return 16;
+		default: return 4; // renderer uploads decode to 8-bit RGBA
+		}
+	}
+
+	void MetalDevice::GenerateMipmaps(void* commandBuffer, void* texture)
+	{
+		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!cb || !tex || tex.mipmapLevelCount < 2)
+			return;
+		id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+		[blit generateMipmapsForTexture:tex];
+		[blit endEncoding];
+	}
+
+	void MetalDevice::BlitTexture(void* commandBuffer, void* srcTex, void* dstTex)
+	{
+		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
+		id<MTLTexture> src = (__bridge id<MTLTexture>)srcTex;
+		id<MTLTexture> dst = (__bridge id<MTLTexture>)dstTex;
+		if (!cb || !src || !dst)
+			return;
+		id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+		[blit copyFromTexture:src sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+					 sourceSize:MTLSizeMake(src.width, src.height, 1)
+					toTexture:dst destinationSlice:0 destinationLevel:0
+				destinationOrigin:MTLOriginMake(0, 0, 0)];
+		[blit endEncoding];
+	}
+
+	void MetalDevice::BlitTextureScaled(void* commandBuffer, void* srcTex, void* dstTex,
+	                                    uint32_t srcW, uint32_t srcH, uint32_t dstW, uint32_t dstH)
+	{
+		// Blit encoders cannot scale; same-size copy fast path, otherwise the
+		// caller (present/PP flip) goes through the render-pass blit in
+		// mtlRuntime.mm. Here: clamp to overlapping extent copy.
+		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
+		id<MTLTexture> src = (__bridge id<MTLTexture>)srcTex;
+		id<MTLTexture> dst = (__bridge id<MTLTexture>)dstTex;
+		if (!cb || !src || !dst)
+			return;
+		const uint32_t w = srcW < dstW ? srcW : dstW;
+		const uint32_t h = srcH < dstH ? srcH : dstH;
+		id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+		[blit copyFromTexture:src sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+					 sourceSize:MTLSizeMake(w, h, 1)
+					toTexture:dst destinationSlice:0 destinationLevel:0
+				destinationOrigin:MTLOriginMake(0, 0, 0)];
+		[blit endEncoding];
 	}
 
 } // namespace xray::metal

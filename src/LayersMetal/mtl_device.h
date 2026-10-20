@@ -81,13 +81,51 @@ namespace xray::metal
 		// Depth32Float=252...). mips=0 -> full mip chain.
 		void* NewTexture2D(uint32_t w, uint32_t h, uint32_t mips, int pixelFormat,
 		                   bool framebufferOnly, bool shaderReadable); // id<MTLTexture>
+		void* NewTexture3D(uint32_t w, uint32_t h, uint32_t d, uint32_t mips, int pixelFormat,
+		                   bool shaderReadable); // volume (water_sbumpvolume)
+		void* NewTextureCube(uint32_t size, uint32_t mips, int pixelFormat,
+		                     bool framebufferOnly, bool shaderReadable); // sky/envmap
+		void* NewTexture2DArray(uint32_t w, uint32_t h, uint32_t count, uint32_t mips, int pixelFormat,
+		                        bool framebufferOnly, bool shaderReadable); // details atlas
+		// 2D view of one cube face / array slice / depth-array slice — used as
+		// a render-pass attachment (Metal passes bind slices via views).
+		// Cached per (texture, slice); borrowed, owned by the device.
+		void* TextureSliceView(void* texture, uint32_t slice);
 		// Cached sampler states. addressMode: 0=clamp 1=repeat 2=mirror;
 		// filter: 0=nearest 1=linear. id<MTLSamplerState>, owned by the cache.
 		void* Sampler(int addressMode, int filter);
+		// Full DX9-mapped sampler (borders, anisotropy, LOD bias/clamp, depth
+		// compare for shadow maps). Raw values documented inline. Cached.
+		struct SamplerDesc
+		{
+			int addressU = 0, addressV = 0, addressW = 0; // 0=clamp 1=repeat 2=mirror 3=clamp-border
+			int minFilter = 1, magFilter = 1, mipFilter = 1; // 0=nearest 1=linear
+			int maxAnisotropy = 1; // 1..16 (forces linear min/mag when >1)
+			float lodBias = 0.f;
+			float minLod = 0.f, maxLod = 1000.f;
+			int borderColor = 0; // 0=opaque black 1=opaque white 2=transparent black (border modes)
+			int compareFunc = -1; // -1=off; else MTLCompareFunction raw (2=lessEqual) — depth textures
+		};
+		void* SamplerFull(const SamplerDesc& desc);
 		// Drop an arena entry (buffer/texture). Safe with nullptr.
 		void ReleaseResource(void* obj);
 		// Replace a texture's mip0 with CPU pixels (BGRA8/RGBA8, region w x h).
 		bool WriteTexture(void* texture, const void* pixels, uint32_t w, uint32_t h, std::string& error);
+		// Generalized upload: pixels at (slice, mip), bytesPerPixel row pitch.
+		bool WriteTextureRegion(void* texture, uint32_t slice, uint32_t mip, const void* pixels,
+		                        uint32_t w, uint32_t h, uint32_t bytesPerPixel, std::string& error);
+		// Generalized CPU readback (needs ShaderRead usage).
+		bool ReadbackSlice(void* texture, void* dst, uint32_t bytesPerRow, uint32_t w, uint32_t h,
+		                   uint32_t slice, uint32_t mip, std::string& error);
+		uint32_t TextureBpp(void* texture); // bytes per pixel of the texture format
+		// Mipmap chain generation via a blit encoder on the given command
+		// buffer (texture needs ShaderRead; generates from mip0 downward).
+		void GenerateMipmaps(void* commandBuffer, void* texture);
+		// Whole-texture copy (same format/extent) via blit encoder.
+		void BlitTexture(void* commandBuffer, void* srcTex, void* dstTex);
+		// Scaled/offset color blit (drawable flip path); NEAREST filtering.
+		void BlitTextureScaled(void* commandBuffer, void* srcTex, void* dstTex,
+		                       uint32_t srcW, uint32_t srcH, uint32_t dstW, uint32_t dstH);
 
 		const char* DeviceName() const;
 

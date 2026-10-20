@@ -189,6 +189,10 @@ namespace xray::metal
 					if (!m[4].matched && t >= nextT)
 						nextT = t + 1;
 					code = m[1].str() + texType + name + " : register(t" + std::to_string(t) + ");";
+					// Per-stage sampler object: sampler slot mirrors the
+					// texture slot (= DX9 stage when register(sN) is given),
+					// so recorded TSS filter/address states bind 1:1.
+					code += "\n" + m[1].str() + "SamplerState " + name + "_smplr : register(s" + std::to_string(t) + ");";
 					if (m[6].matched)
 						ctx.notes->push_back("sampler_state init on '" + name + "' dropped (default sampler used)");
 					line = code + comment;
@@ -269,16 +273,15 @@ namespace xray::metal
 
 		const char* kPrelude =
 			"// xrRenderMetal DX9 compatibility prelude\n"
-			"SamplerState xrDefaultSampler : register(s0);\n"
-			"float4 _tex2D(Texture2D<float4> t, float2 uv) { return t.Sample(xrDefaultSampler, uv); }\n"
-			"float4 _tex2D(Texture2D<float4> t, float2 uv, float bias) { return t.SampleBias(xrDefaultSampler, uv, bias); }\n"
-			"float4 _tex2D(Texture2D<float4> t, float2 uv, float2 ddx, float2 ddy) { return t.SampleGrad(xrDefaultSampler, uv, ddx, ddy); }\n"
-			"float4 _tex2Dproj(Texture2D<float4> t, float4 c) { return t.Sample(xrDefaultSampler, c.xy / c.w); }\n"
-			"float4 _tex2Dlod(Texture2D<float4> t, float4 c) { return t.SampleLevel(xrDefaultSampler, c.xy, c.w); }\n"
-			"float4 _texCUBE(TextureCube<float4> t, float3 d) { return t.Sample(xrDefaultSampler, d); }\n"
-			"float4 _tex1D(Texture1D<float4> t, float u) { return t.Sample(xrDefaultSampler, u); }\n"
-			"float4 _tex3D(Texture3D<float4> t, float3 uvw) { return t.Sample(xrDefaultSampler, uvw); }\n"
-			"float4 _tex3Dlod(Texture3D<float4> t, float4 c) { return t.SampleLevel(xrDefaultSampler, c.xyz, c.w); }\n";
+			"float4 _tex2D(Texture2D<float4> t, SamplerState s, float2 uv) { return t.Sample(s, uv); }\n"
+			"float4 _tex2D(Texture2D<float4> t, SamplerState s, float2 uv, float bias) { return t.SampleBias(s, uv, bias); }\n"
+			"float4 _tex2D(Texture2D<float4> t, SamplerState s, float2 uv, float2 ddx, float2 ddy) { return t.SampleGrad(s, uv, ddx, ddy); }\n"
+			"float4 _tex2Dproj(Texture2D<float4> t, SamplerState s, float4 c) { return t.Sample(s, c.xy / c.w); }\n"
+			"float4 _tex2Dlod(Texture2D<float4> t, SamplerState s, float4 c) { return t.SampleLevel(s, c.xy, c.w); }\n"
+			"float4 _texCUBE(TextureCube<float4> t, SamplerState s, float3 d) { return t.Sample(s, d); }\n"
+			"float4 _tex1D(Texture1D<float4> t, SamplerState s, float u) { return t.Sample(s, u); }\n"
+			"float4 _tex3D(Texture3D<float4> t, SamplerState s, float3 uvw) { return t.Sample(s, uvw); }\n"
+			"float4 _tex3Dlod(Texture3D<float4> t, SamplerState s, float4 c) { return t.SampleLevel(s, c.xyz, c.w); }\n";
 
 	} // namespace
 
@@ -311,6 +314,16 @@ namespace xray::metal
 		ReplaceToken(body, "tex3D", "_tex3D");
 		ReplaceToken(body, "texCUBE", "_texCUBE");
 		ReplaceToken(body, "tex1D", "_tex1D");
+
+		// Per-stage sampler argument: _tex2D(NAME, ...) -> _tex2D(NAME,
+		// NAME_smplr, ...). The first argument of every rewritten sample call
+		// is the declared sampler identifier (RewriteSamplers emitted its
+		// _smplr companion).
+		{
+			static const std::regex texCallRe(
+				R"((_tex(?:2D|2Dlod|2Dproj|CUBE|3D|3Dlod|1D)\s*\(\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*,))");
+			body = std::regex_replace(body, texCallRe, "$1$2, $2_smplr$3");
+		}
 
 		// DXC reserves 'point' (point-sampling operator); the corpus uses it
 		// as a plain parameter name.

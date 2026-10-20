@@ -18,6 +18,19 @@ namespace xray::metal
 		uint32_t format; // MTLVertexFormat raw value (Float3=23, Float2=21...)
 	};
 
+	// DX9 blend state; src/dst/op fields carry RAW D3DBLEND/D3DBLENDOP values
+	// (d3d9compat.hpp layout) — mapped via mtl_dx9_map.h inside the .mm.
+	// writeMask = D3DCOLORWRITEENABLE bits (1=R 2=G 4=B 8=A).
+	struct BlendDesc
+	{
+		bool enabled = false;
+		int src = 5, dst = 8;       // D3DBLEND (SRCALPHA/INVDESTALPHA default)
+		int op = 1;                 // D3DBLENDOP (ADD)
+		int srcA = 5, dstA = 8;
+		int opA = 1;
+		uint32_t writeMask = 15;
+	};
+
 	struct PipelineDesc
 	{
 		void* vs = nullptr; // borrowed id<MTLFunction>
@@ -32,6 +45,27 @@ namespace xray::metal
 		bool blendAlpha = false;     // src*srcAlpha + dst*(1-srcAlpha)
 		int colorFormat = 80;        // MTLPixelFormat raw (BGRA8Unorm default)
 		int depthFormat = 0;         // 0 = no depth attachment
+		// Full-state extension (renderer path). When colorFormats is empty the
+		// single colorFormat above is used (devicetest compatibility); when
+		// blend.enabled is false AND blendAlpha false, blending stays off.
+		std::vector<int> colorFormats; // up to 4 attachments, raw MTLPixelFormat
+		int stencilFormat = 0;         // 0 = none (else same format as depth w/ stencil)
+		BlendDesc blend;
+	};
+
+	// Full DX9 depth+stencil state (raw D3DCMPFUNC/D3DSTENCILOP values; the
+	// DX9 model is single-sided, applied to both Metal faces). stencilRef is
+	// NOT part of the state — set per-encoder (setStencilReferenceValue).
+	struct DepthStencilDesc
+	{
+		bool depthEnable = false;
+		int depthFunc = 4;            // D3DCMPFUNC (LESSEQUAL)
+		bool depthWrite = false;
+		bool stencilEnable = false;
+		uint32_t readMask = 0xff;     // D3D STENCILMASK
+		uint32_t writeMask = 0xff;    // D3D STENCILWRITEMASK
+		int func = 8;                 // D3DCMPFUNC stencil compare (ALWAYS)
+		int failOp = 1, passOp = 1, zFailOp = 1; // D3DSTENCILOP (KEEP)
 	};
 
 	class MetalStateCache
@@ -50,6 +84,9 @@ namespace xray::metal
 
 		// Cached id<MTLDepthStencilState> (borrowed): less-compare when enabled.
 		void* DepthState(void* device, bool enabled, bool write);
+
+		// Full depth+stencil variant (renderer path).
+		void* DepthStateFull(void* device, const DepthStencilDesc& desc);
 
 		size_t Count() const; // distinct cached pipelines (diagnostics/tests)
 		void Clear();

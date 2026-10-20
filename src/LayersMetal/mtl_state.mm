@@ -4,6 +4,9 @@
 #import <Metal/Metal.h>
 
 #include "mtl_state.h"
+// relative include (file-dir based): substrate TU sits in LayersMetal/, the
+// mapping header lives in the device-layer subdir.
+#include "xrRenderMetal/mtl_dx9_map.h"
 
 #include <unordered_map>
 
@@ -40,6 +43,21 @@ namespace xray::metal
 		mix(d.depthEnabled | (d.depthWrite << 1) | (d.blendAlpha << 2));
 		mix((uint64_t)d.colorFormat);
 		mix((uint64_t)d.depthFormat);
+		mix(d.colorFormats.size());
+		for (int f : d.colorFormats)
+			mix((uint64_t)f);
+		mix((uint64_t)d.stencilFormat);
+		// blend state: pack enums+mask (values are small ints / 4-bit mask)
+		uint64_t b = 0;
+		b |= (d.blend.enabled ? 1ull : 0);
+		b |= (uint64_t)(d.blend.src & 0x1f) << 1;
+		b |= (uint64_t)(d.blend.dst & 0x1f) << 6;
+		b |= (uint64_t)(d.blend.op & 0x7) << 11;
+		b |= (uint64_t)(d.blend.srcA & 0x1f) << 14;
+		b |= (uint64_t)(d.blend.dstA & 0x1f) << 19;
+		b |= (uint64_t)(d.blend.opA & 0x7) << 24;
+		b |= (uint64_t)(d.blend.writeMask & 0x1f) << 27;
+		mix(b);
 		return h;
 	}
 
@@ -76,9 +94,21 @@ namespace xray::metal
 			pd.vertexDescriptor = vd;
 		}
 		pd.colorAttachments[0].pixelFormat = (MTLPixelFormat)desc.colorFormat;
+		if (!desc.colorFormats.empty())
+		{
+			pd.colorAttachments[0].pixelFormat = (MTLPixelFormat)desc.colorFormats[0];
+			for (NSUInteger i = 1; i < desc.colorFormats.size() && i < 4; ++i)
+				pd.colorAttachments[i].pixelFormat = (MTLPixelFormat)desc.colorFormats[i];
+		}
 		if (desc.depthFormat != 0)
 			pd.depthAttachmentPixelFormat = (MTLPixelFormat)desc.depthFormat;
-		if (desc.blendAlpha)
+		if (desc.stencilFormat != 0)
+		{
+			pd.depthAttachmentPixelFormat = (MTLPixelFormat)desc.stencilFormat;
+			pd.stencilAttachmentPixelFormat = (MTLPixelFormat)desc.stencilFormat;
+		}
+		const bool multiRT = !desc.colorFormats.empty();
+		if (desc.blendAlpha && !multiRT)
 		{
 			MTLRenderPipelineColorAttachmentDescriptor* ca = pd.colorAttachments[0];
 			ca.blendingEnabled = YES;
@@ -86,6 +116,24 @@ namespace xray::metal
 			ca.sourceAlphaBlendFactor = MTLBlendFactorSourceAlpha;
 			ca.destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
 			ca.destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
+		}
+		else if (multiRT || desc.blend.enabled)
+		{
+			// Full DX9 blend on all attachments (XRay binds one blend state
+			// per pass; MRT g-buffer passes are blend-off).
+			const NSUInteger count = multiRT ? (NSUInteger)desc.colorFormats.size() : 1;
+			for (NSUInteger i = 0; i < count; ++i)
+			{
+				MTLRenderPipelineColorAttachmentDescriptor* ca = pd.colorAttachments[i];
+				ca.blendingEnabled = desc.blend.enabled ? YES : NO;
+				ca.rgbBlendOperation = (MTLBlendOperation)xray::render::RENDER_NAMESPACE::MtlMapBlendOp(desc.blend.op);
+				ca.alphaBlendOperation = (MTLBlendOperation)xray::render::RENDER_NAMESPACE::MtlMapBlendOp(desc.blend.opA);
+				ca.sourceRGBBlendFactor = (MTLBlendFactor)xray::render::RENDER_NAMESPACE::MtlMapBlend(desc.blend.src);
+				ca.destinationRGBBlendFactor = (MTLBlendFactor)xray::render::RENDER_NAMESPACE::MtlMapBlend(desc.blend.dst);
+				ca.sourceAlphaBlendFactor = (MTLBlendFactor)xray::render::RENDER_NAMESPACE::MtlMapBlend(desc.blend.srcA);
+				ca.destinationAlphaBlendFactor = (MTLBlendFactor)xray::render::RENDER_NAMESPACE::MtlMapBlend(desc.blend.dstA);
+				ca.writeMask = (MTLColorWriteMask)desc.blend.writeMask;
+			}
 		}
 
 		NSError* nserr = nil;
@@ -101,16 +149,50 @@ namespace xray::metal
 
 	void* MetalStateCache::DepthState(void* device, bool enabled, bool write)
 	{
+		DepthStencilDesc d;
+		d.depthEnable = enabled;
+		d.depthWrite = write;
+		d.depthFunc = enabled ? 2 : 8; // D3D LESS / ALWAYS (legacy behavior)
+		return DepthStateFull(device, d);
+	}
+
+	void* MetalStateCache::DepthStateFull(void* device, const DepthStencilDesc& desc)
+	{
 		id<MTLDevice> dev = (__bridge id<MTLDevice>)device;
 		if (!dev)
 			return nullptr;
-		uint64_t key = (enabled ? 1 : 0) | (write ? 2 : 0);
+		using namespace xray::render::RENDER_NAMESPACE;
+		uint64_t key = 0;
+		key |= (desc.depthEnable ? 1ull : 0);
+		key |= (uint64_t)(desc.depthFunc & 0xf) << 1;
+		key |= (desc.depthWrite ? 1ull : 0) << 5;
+		key |= (desc.stencilEnable ? 1ull : 0) << 6;
+		key |= (uint64_t)(desc.func & 0xf) << 7;
+		key |= (uint64_t)(desc.failOp & 0xf) << 11;
+		key |= (uint64_t)(desc.passOp & 0xf) << 15;
+		key |= (uint64_t)(desc.zFailOp & 0xf) << 19;
+		key |= (uint64_t)(desc.readMask & 0xff) << 23;
+		key |= (uint64_t)(desc.writeMask & 0xff) << 31;
 		auto it = m_impl->depthStates.find(key);
 		if (it != m_impl->depthStates.end())
 			return (__bridge void*)it->second;
 		MTLDepthStencilDescriptor* dsd = [MTLDepthStencilDescriptor new];
-		dsd.depthCompareFunction = enabled ? MTLCompareFunctionLess : MTLCompareFunctionAlways;
-		dsd.depthWriteEnabled = write ? YES : NO;
+		dsd.depthCompareFunction = (MTLCompareFunction)MtlMapCompare(desc.depthFunc);
+		if (!desc.depthEnable)
+			dsd.depthCompareFunction = MTLCompareFunctionAlways;
+		dsd.depthWriteEnabled = desc.depthWrite ? YES : NO;
+		if (desc.stencilEnable)
+		{
+			MTLStencilDescriptor* sd = [MTLStencilDescriptor new];
+			sd.stencilCompareFunction = (MTLCompareFunction)MtlMapCompare(desc.func);
+			sd.stencilFailureOperation = (MTLStencilOperation)MtlMapStencilOp(desc.failOp);
+			sd.depthFailureOperation = (MTLStencilOperation)MtlMapStencilOp(desc.zFailOp);
+			sd.depthStencilPassOperation = (MTLStencilOperation)MtlMapStencilOp(desc.passOp);
+			sd.readMask = desc.readMask;
+			sd.writeMask = desc.writeMask;
+			dsd.frontFaceStencil = sd;
+			dsd.backFaceStencil = sd; // DX9 is single-sided
+		}
 		id<MTLDepthStencilState> dss = [dev newDepthStencilStateWithDescriptor:dsd];
 		if (dss)
 			m_impl->depthStates[key] = dss;

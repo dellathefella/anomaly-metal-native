@@ -427,9 +427,11 @@ void CHW::EndScene() { }
 
 // p4: defined in glr_screenshot.cpp — deferred screenshot capture hook.
 void p4_present_screenshot();
+void p4_gl_fence(pcstr stage);
 
 void CHW::Present()
 {
+    p4_gl_fence("present"); // drains errors from PP/UI since CRender::Render
 #if 0 // kept for historical reasons
     RImplementation.Target->phase_flip();
 #else

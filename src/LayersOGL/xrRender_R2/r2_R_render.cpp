@@ -8,6 +8,9 @@
 
 #include "Layers/xrRender/FBasicVisual.h"
 
+// p4: GL error fence, defined in xrRenderGL/glr_screenshot.cpp (same dylib).
+void p4_gl_fence(pcstr stage);
+
 namespace xray::render::RENDER_NAMESPACE
 {
 void CRender::RenderMenu()
@@ -104,6 +107,8 @@ void CRender::Render()
     TracyD3D11Zone(HW.profiler_ctx, "Render");
 #endif
     PIX_EVENT(CRender_Render);
+
+    ::p4_gl_fence("render_begin"); // scene stage owner (previous frame PP/UI -> 'present')
 
     g_r = 1;
 

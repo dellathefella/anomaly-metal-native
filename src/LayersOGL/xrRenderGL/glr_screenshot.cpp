@@ -23,6 +23,25 @@ namespace
     string_path g_p4_ss_name{};
 } // namespace
 
+// p4: GL error fence. A persistent GL_INVALID_OPERATION (0x502) somewhere in
+// the frame gets consumed by whichever glGetError runs first (screenshot probe,
+// texture upload VERIFY), which misattributes it. Fences at stage boundaries
+// DRAIN the error queue and name the owning stage.
+void p4_gl_fence(pcstr stage)
+{
+    static int s_hit = 0;
+    GLenum err, first = GL_NO_ERROR;
+    int n = 0;
+    while ((err = glGetError()) != GL_NO_ERROR)
+    {
+        if (!n)
+            first = err;
+        ++n;
+    }
+    if (n && (s_hit++ % 300) == 0)
+        Msg("* p4 GL fence '%s': %d pending, first=0x%x", stage, n, first);
+}
+
 void p4_present_screenshot()
 {
     if (!g_p4_ss_pending)

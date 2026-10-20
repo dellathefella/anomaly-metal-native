@@ -65,6 +65,12 @@ void CPsyDogAura::update_schedule()
 	if (!m_object->g_Alive())
 		return;
 
+	// p4: reinit() took m_actor from Level().CurrentEntity() — NULL (VERIFY is a no-op
+	// in release) whenever the monster reinits while the current entity is not the
+	// actor (transition/camera timing). Without this guard update_schedule derefs it.
+	if (!m_actor)
+		return;
+
 	m_time_phantom_saw_actor = 0;
 
 	// check memory of actor and check memory of phantoms

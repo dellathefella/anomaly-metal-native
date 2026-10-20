@@ -431,37 +431,49 @@ void p4_gl_fence(pcstr stage);
 
 // p4: macOS occlusion guard. With vsync on, SDL3/Cocoa's SDL_GL_SwapWindow blocks in a
 // condition-wait for the swap-completion callback while the window receives no frames:
-// (a) OCCLUDED — hidden behind other apps / another Space; sdl2-compat drops SDL3's
-// occlusion event and doesn't map the flag, but libSDL3 is already loaded in-process and
-// compat passes the identical SDL_Window* through — so query SDL3_GetWindowFlags directly.
-// (b) SCREEN LOCKED — the window server stops presenting to app windows without touching
-// any SDL flag (CGSSessionScreenIsLocked is the ground truth).
-// Both cases otherwise freeze the whole engine (0% CPU, MCP dead, looks like a hang).
+// hidden behind other apps, on another Space, or the SCREEN LOCKED (window server freezes
+// app windows without touching any SDL flag). The callback then never fires and the whole
+// engine freezes: 0% CPU, MCP dead, log frozen — indistinguishable from a hang.
+// Ground truth is NSWindow.occlusionState (NSWindowOcclusionStateVisible covers occlusion,
+// Spaces and lock) — fetched via SDL_GetWindowWMInfo and the objc runtime, since this TU is
+// C++. CGSSessionScreenIsLocked additionally catches the lock where occlusion lags.
 #ifdef __APPLE__
-#include <dlfcn.h>
-#include <mach-o/dyld.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <SDL_syswm.h>
+// objc runtime, declared by hand: <objc/*.h> defines BOOL and collides with xrCore's.
+extern "C" void* objc_msgSend(void*, void*, ...);
+extern "C" void* sel_registerName(const char*);
 // deprecated legacy API, still exported by CoreGraphics (loaded via libSDL3):
 extern "C" CFDictionaryRef CGSessionCopyCurrentDictionary(void);
 
-static bool p4_window_hidden(SDL_Window* wnd)
+static bool p4_window_visible(SDL_Window* wnd)
 {
-    using get_flags3_t = uint64_t (*)(SDL_Window*);
-    static get_flags3_t get_flags3 = [] {
-        for (uint32_t i = 0; i < _dyld_image_count(); ++i)
-        {
-            const char* name = _dyld_get_image_name(i);
-            if (name && std::strstr(name, "libSDL3"))
-            {
-                void* h = dlopen(name, RTLD_LAZY | RTLD_NOLOAD);
-                if (h)
-                    return reinterpret_cast<get_flags3_t>(dlsym(h, "SDL_GetWindowFlags"));
-            }
-        }
-        return static_cast<get_flags3_t>(nullptr);
-    }();
-    // SDL3 3.4 SDL_video.h: SDL_WINDOW_OCCLUDED = 0x4, SDL_WINDOW_HIDDEN = 0x8
-    return get_flags3 && (get_flags3(wnd) & (0x4ull | 0x8ull)) != 0;
+    static void* occlusion_sel = sel_registerName("occlusionState");
+    // SDL2 SDL_SysWMinfo cocoa layout: { version; subsystem; union { window; context; } }
+    struct wm_info_t
+    {
+        SDL_version version;
+        int subsystem;
+        void* window;
+        void* context;
+    };
+    static SDL_Window* s_cached_wnd = nullptr;
+    static wm_info_t s_wm;
+    static bool s_failed = false;
+    if (wnd != s_cached_wnd) // window recreation (vid_mode/Reset) invalidates the cache
+    {
+        s_cached_wnd = wnd;
+        s_failed = false;
+        SDL_VERSION(&s_wm.version);
+        if (!SDL_GetWindowWMInfo(wnd, (SDL_SysWMinfo*)&s_wm))
+            s_failed = true;
+    }
+    if (s_failed)
+        return true; // never block the swap on a detection failure
+    if (!s_wm.window)
+        return true;
+    unsigned long state = (unsigned long)objc_msgSend(s_wm.window, occlusion_sel);
+    return (state & 1) != 0; // NSWindowOcclusionStateVisible
 }
 
 static bool p4_screen_locked()
@@ -504,10 +516,15 @@ void CHW::Present()
     // screenshots and the main loop (message pump, MCP) stay fully alive. Without the
     // vsync wait, pace the loop manually so the skip doesn't spin the CPU.
 #ifdef __APPLE__
-    if (!p4_window_hidden(m_window) && !p4_screen_locked())
+    if (p4_window_visible(m_window) && !p4_screen_locked())
         SDL_GL_SwapWindow(m_window);
     else
+    {
+        static int s_skip_logged = 0;
+        if (s_skip_logged++ < 3)
+            Msg("* p4: swap skipped (window hidden or screen locked)");
         Sleep(10);
+    }
 #else
     SDL_GL_SwapWindow(m_window); // on the web the frame is presented when the loop callback returns
 #endif

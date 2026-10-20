@@ -68,8 +68,13 @@ static u32 const FIRE_MAKE_SENSE_INTERVAL = 10000;
 
 static float const min_throw_distance = 10.f;
 
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (eager data binding order)
 float g_dispersion_base = 1.0f;
 float g_dispersion_factor = 1.0f;
+#else
+extern float g_dispersion_base;
+extern float g_dispersion_factor;
+#endif
 
 float CAI_Stalker::GetWeaponAccuracy() const
 {
@@ -264,7 +269,7 @@ void CAI_Stalker::g_WeaponBones(int& L, int& R1, int& R2)
 
 void CAI_Stalker::Hit(SHit* pHDS)
 {
-	//хит может меняться в зависимости от ранга (новички получают больше хита, чем ветераны)
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	SHit HDS = *pHDS;
 	HDS.add_wound = true;
 
@@ -311,7 +316,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 			}
 		}
 
-		if (wounded()) //уже лежит => добивание
+		if (wounded()) //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ => пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		{
 			hit_power = 1000.f;
 		}

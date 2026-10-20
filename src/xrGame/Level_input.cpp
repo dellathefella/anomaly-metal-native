@@ -75,7 +75,11 @@ void CLevel::IR_OnMouseWheel(int direction)
 	}
 }
 
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (eager data binding order)
 ENGINE_API int mouse_button_2_key[] = { MOUSE_1, MOUSE_2, MOUSE_3, MOUSE_4, MOUSE_5, MOUSE_6, MOUSE_7, MOUSE_8 };
+#else
+extern int mouse_button_2_key[];
+#endif
 
 void CLevel::IR_OnMousePress(int btn)
 {
@@ -116,7 +120,7 @@ void CLevel::IR_OnMouseMove(int dx, int dy)
 	}
 }
 
-// Обработка нажатия клавиш
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 extern bool g_block_pause;
 extern bool g_block_all_except_movement;
 

@@ -7,6 +7,10 @@ file(GLOB XRPARTICLES_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.c
 add_library(xrParticles ${XRPARTICLES_SOURCES})
 
 target_include_directories(xrParticles PRIVATE
+    # p4: tbb -> brew oneTBB symlink shim; must precede "3rd party" below.
+    # (CMake demotes a plain BEFORE path to the imported target's -isystem
+    # group, which sorts after -I "3rd party", so a shim directory is used.)
+    "${CMAKE_CURRENT_SOURCE_DIR}/p4_includes"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${XRAY_SOURCE_DIR}/src"
     "${XRAY_SOURCE_DIR}/src/Include"
@@ -19,11 +23,14 @@ target_include_directories(xrParticles PRIVATE
 # "3rd party/tbb" headers are pre-oneTBB (old ABI: tbb::task_group_context
 # without detail::r1) and brew oneTBB does not export those symbols — pick the
 # brew headers first so the emitted references match the linked library.
+# IMPORTED_NO_SYSTEM matters: the TBB::tbb imported target carries its include
+# dir as SYSTEM, and CMake dedupes our BEFORE path into that -isystem entry,
+# which sorts after the bundled "3rd party" -I (old headers would win).
 if(APPLE)
-    target_include_directories(xrParticles BEFORE PRIVATE "/opt/homebrew/include")
     list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/tbb")
     find_package(TBB CONFIG)
     if(TARGET TBB::tbb)
+        set_target_properties(TBB::tbb PROPERTIES IMPORTED_NO_SYSTEM TRUE)
         target_link_libraries(xrParticles PRIVATE TBB::tbb)
     endif()
 endif()

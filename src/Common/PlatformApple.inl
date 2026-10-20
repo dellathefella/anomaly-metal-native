@@ -531,7 +531,13 @@ decltype(auto) do_nothing(const T& obj)
     return obj;
 }
 
-#define xr_fs_strlwr(str) do_nothing(str)
+// p4: Windows-parity case-insensitive virtual FS. Anomaly configs carry
+// mixed-case includes (e.g. mp\SoundMessages\...) that must match the
+// lowercase archive listings. macOS default volumes are case-insensitive
+// APFS, so the lowercased paths still open on disk. (xr_strlwr has
+// char*/xr_string/shared_str overloads; every xr_fs_strlwr call site passes
+// a mutable buffer.)
+#define xr_fs_strlwr(str) xr_strlwr(str)
 #define xr_fs_nostrlwr(str) xr_strlwr(str)
 
 /// For backward compability of FS, for real filesystem delimiter set to back

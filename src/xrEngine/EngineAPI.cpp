@@ -253,7 +253,27 @@ void CEngineAPI::Initialize(void)
 	{
 		LPCSTR g_name = "xrGame.dll";
 		Log("Loading DLL:", g_name);
+#ifdef XR_PLATFORM_POSIX
+		// p4: dlopen at this point so xrGame's static initializers (FactoryPtr
+		// globals like CUIStatsIcon::m_tex_info -> CreateUIShader, CLSID
+		// registrars) run AFTER xrCore + renderer init, matching Windows
+		// LoadLibrary semantics; xrGame.dylib is deliberately not linked into
+		// xr_3da, else dyld would run them at process launch.
+		{
+			void* hGame = LoadLibrary("xrGame.dylib");
+			if (!hGame)
+				Msg("! xrGame.dylib failed to load: %s", dlerror());
+			R_ASSERT2(hGame, "xrGame.dylib failed to load");
+		}
+#endif
 		//hGame = LoadLibrary(g_name);
+#ifdef XR_PLATFORM_POSIX
+		// p4: taking the address of an external function is an eager data
+		// relocation — resolve the game factories via dlsym post-dlopen.
+		pCreate = (Factory_Create*)dlsym(LoadLibrary("xrGame.dylib"), "xrFactory_Create");
+		pDestroy = (Factory_Destroy*)dlsym(LoadLibrary("xrGame.dylib"), "xrFactory_Destroy");
+		DllMainXrGame(NULL, DLL_PROCESS_ATTACH, NULL);
+#else
 		DllMainXrGame(NULL, DLL_PROCESS_ATTACH, NULL);
 		//if (0 == hGame) R_CHK(GetLastError());
 		//R_ASSERT2(hGame, "Game DLL raised exception during loading or there is no game DLL at all");
@@ -262,6 +282,9 @@ void CEngineAPI::Initialize(void)
 		R_ASSERT(pCreate);
 		//pDestroy = (Factory_Destroy*)GetProcAddress(hGame, "xrFactory_Destroy");
 		pDestroy = xrFactory_Destroy;
+		R_ASSERT(pDestroy);
+#endif
+		R_ASSERT(pCreate);
 		R_ASSERT(pDestroy);
 	}
 

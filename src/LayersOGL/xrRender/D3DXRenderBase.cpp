@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "D3DXRenderBase.h"
+#include "xrRender_console.h"
 #include "D3DUtils.h"
 #include "dxUIRender.h"
 #include "xrEngine/GameFont.h"
@@ -130,6 +131,11 @@ void D3DXRenderBase::SetupStates()
 void D3DXRenderBase::OnDeviceCreate(const char* shName)
 {
     ZoneScoped;
+
+    // p4: dev registered renderer cvars via its own console object; in the
+    // monolith bridge xrRender_initconsole() has no caller — run it first so
+    // r2_*/r3_*/ps_* commands exist before configs and xrGame query them.
+    xrRender_initconsole();
 
     // Signal everyone - device created
 

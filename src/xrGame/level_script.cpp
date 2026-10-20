@@ -56,7 +56,11 @@ using namespace luabind;
 extern ENGINE_API float ps_r2_sun_shafts_min;
 extern ENGINE_API float ps_r2_sun_shafts_value;
 bool g_block_all_except_movement;
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (xrPhysics eager data binding order)
 bool g_actor_allow_ladder = true;
+#else
+extern bool g_actor_allow_ladder;
+#endif
 
 LPCSTR command_line()
 {

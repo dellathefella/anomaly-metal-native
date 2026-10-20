@@ -6,7 +6,11 @@
 #include "xrMessages.h"
 
 u64 g_qwStartGameTime = 12 * 60 * 60 * 1000;
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (eager data binding order)
 float g_fTimeFactor = 10.0f;
+#else
+extern float g_fTimeFactor;
+#endif
 u64 g_qwEStartGameTime = 12 * 60 * 60 * 1000;
 
 extern ENGINE_API bool g_dedicated_server;

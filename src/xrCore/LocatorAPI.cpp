@@ -1446,6 +1446,13 @@ bool CLocatorAPI::check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname,
 	// correct path
 	xr_strcpy(fname, _fname);
 	xr_fs_strlwr(fname);
+	// p4: virtual names are indexed backslash-separated (Windows parity). Convert
+	// '/' spellings of virtual queries; leave physical absolute paths (leading
+	// '/') intact — their fsRoot prefix is slash-separated by construction.
+	if (fname[0] != '/')
+		for (char* s = fname; *s; ++s)
+			if (*s == '/')
+				*s = '\\';
 	if (path && path[0])
 		update_path(fname, path, fname);
 
@@ -1454,6 +1461,27 @@ bool CLocatorAPI::check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname,
 	desc_f.name = fname;
 
 	files_it I = m_files.find(desc_f);
+	if (I == m_files.end())
+	{
+		// p4: staged renderer loaders (rgl_shaders includes, script loads) feed
+		// PHYSICAL paths — update_path() output, i.e. fsRoot-prefixed — back into
+		// r_open(), which expects virtual names. Windows tolerated this; retry
+		// as a virtual name relative to the game root.
+		string_path phys;
+		xr_strcpy(phys, sizeof(phys), fsRoot.generic_string().c_str());
+		xr_fs_strlwr(phys);
+		for (char* s = phys; *s; ++s)
+			if (*s == '/')
+				*s = '\\';
+		size_t rl = xr_strlen(phys);
+		while (rl && phys[rl - 1] == '\\')
+			--rl;
+		if (rl && xr_strlen(fname) > rl + 1 && phys[rl - 1] != '\\' && 0 == strncmp(fname, phys, rl) && fname[rl] == '\\')
+		{
+			desc_f.name = fname + rl + 1;
+			I = m_files.find(desc_f);
+		}
+	}
 	if (I == m_files.end())
 		return (false);
 

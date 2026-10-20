@@ -59,11 +59,23 @@ PROTECT_API void CRenderDevice::Initialize()
 		SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 		if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0)
 			Msg("! SDL_InitSubSystem failed: %s", SDL_GetError());
+		// p4: GL context hints — the staged OpenXRay renderer needs a 4.1 core
+		// context; SDL's default is legacy 2.1. Also needed before the window
+		// so the pixel format/flags match.
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		if (!strstr(Core.Params, "-no_gl_context"))
+		{
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		}
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 		SDL_Window* win = SDL_CreateWindow(
 			"S.T.A.L.K.E.R.: Anomaly",
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			640, 480,
-			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
 		if (!win)
 		{
 			Msg("! SDL_CreateWindow failed: %s", SDL_GetError());

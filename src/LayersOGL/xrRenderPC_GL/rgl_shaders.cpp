@@ -167,9 +167,13 @@ private:
 
             // Create path to included shader
             strconcat(path, RImplementation.getShaderPath(), fn);
-            FS.update_path(path, _game_shaders_, path);
+            // p4: normalize separators BEFORE update_path — on POSIX the physical
+            // fsRoot prefix of the expanded path uses native slashes, and clobbering
+            // them here broke the FS index lookup (loose-file keys keep the prefix
+            // verbatim). The relative part still gets backslash-normalized.
             while (cpstr sep = strchr(path, '/'))
                 *sep = '\\';
+            FS.update_path(path, _game_shaders_, path);
 
             // Open and read file, recursively load includes
             IReader* R = FS.r_open(path);

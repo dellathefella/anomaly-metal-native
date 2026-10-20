@@ -60,7 +60,18 @@ public:
 		if (!L)
 			return;
 		luabind::object env = name_space(ns);
+#ifdef XR_PLATFORM_POSIX
+		// p4: monolith FS paths carry backslashes; LuaJIT's luaL_loadfile is a
+		// plain POSIX fopen — convert separators (and resolve case on the
+		// case-insensitive volume it was built for).
+		std::string posix_file{ file };
+		for (char& c : posix_file)
+			if ('\\' == c)
+				c = '/';
+		if (luaL_loadfile(L, posix_file.c_str()) != 0)
+#else
 		if (luaL_loadfile(L, file) != 0)
+#endif
 		{
 			Msg("! ScriptEngine: cannot load '%s': %s", file, lua_tostring(L, -1));
 			lua_pop(L, 1);

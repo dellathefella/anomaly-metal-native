@@ -78,7 +78,10 @@ if(NOT WIN32)
         "${XRAY_SOURCE_DIR}/src/3rd party/luabind"
     )
     target_compile_definitions(xr_3da PRIVATE _MT ENGINE_BUILD STATIC_RENDERER_R2)
-    target_link_libraries(xr_3da PRIVATE xrEngine xrGame xrNetServer)
+    # p4: xrGame is NOT linked — EngineAPI dlopens it after core+renderer
+    # init (Windows LoadLibrary semantics; its static initializers require it).
+    target_link_libraries(xr_3da PRIVATE xrEngine xrNetServer)
+    add_dependencies(xr_3da xrGame)
     if(APPLE)
         target_link_options(xr_3da PRIVATE "-undefined" "dynamic_lookup")
     endif()

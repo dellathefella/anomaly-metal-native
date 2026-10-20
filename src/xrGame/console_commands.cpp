@@ -112,7 +112,11 @@ extern BOOL g_ai_die_in_anomaly; //Alundaio
 
 ENGINE_API extern float g_console_sensitive;
 
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (xrPhysics eager data binding order)
 u32 g_dead_body_collision = 1;
+#else
+extern u32 g_dead_body_collision;
+#endif
 
 xr_token dead_body_collision_tokens[] =
 {

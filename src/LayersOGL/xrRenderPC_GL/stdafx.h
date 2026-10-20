@@ -32,9 +32,11 @@
 #endif
 
 // p4: dev's path-delimiter macro (rgl_shaders cache paths) and cpstr spelling
-// (xrCore/xr_types.h). POSIX separator for gamedata-relative paths.
+// (xrCore/xr_types.h). Backslash: the monolith FS indexes loose and archive
+// entries with backslash-separated virtual names (Windows parity) — a POSIX
+// '/' query never matches the registered keys.
 #ifndef DELIMITER
-#define DELIMITER "/"
+#define DELIMITER "\\"
 #endif
 #ifndef cpstr
 using cpstr = char* const;

@@ -93,6 +93,37 @@ void CHW::CreateDevice(SDL_Window* hWnd)
     Caps.fTarget = D3DFMT_A8R8G8B8;
     Caps.fDepth = D3DFMT_D24S8;
 
+    // p4: the monolith engine only assigns dwWidth/dwHeight on D3D device
+    // reset, which never happens on the GL path — size them from the SDL
+    // window so the r2 main-RT chain (and everything using Device.dwWidth)
+    // gets a real resolution.
+    {
+        int win_w = 0, win_h = 0;
+        SDL_GL_GetDrawableSize(m_window, &win_w, &win_h);
+        if (win_w <= 0 || win_h <= 0)
+            SDL_GetWindowSize(m_window, &win_w, &win_h);
+        if (win_w <= 0 || win_h <= 0)
+        {
+            win_w = 1280;
+            win_h = 720;
+        }
+        Device.dwWidth = (u32)win_w;
+        Device.dwHeight = (u32)win_h;
+    }
+
+    // p4: the monolith engine owns window creation, so dev's
+    // SetPrimaryAttributes() never ran on this path — SDL defaults to a legacy
+    // 2.1 context without these hints.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    if (!strstr(Core.Params, "-no_gl_context"))
+    {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    }
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
     // Create the context
 #ifdef XR_PLATFORM_WEB
     EmscriptenWebGLContextAttributes attributes;

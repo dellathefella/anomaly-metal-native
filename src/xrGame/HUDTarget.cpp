@@ -98,7 +98,7 @@ ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
 	}
 	else
 	{
-		//получить треугольник и узнать его материал
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
 
 		SGameMtl* mtl = GMLib.GetMaterialByIdx(T->material);
@@ -141,7 +141,11 @@ void CHUDTarget::CursorOnFrame()
 }
 
 extern ENGINE_API BOOL g_bRendering;
+#ifndef XR_PLATFORM_POSIX // p4: defined in xrEngine/defines.cpp on POSIX (eager data binding order)
 u32 g_crosshair_color = C_DEFAULT;
+#else
+extern u32 g_crosshair_color;
+#endif
 
 void CHUDTarget::Render()
 {
@@ -291,7 +295,7 @@ void CHUDTarget::Render()
 #endif
 	}
 
-	//отрендерить кружочек или крестик
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if (!m_bShowCrosshair)
 	{
 		UIRender->StartPrimitive(6, IUIRender::ptTriList, UI().m_currentPointType);
@@ -326,7 +330,7 @@ void CHUDTarget::Render()
 	}
 	else
 	{
-		//отрендерить прицел
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		HUDCrosshair.cross_color = (C == C_DEFAULT ? g_crosshair_color : C );
 		HUDCrosshair.OnRender();
 	}

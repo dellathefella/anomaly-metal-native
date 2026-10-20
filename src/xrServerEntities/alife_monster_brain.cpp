@@ -111,6 +111,12 @@ void CALifeMonsterBrain::process_task()
 {
 	CALifeSmartTerrainTask* task = smart_terrain().task(&object());
 	THROW3(task, "smart terrain returned nil task, while npc is registered in it", smart_terrain().name_replace());
+	// p4: THROW3 is compiled out in release; on Windows the task was always
+	// valid by construction, but here a registered NPC can briefly outlive its
+	// registry task during load/transition -> NULL here crashed the alife
+	// thread inside target(). Skip the tick instead.
+	if (!task)
+		return;
 	movement().path_type(MovementManager::ePathTypeGamePath);
 	movement().detail().target(*task);
 }

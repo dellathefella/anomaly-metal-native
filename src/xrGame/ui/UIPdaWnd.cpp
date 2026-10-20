@@ -364,6 +364,18 @@ void CUIPdaWnd::Show_MapLegendWnd(bool status)
 
 void CUIPdaWnd::Draw()
 {
+	// p4 probe (temporary): does the PDA window actually reach its paint path,
+	// and with what geometry / child count / visibility?
+	static int s_p4_pda = 0;
+	if (s_p4_pda < 4 || (s_p4_pda % 300) == 0)
+	{
+		Frect r4;
+		GetAbsoluteRect(r4);
+		Msg("* p4 PDA Draw #%d vis=%d rect=(%.0f,%.0f,%.0f,%.0f) kids=%d",
+		    s_p4_pda, GetVisible() ? 1 : 0, r4.x1, r4.y1, r4.x2, r4.y2, GetChildNum());
+	}
+	s_p4_pda++;
+
 	if (Device.dwFrame == dwPDAFrame)
 		return;
 

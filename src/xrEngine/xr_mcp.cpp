@@ -312,7 +312,11 @@ namespace
             };
             char nm[64] = "";
             float secs = 1.f;
-            const char* args = raw.c_str() + (raw[3] == 'y' ? 3 : 4); // "key " / "hold "
+            // p4 fix: the command is "key ..." or "hold ..." — the discriminator
+            // is the FIRST char ('k' vs 'h'); index 3 is 'd'/space, so the old
+            // test made every 'hold' fall through to the tap path.
+            const bool is_hold = raw[0] == 'h';
+            const char* args = raw.c_str() + 4; // skip "key " / "hold "
             if (sscanf(args, " %63s %f", nm, &secs) < 1)
                 nm[0] = 0;
             int sc = 0;
@@ -324,7 +328,6 @@ namespace
                 }
             if (!sc)
                 return push_resp("ERR unknown key");
-            const bool is_hold = raw[3] == 'h'; // "hold"
             const bool is_mouse = sc < 0;
             auto press = [&](bool down)
             {

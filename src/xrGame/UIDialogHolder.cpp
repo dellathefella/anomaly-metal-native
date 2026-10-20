@@ -165,7 +165,14 @@ void CDialogHolder::RemoveDialogToRender(CUIWindow* pDialog)
 
 void CDialogHolder::DoRenderDialogs()
 {
-
+	// p4 probe (temporary): name the dialogs actually reaching the paint loop
+	static int s_p4_dr = 0;
+	if (s_p4_dr++ % 900 == 0 && !m_dialogsToRender.empty())
+	{
+		for (auto& d : m_dialogsToRender)
+			Msg("* p4 dlg '%s' en=%d shown=%d", typeid(*d.wnd).name(), d.enabled ? 1 : 0,
+			    d.wnd->IsShown() ? 1 : 0);
+	}
 	typename xr_vector<dlgItem>::iterator it = m_dialogsToRender.begin();
 	for (; it != m_dialogsToRender.end(); ++it)
 	{

@@ -79,7 +79,8 @@ namespace xray::metal::detail
 	}
 
 	bool DxcSession::CompileToSpirv(const std::string& hlsl, const std::string& entry, ShaderStage stage,
-	                                std::vector<uint32_t>& spirv, std::string& messages, std::string& error)
+	                                const std::vector<std::string>& defines, std::vector<uint32_t>& spirv,
+	                                std::string& messages, std::string& error)
 	{
 		auto* utils = static_cast<IDxcUtils*>(m_utils);
 		auto* compiler = static_cast<IDxcCompiler3*>(m_compiler);
@@ -106,6 +107,15 @@ namespace xray::metal::detail
 		wentry.reserve(entry.size());
 		for (char c : entry)
 			wentry.push_back(static_cast<wchar_t>(static_cast<unsigned char>(c)));
+		std::vector<std::wstring> wdefs;
+		wdefs.reserve(defines.size());
+		for (const std::string& d : defines)
+		{
+			std::wstring w;
+			for (char c : d)
+				w.push_back(static_cast<wchar_t>(static_cast<unsigned char>(c)));
+			wdefs.push_back(std::move(w));
+		}
 
 		std::vector<LPCWSTR> args = {
 			L"-E", wentry.c_str(),
@@ -113,6 +123,11 @@ namespace xray::metal::detail
 			L"-spirv",
 			L"-O1",
 		};
+		for (const std::wstring& w : wdefs)
+		{
+			args.push_back(L"-D");
+			args.push_back(w.c_str());
+		}
 
 		DxcBuffer srcBuf;
 		srcBuf.Ptr = srcBlob->GetBufferPointer();

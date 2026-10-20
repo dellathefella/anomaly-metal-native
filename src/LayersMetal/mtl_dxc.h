@@ -22,7 +22,8 @@ namespace xray::metal::detail
 		bool Ready() const { return m_compiler != nullptr; }
 
 		bool CompileToSpirv(const std::string& hlsl, const std::string& entry, ShaderStage stage,
-		                    std::vector<uint32_t>& spirv, std::string& messages, std::string& error);
+		                    const std::vector<std::string>& defines, std::vector<uint32_t>& spirv, std::string& messages,
+		                    std::string& error);
 
 	private:
 		void* m_lib = nullptr;           // dlopen handle

@@ -51,7 +51,7 @@ namespace xray::metal
 		const char* DxcBackendName() const; // "dxc-inprocess" | "dxc-cli"
 
 		ShaderCompileResult Compile(const std::string& hlsl, const std::string& entry, ShaderStage stage,
-		                            bool applyCompatShim = true);
+		                            bool applyCompatShim = true, const std::vector<std::string>& defines = {});
 
 		// DX9-era HLSL -> SM6 source rewrite (Anomaly-era token set is small and
 		// textual). Pure function; exposed for tests and tooling.

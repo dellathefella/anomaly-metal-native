@@ -126,7 +126,8 @@ namespace xray::metal
 	// CLI fallback: shell out to the dxc executable. Used only when the
 	// libdxcompiler dylib is unavailable (dev convenience, not the shipping path).
 	static bool SpirvViaCli(const std::string& dxcExe, const std::string& hlsl, const std::string& entry,
-	                        ShaderStage stage, std::vector<uint32_t>& spirv, std::string& messages, std::string& error)
+	                        ShaderStage stage, const std::vector<std::string>& defines, std::vector<uint32_t>& spirv,
+	                        std::string& messages, std::string& error)
 	{
 		std::error_code ec;
 		fs::path tmp = fs::temp_directory_path(ec);
@@ -146,7 +147,10 @@ namespace xray::metal
 		}
 
 		std::string cmd = "\"" + dxcExe + "\" -T " + MetalShaderCompiler::StageName(stage) + "_6_0 -E " + entry +
-		                  " -spirv -O1 -Fo \"" + spvPath.string() + "\" \"" + hlslPath.string() + "\" 2>&1";
+		                  " -spirv -O1";
+		for (const std::string& d : defines)
+			cmd += " -D " + d;
+		cmd += " -Fo \"" + spvPath.string() + "\" \"" + hlslPath.string() + "\" 2>&1";
 		const int rc = std::system(cmd.c_str());
 
 		std::string bytes;
@@ -176,13 +180,13 @@ namespace xray::metal
 	}
 
 	ShaderCompileResult MetalShaderCompiler::Compile(const std::string& hlslIn, const std::string& entry, ShaderStage stage,
-	                                                 bool applyCompatShim)
+	                                                 bool applyCompatShim, const std::vector<std::string>& defines)
 	{
 		ShaderCompileResult res;
 		const std::string hlsl = applyCompatShim ? ApplyCompatShim(hlslIn) : hlslIn;
 
-		// Cache key: FNV-1a over a format tag + stage + entry + final source.
-		// Bumping the tag invalidates every entry after pipeline changes.
+		// Cache key: FNV-1a over a format tag + stage + entry + defines + final
+		// source. Bumping the tag invalidates every entry after pipeline changes.
 		fs::path cacheFile;
 		if (!m_impl->cacheDir.empty())
 		{
@@ -195,7 +199,13 @@ namespace xray::metal
 					h *= 1099511628211ull;
 				}
 			};
-			const std::string tag = std::string("xrmetal-msl2.1|") + StageName(stage) + "|" + entry + "|";
+			std::string defStr;
+			for (const std::string& d : defines)
+			{
+				defStr += d;
+				defStr += ';';
+			}
+			const std::string tag = std::string("xrmetal-msl2.1|") + StageName(stage) + "|" + entry + "|" + defStr + "|";
 			feed(tag.data(), tag.size());
 			feed(hlsl.data(), hlsl.size());
 			char hex[17];
@@ -219,12 +229,12 @@ namespace xray::metal
 		std::vector<uint32_t> spirv;
 		if (m_impl->dxc.Ready())
 		{
-			if (!m_impl->dxc.CompileToSpirv(hlsl, entry, stage, spirv, res.messages, res.error))
+			if (!m_impl->dxc.CompileToSpirv(hlsl, entry, stage, defines, spirv, res.messages, res.error))
 				return res;
 		}
 		else if (!m_impl->dxcExe.empty())
 		{
-			if (!SpirvViaCli(m_impl->dxcExe, hlsl, entry, stage, spirv, res.messages, res.error))
+			if (!SpirvViaCli(m_impl->dxcExe, hlsl, entry, stage, defines, spirv, res.messages, res.error))
 				return res;
 		}
 		else

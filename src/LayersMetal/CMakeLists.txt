@@ -39,30 +39,44 @@ if(NOT XR_DXC_EXECUTABLE AND NOT XR_DXCOMPILER_LIBRARY)
 	return()
 endif()
 
-add_executable(metal_poc metal_poc.mm mtl_shader_compiler.cpp mtl_dxc.cpp)
+add_executable(metal_poc metal_poc.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx9_translate.cpp)
+add_executable(metal_shader_batch metal_shader_batch.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx9_translate.cpp)
+
 # Objective-C++ (Metal) with ARC; linked via the C++ driver. The DXC/SPIRV-Cross
 # compiler sources are pure C++ (WinAdapter.h macros stay out of .mm TUs).
 set_source_files_properties(metal_poc.mm PROPERTIES
 	COMPILE_FLAGS "-x objective-c++ -fobjc-arc")
-target_include_directories(metal_poc PRIVATE
-	"${CMAKE_CURRENT_SOURCE_DIR}"
-	"${SPIRV_CROSS_INCLUDE_DIR}"
-	"${XR_DXC_INCLUDE_DIR}")
+set_source_files_properties(metal_shader_batch.mm PROPERTIES
+	COMPILE_FLAGS "-x objective-c++ -fobjc-arc")
+
 find_library(METAL_FRAMEWORK NAMES Metal)
 find_library(FOUNDATION_FRAMEWORK NAMES Foundation)
-target_link_libraries(metal_poc PRIVATE
-	"${SPIRV_CROSS_MSL_LIBRARY}"
-	"${SPIRV_CROSS_GLSL_LIBRARY}"
-	"${SPIRV_CROSS_CORE_LIBRARY}"
-	"${METAL_FRAMEWORK}"
-	"${FOUNDATION_FRAMEWORK}")
-if(XR_DXC_EXECUTABLE)
-	target_compile_definitions(metal_poc PRIVATE DXC_PATH="${XR_DXC_EXECUTABLE}")
-else()
-	target_compile_definitions(metal_poc PRIVATE DXC_PATH="")
-endif()
-if(XR_DXCOMPILER_LIBRARY)
-	target_compile_definitions(metal_poc PRIVATE DXCOMPILER_PATH="${XR_DXCOMPILER_LIBRARY}")
-else()
-	target_compile_definitions(metal_poc PRIVATE DXCOMPILER_PATH="")
-endif()
+
+foreach(_mtl_tool metal_poc metal_shader_batch)
+	target_include_directories(${_mtl_tool} PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}"
+		"${SPIRV_CROSS_INCLUDE_DIR}"
+		"${XR_DXC_INCLUDE_DIR}")
+	target_link_libraries(${_mtl_tool} PRIVATE
+		"${SPIRV_CROSS_MSL_LIBRARY}"
+		"${SPIRV_CROSS_GLSL_LIBRARY}"
+		"${SPIRV_CROSS_CORE_LIBRARY}"
+		"${METAL_FRAMEWORK}"
+		"${FOUNDATION_FRAMEWORK}")
+	if(XR_DXC_EXECUTABLE)
+		target_compile_definitions(${_mtl_tool} PRIVATE DXC_PATH="${XR_DXC_EXECUTABLE}")
+	else()
+		target_compile_definitions(${_mtl_tool} PRIVATE DXC_PATH="")
+	endif()
+	if(XR_DXCOMPILER_LIBRARY)
+		target_compile_definitions(${_mtl_tool} PRIVATE DXCOMPILER_PATH="${XR_DXCOMPILER_LIBRARY}")
+	else()
+		target_compile_definitions(${_mtl_tool} PRIVATE DXCOMPILER_PATH="")
+	endif()
+endforeach()
+
+# Default shader corpus for metal_shader_batch: the searge-coc r2 tree
+# (Anomaly-lineage DX9 HLSL). Override by passing a root path on the CLI.
+set(XR_METAL_CORPUS_DIR "${_xr_repo_root}/repos/searge-coc/res/gamedata/shaders/r2"
+	CACHE PATH "DX9 shader corpus for metal_shader_batch")
+target_compile_definitions(metal_shader_batch PRIVATE XR_METAL_CORPUS_DIR="${XR_METAL_CORPUS_DIR}")

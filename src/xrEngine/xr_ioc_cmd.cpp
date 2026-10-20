@@ -955,6 +955,12 @@ void CCC_Register()
 
 	// Texture manager
 	CMD4(CCC_Integer, "texture_lod", &psTextureLOD, 0, 4);
+
+	// p4 (user request): performance stats overlay level (0=off, 1=FPS,
+	// 2=FPS+frame-ms+RSS). Defined in device.cpp, drawn by
+	// CHUDManager::RenderUI; the settings menu toggles it like any cvar.
+	extern ENGINE_API int gXRShowStats;
+	CMD4(CCC_Integer, "xr_show_stats", &gXRShowStats, 0, 2);
 	//CMD4(CCC_Integer, "net_dedicated_sleep", &psNET_DedicatedSleep, 0, 64);
 
 	// General video control

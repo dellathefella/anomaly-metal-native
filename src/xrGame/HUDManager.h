@@ -28,21 +28,24 @@ public:
 
 	virtual void RenderUI();
 
+	// p4 (user request): performance stats overlay, level from the
+	// 'xr_show_stats' cvar (0 off, 1 FPS, 2 FPS+frame-ms+RSS).
+	void RenderPerfStats();
+
 	//.				CUI*		GetUI				(){return pUI;}
 	CUIGameCustom* GetGameUI()
 	{
 		return pUIGame;
 	}
 
-	void HitMarked(int idx, float power, const Fvector& dir);
-	bool AddGrenade_ForMark(CGrenade* grn);
+	void HitMarked(int idx, float power, const Fvector& dir);	bool AddGrenade_ForMark(CGrenade* grn);
 	void Update_GrenadeView(Fvector& pos_actor);
 	void net_Relcase(CObject* obj);
 
-	//текущий предмет на который смотрит HUD
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ HUD
 	collide::rq_result& GetCurrentRayQuery();
 
-	//устанвка внешнего вида прицела в зависимости от текущей дисперсии
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetCrosshairDisp(float dispf, float disps = 0.f);
 #ifdef DEBUG
     void					SetFirstBulletCrosshairDisp(float fbdispf);

@@ -580,6 +580,10 @@ void CRenderDevice::FrameMove()
 }
 
 ENGINE_API BOOL bShowPauseString = TRUE;
+// p4 (user request): performance stats overlay. 0=off, 1=FPS,
+// 2=FPS+frame-ms+RSS. Drawn by CHUDManager::RenderUI; exposed as the
+// 'xr_show_stats' cvar (xr_ioc_cmd.cpp) so the settings menu can toggle it.
+ENGINE_API int gXRShowStats = 0;
 #include "IGame_Persistent.h"
 
 void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)

@@ -195,18 +195,6 @@ void CUIWindow::Draw(float x, float y)
 
 void CUIWindow::Update()
 {
-	// p4: per-frame UI update chain probe (hover-out / focus-lost path)
-	static int s_p4_upd = 0;
-	if (s_p4_upd < 3 || s_p4_upd % 3000 == 0)
-	{
-		Frect r4;
-		GetAbsoluteRect(r4);
-		Fvector2 c4 = GetUICursor().GetCursorPosition();
-		Msg("* p4: CUIWindow::Update #%d curs=(%.0f,%.0f) vis=%d rect=(%d,%d,%d,%d) children=%zu",
-			s_p4_upd, c4.x, c4.y, GetUICursor().IsVisible() ? 1 : 0, r4.x1, r4.y1, r4.x2, r4.y2,
-			m_ChildWndList.size());
-	}
-	s_p4_upd++;
 	CUIDialogWnd* TIR = CurrentGameUI() ? CurrentGameUI()->TopInputReceiver() : nullptr;
 
 	if (GetUICursor().IsVisible() || (TIR && !TIR->NeedCursor()))

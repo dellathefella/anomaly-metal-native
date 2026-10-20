@@ -20,6 +20,9 @@
 #include "Flashlight.h"
 #include "Inventory.h"
 #include "map_manager.h"
+#ifndef XR_PLATFORM_WINDOWS
+#include <mach/mach.h> // p4: perf overlay RSS (task_info)
+#endif
 
 extern CUIGameCustom* CurrentGameUI()
 {
@@ -261,9 +264,15 @@ void CHUDManager::RenderActiveItemUI()
 }
 
 extern ENGINE_API BOOL bShowPauseString;
-//отрисовка элементов интерфейса
+extern ENGINE_API int gXRShowStats; // p4: perf-stats overlay level (xr_ioc_cmd.cpp)
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 void CHUDManager::RenderUI()
 {
+	// p4 (user request): performance overlay stays visible even with the
+	// HUD toggled off (F5); it's a diagnostics feature, not game HUD.
+	if (gXRShowStats && b_online)
+		RenderPerfStats();
+
 	if (!psHUD_Flags.is(HUD_DRAW_RT2))
 		return;
 
@@ -293,6 +302,53 @@ void CHUDManager::RenderUI()
 		pFont->Out(_pos.x, _pos.y, _str);
 		pFont->OnRender();
 	}
+}
+
+// p4 (user request): lightweight performance counters overlay, toggled via
+// the 'xr_show_stats' cvar (exposed in the Mac settings menu). FPS is an
+// EMA of the engine frame delta; level 2 adds frame-time and process RSS
+// (mach task_info). pFontStat is fsDeviceIndependent, so coordinates are
+// raw screen pixels вЂ” refresh the string at 4 Hz to keep it readable.
+void CHUDManager::RenderPerfStats()
+{
+	static u32 s_last = 0;
+	static float s_fps = 0.f;
+	static string256 s_text = "";
+
+	const float dt = Device.fTimeDelta;
+	if (dt > 1e-6f)
+	{
+		const float inv = 1.f / dt;
+		s_fps = (s_fps <= 0.f) ? inv : (s_fps * 0.95f + inv * 0.05f);
+	}
+
+	if (Device.dwTimeGlobal - s_last >= 250)
+	{
+		s_last = Device.dwTimeGlobal;
+		if (gXRShowStats >= 2)
+		{
+			u64 rss = 0;
+#ifndef XR_PLATFORM_WINDOWS
+			mach_task_basic_info_data_t info;
+			mach_msg_type_number_t cnt = MACH_TASK_BASIC_INFO_COUNT;
+			if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &cnt) == KERN_SUCCESS)
+				rss = u64(info.resident_size);
+#endif
+			snprintf(s_text, sizeof(s_text), "FPS %.1f | %.2f ms | RSS %llu MB", s_fps, dt * 1000.f,
+					 (unsigned long long)(rss >> 20));
+		}
+		else
+			snprintf(s_text, sizeof(s_text), "FPS %.1f", s_fps);
+	}
+
+	CGameFont* f = UI().Font().pFontStat;
+	if (!f)
+		return;
+	f->SetColor(0xE6FFFFFF);
+	f->SetAligment(CGameFont::alLeft);
+	f->OutSet(8.f, 6.f);
+	f->OutNext("%s", s_text);
+	f->OnRender();
 }
 
 void CHUDManager::OnEvent(EVENT E, u64 P1, u64 P2)

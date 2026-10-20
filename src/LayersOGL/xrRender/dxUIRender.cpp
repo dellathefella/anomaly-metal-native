@@ -276,26 +276,6 @@ void dxUIRender::FlushPrimitive()
 
     if (primCount > 0)
     {
-        // p4: is UI geometry actually reaching the GPU?
-        static int s_p4_uiflush = 0;
-        static u64 s_p4_uiverts = 0;
-        s_p4_uiflush++;
-        s_p4_uiverts += u32(p_cnt);
-        if (s_p4_uiflush <= 5 || s_p4_uiflush % 900 == 0)
-        {
-            GLenum e = GL_NO_ERROR;
-            GLint fbo = -1;
-            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
-            while (GLenum e2 = glGetError())
-            {
-                e = e2;
-                if (e2 == GL_INVALID_OPERATION || e2 == GL_INVALID_VALUE || e2 == GL_INVALID_ENUM ||
-                    e2 == GL_INVALID_FRAMEBUFFER_OPERATION)
-                    break;
-            }
-            Msg("* p4: dxUIRender flush #%d verts=%d prims=%d (total verts=%llu) fbo=%d err=0x%x",
-                s_p4_uiflush, (int)p_cnt, primCount, s_p4_uiverts, fbo, e);
-        }
         RCache.Render(d3dPrimType, vOffset, primCount);
     }
 

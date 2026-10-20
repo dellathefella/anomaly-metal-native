@@ -115,14 +115,6 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
 #ifdef DEBUG
     Msg("* Loaded: %s[%d]b", fn, img_size);
 #endif // DEBUG
-    // p4 debug probe: last name printed before a stall names the culprit DDS.
-    // Main loop doesn't tick during a stall, so flush ourselves periodically.
-    {
-        static u32 p4_tex_seq = 0;
-        Msg("* p4: gli-load '%s' [%zu b]", fn, img_size);
-        if ((p4_tex_seq++ & 63) == 0)
-            FlushLog();
-    }
     gli::texture texture = gli::load((char*)S->pointer(), img_size);
     R_ASSERT2(!texture.empty(), fn);
 

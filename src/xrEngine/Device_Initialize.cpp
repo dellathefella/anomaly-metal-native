@@ -71,10 +71,40 @@ PROTECT_API void CRenderDevice::Initialize()
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+		// p4: pick the initial window size like Windows does — vid_mode from
+		// configs if present, else the desktop mode (so the first-run menu is
+		// at native aspect instead of the engine's 640x480 placeholder).
+		int init_w = 0, init_h = 0;
+		if (pSettings->section_exist("video") && pSettings->exist("video", "vid_mode"))
+		{
+			u32 vw = 0, vh = 0;
+			if (2 == sscanf(pSettings->r_string("video", "vid_mode"), "%ux%u", &vw, &vh) &&
+				vw >= 640 && vh >= 480)
+			{
+				init_w = (int)vw;
+				init_h = (int)vh;
+			}
+		}
+		if (init_w <= 0)
+		{
+			SDL_DisplayMode dm{};
+			if (SDL_GetDesktopDisplayMode(0, &dm) == 0 && dm.w >= 640)
+			{
+				init_w = dm.w;
+				init_h = dm.h;
+			}
+			else
+			{
+				init_w = 1280;
+				init_h = 720;
+			}
+		}
+		psCurrentVidMode[0] = init_w;
+		psCurrentVidMode[1] = init_h;
 		SDL_Window* win = SDL_CreateWindow(
 			"S.T.A.L.K.E.R.: Anomaly",
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-			640, 480,
+			init_w, init_h,
 			SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL);
 		if (!win)
 		{

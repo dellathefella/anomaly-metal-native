@@ -163,15 +163,19 @@ typedef void* HWND;
 typedef void* HDC;
 
 typedef struct _RECT {
-    long left;
-    long top;
-    long right;
-    long bottom;
+    // LP64: Windows LONG is 32-bit; `long` here is 64-bit on arm64 macOS and
+    // silently breaks every reinterpret_cast<Ivector2/Irect*>(RECT*) site
+    // (GetWindowRect/MapWindowPoints/GetCursorPos). Same bug class as the
+    // _REG_INFO::Prio intro crash.
+    int32_t left;
+    int32_t top;
+    int32_t right;
+    int32_t bottom;
 } RECT, *PRECT;
 
 typedef struct tagPOINT {
-    long x;
-    long y;
+    int32_t x;
+    int32_t y;
 } POINT, *PPOINT, *LPPOINT;
 
 #define WM_USER 0x0400

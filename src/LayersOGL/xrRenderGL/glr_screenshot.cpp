@@ -38,6 +38,22 @@ void p4_present_screenshot()
     xr_vector<u8> pixels;
     pixels.resize(size_t(Device.dwWidth) * Device.dwHeight * 3);
     glReadPixels(0, 0, Device.dwWidth, Device.dwHeight, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+    // p4: self-diagnostic — is the captured frame actually lit anywhere?
+    {
+        u32 maxv = 0, nonzero = 0;
+        const size_t step = 3 * 17; // sparse sample
+        size_t sampled = 0;
+        for (size_t i = 0; i < pixels.size(); i += step, ++sampled)
+        {
+            const u8 v = pixels[i];
+            if (v > maxv) maxv = v;
+            if (v) ++nonzero;
+        }
+        GLint fbo = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
+        Msg("* p4 capture probe: max=%u lit=%.1f%% fbo=%d err=0x%x", maxv,
+            sampled ? 100.0 * nonzero / sampled : 0.0, fbo, glGetError());
+    }
     Image img{ Device.dwWidth, Device.dwHeight, pixels.data(), ImageDataFormat::RGB8 };
     if (!img.SaveJPEG(*fs, 100, true))
         Log("! Failed to make a screenshot.");

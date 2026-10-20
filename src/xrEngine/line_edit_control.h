@@ -126,7 +126,13 @@ namespace text_editor
 		void clamp_cur_pos();
 
 	private:
-		enum { DIK_COUNT = 256 };
+		// LP64/port note: extended DIK codes carry the 0x100 bit
+		// (DIK_DIVIDE/DIK_NUMPADSLASH = 0x135, DIK_RCONTROL = 0x11C..0x13B
+		// range). Windows silently wrote those past a 256-entry table (UB that
+		// MSVC's layout tolerated); on our allocator layout the stray writes
+		// produced garbage vtables and a SIGBUS in delete. Size the table to
+		// cover the extended range.
+		enum { DIK_COUNT = 512 };
 
 		Base* m_actions[DIK_COUNT];
 

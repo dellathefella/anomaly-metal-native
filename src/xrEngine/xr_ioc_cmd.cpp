@@ -481,6 +481,18 @@ public:
 			Msg("! Wrong video mode [%s]", args);
 			return;
 		}
+		// p4: monolith DX11 applied the mode from the renderer's reset; the
+		// staged GL renderer never reads psCurrentVidMode, so resize the
+		// window here and run the engine reset (RT chain rebuilds from
+		// Device.dwWidth/dwHeight which the GL HW layer re-derives from the
+		// SDL drawable size).
+		if (Device.b_is_Ready && _w >= 640 && _h >= 480 &&
+			(_w != Device.dwWidth || _h != Device.dwHeight))
+		{
+			SetWindowPos(Device.m_hWnd, 0, 0, 0, (int)_w, (int)_h,
+				SWP_NOMOVE | SWP_FRAMECHANGED);
+			Device.Reset();
+		}
 	}
 
 	virtual void Status(TStatus& S)

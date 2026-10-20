@@ -124,7 +124,15 @@ public:
 	FS_file_list_ex(LPCSTR path, u32 flags, LPCSTR mask);
 
 	u32 Size() { return m_file_items.size(); }
-	FS_item GetAt(u32 idx) { return m_file_items[idx]; }
+	// p4: Lua scripts index past the end when the enumeration comes back
+	// empty (e.g. no profiles yet); MSVC silently read the null buffer, but
+	// copying a 784-byte FS_item off nullptr SIGSEGVs on arm64. Clamp instead.
+	FS_item GetAt(u32 idx)
+	{
+		if (idx >= m_file_items.size())
+			return FS_item();
+		return m_file_items[idx];
+	}
 	void Sort(u32 flags);
 };
 

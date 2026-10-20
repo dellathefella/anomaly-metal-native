@@ -28,6 +28,13 @@ CUICursor::~CUICursor()
 
 void CUICursor::OnScreenResolutionChanged()
 {
+	// p4: is resolution-change (device reset) firing repeatedly? A reset storm
+	// would delete+recreate the cursor static every frame (pos/size loss).
+	static int s_p4_res = 0;
+	if (s_p4_res < 5 || s_p4_res % 500 == 0)
+		Msg("* p4: CUICursor::OnScreenResolutionChanged #%d dw=(%d,%d)", s_p4_res,
+			Device.dwWidth, Device.dwHeight);
+	s_p4_res++;
 	xr_delete(m_static);
 	InitInternal();
 }
@@ -56,6 +63,18 @@ u32 last_render_frame = 0;
 
 void CUICursor::OnRender()
 {
+	// p4: cursor visibility probe
+	static int s_p4_cur = 0;
+	if (s_p4_cur < 3 || s_p4_cur % 3000 == 0)
+	{
+		Frect r4;
+		m_static->GetAbsoluteRect(r4);
+		Msg("* p4: CUICursor::OnRender #%d vis=%d pos=(%.0f,%.0f) rect=(%d,%d,%d,%d) sh=%s inited=%d",
+			s_p4_cur, bVisible ? 1 : 0, vPos.x, vPos.y, r4.x1, r4.y1, r4.x2, r4.y2,
+			m_static->GetShader() ? "have" : "NULL",
+			m_static->GetShader() ? (m_static->GetShader()->inited() ? 1 : 0) : -1);
+	}
+	s_p4_cur++;
 	g_btnHint->OnRender();
 	g_statHint->OnRender();
 
@@ -81,6 +100,25 @@ void CUICursor::OnRender()
 		return;
 
 	m_static->SetWndPos(vPos);
+	// p4: size was computed at construction time, when Device.dwWidth/Height
+	// were still 0 → kx = NaN → zero-size sprite → invisible cursor. Re-derive
+	// the size from the current kx each render (cheap, always correct).
+	{
+		float kx = UI().get_current_kx();
+		if (!(kx > 0.f))
+			kx = 1.f;
+		Fvector2 csz;
+		csz.set(40.f * kx, 40.f);
+		m_static->SetWndSize(csz);
+		static int s_p4_sz = 0;
+		if (s_p4_sz++ % 3000 == 0)
+		{
+			Frect rr;
+			m_static->GetAbsoluteRect(rr);
+			Msg("* p4: cursor post-size rect=(%.0f,%.0f,%.0f,%.0f) kx=%.3f sz=(%.0f,%.0f)", rr.x1,
+				rr.y1, rr.x2, rr.y2, kx, m_static->GetWidth(), m_static->GetHeight());
+		}
+	}
 	m_static->Update();
 	m_static->Draw();
 

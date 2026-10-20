@@ -6,6 +6,7 @@
 #include "harness_driver.h"
 #include "x_ray.h" // pureFrame
 #include "device.h"
+#include "xr_win32_shim_sdl.h" // p4: xr_raw_input_push for `key` injection
 #include "xr_ioconsole.h"
 
 class CHarnessDriver : public pureFrame
@@ -78,6 +79,36 @@ public:
             }
 
             Msg("* harness: exec '%s'", line.c_str());
+            // p4: `key <NAME>` injects a synthetic key press+release through
+            // the SDL raw-input queue (same path real keys take) so UI
+            // navigation (menu, dialogs) is scriptable.
+            if (line.compare(0, 4, "key ") == 0)
+            {
+                static const struct
+                {
+                    const char* name;
+                    int scancode;
+                } s_keys[] = {
+                    {"RETURN", 40}, {"ESCAPE", 41}, {"SPACE", 44}, {"TAB", 43},
+                    {"RIGHT", 79}, {"LEFT", 80}, {"DOWN", 81}, {"UP", 82},
+                };
+                const char* nm = line.c_str() + 4;
+                while (*nm == ' ')
+                    ++nm;
+                bool hit = false;
+                for (auto& k : s_keys)
+                    if (!xr_stricmp(nm, k.name))
+                    {
+                        xr_raw_input_push(XrRawInputEvent::KeyDown, k.scancode);
+                        xr_raw_input_push(XrRawInputEvent::KeyUp, k.scancode);
+                        hit = true;
+                        break;
+                    }
+                if (!hit)
+                    Msg("! harness: unknown key '%s'", nm);
+                ++m_next;
+                continue;
+            }
             Console->ExecuteCommand(line.c_str(), false);
             ++m_next;
         }

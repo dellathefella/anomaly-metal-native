@@ -227,6 +227,7 @@ void CMainMenu::Activate(bool bActivate)
 			CCameraManager::ResetPP();
 		};
 		Device.seqRender.Add(this, 4); // 1-console 2-cursor 3-tutorial
+		Msg("* p4: CMainMenu activated, seqRender registered");
 
 		Console->Execute("stat_memory");
 	}
@@ -297,6 +298,7 @@ bool CMainMenu::ReloadUI()
 	DLL_Pure* dlg = NEW_INSTANCE(TEXT2CLSID("MAIN_MNU"));
 	if (!dlg)
 	{
+		Msg("* p4: CMainMenu::ReloadUI MAIN_MNU class NOT FOUND -> menu NOT registered");
 		m_Flags.set(flActive | flNeedChangeCapture,FALSE);
 		return false;
 	}
@@ -404,6 +406,11 @@ extern void draw_wnds_rects();
 
 void CMainMenu::OnRender()
 {
+	// p4: lifecycle probe (first 3 dispatches)
+	static int s_p4_menu_render = 0;
+	if (s_p4_menu_render < 3)
+		Msg("* p4: CMainMenu::OnRender #%d", s_p4_menu_render++);
+
 	if (m_Flags.test(flGameSaveScreenshot))
 		return;
 

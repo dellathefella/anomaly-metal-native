@@ -1244,9 +1244,17 @@ void hud_adj_state(bool state)
 
 LPCSTR vid_modes_string()
 {
-	xr_string resolutions = "";
+	// p4: the local xr_string died at return while luabind strlen'd the
+	// dangling c_str() afterwards (MSVC's stale-stack layout tolerated it;
+	// macOS freed memory SIGSEGVs). Static storage outlives the caller.
+	// Also guard vid_mode_token, which is null if the renderer never filled it.
+	static xr_string resolutions;
+	resolutions.clear();
 
 	xr_token* tok = vid_mode_token;
+	if (!tok)
+		return resolutions.c_str();
+
 	while (tok->name)
 	{
 		if (strlen(resolutions.c_str()) > 0)

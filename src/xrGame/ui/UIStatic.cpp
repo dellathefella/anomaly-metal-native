@@ -69,6 +69,11 @@ void CUIStatic::CreateShader(const char* tex, const char* sh)
 
 void CUIStatic::InitTextureEx(LPCSTR tex_name, LPCSTR sh_name)
 {
+	// p4: menu statics never got shaders — trace init
+	static int s_p4_initex = 0;
+	if (s_p4_initex < 5)
+		Msg("* p4: CUIStatic::InitTextureEx #%d '%s' sh='%s'", s_p4_initex++,
+			tex_name ? tex_name : "?", sh_name ? sh_name : "?");
 	LPCSTR res_shname = UIRender->UpdateShaderName(tex_name, sh_name);
 	CUITextureMaster::InitTexture(tex_name, &m_UIStaticItem, res_shname);
 
@@ -78,6 +83,18 @@ void CUIStatic::InitTextureEx(LPCSTR tex_name, LPCSTR sh_name)
 
 void CUIStatic::Draw()
 {
+	// p4: lifecycle probe — is the menu static tree actually being walked?
+	static int s_p4_static_draw = 0;
+	const bool p4_bad = GetShader() && !GetShader()->inited();
+	if (p4_bad ? (s_p4_static_draw % 900 == 0) : (s_p4_static_draw < 3 || s_p4_static_draw % 900 == 0))
+		Msg("* p4: CUIStatic::Draw #%d shown=%d shader=%s inited=%d texen=%d sz=(%.0f,%.0f) tr=(%d,%d,%d,%d) col=%08x",
+			s_p4_static_draw, IsShown() ? 1 : 0, GetShader() ? "have" : "NULL",
+			GetShader() ? (GetShader()->inited() ? 1 : 0) : -1, m_bTextureEnable ? 1 : 0,
+			m_UIStaticItem.GetSize().x, m_UIStaticItem.GetSize().y,
+			(int)m_UIStaticItem.GetTextureRect().x1, (int)m_UIStaticItem.GetTextureRect().y1,
+			(int)m_UIStaticItem.GetTextureRect().x2, (int)m_UIStaticItem.GetTextureRect().y2,
+			m_UIStaticItem.dwColor);
+	s_p4_static_draw++;
 	DrawTexture();
 	inherited::Draw();
 	DrawText();

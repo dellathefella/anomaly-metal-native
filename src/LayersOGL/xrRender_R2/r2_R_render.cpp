@@ -25,6 +25,28 @@ void CRender::RenderMenu()
     {
         Target->u_setrt(RCache, Target->rt_Generic_0, nullptr, nullptr, Target->rt_Base_Depth); // LDR RT
         g_pGamePersistent->OnRenderPPUI_main(); // PP-UI
+        // p4: did PP-UI actually land in the LDR RT? (draw-vs-composite bisect)
+        static int s_p4_ppui = 0;
+        if (s_p4_ppui < 3)
+        {
+            ++s_p4_ppui;
+            const GLsizei w = Device.dwWidth / 2, h = Device.dwHeight / 2;
+            xr_vector<u8> px;
+            px.resize(size_t(w) * h * 4);
+            glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+            u32 maxv = 0, nonzero = 0, n = 0;
+            for (size_t i = 0; i < px.size(); i += 4 * 31, ++n)
+            {
+                const u8 v = px[i] > px[i + 1] ? (px[i] > px[i + 2] ? px[i] : px[i + 2])
+                                               : (px[i + 1] > px[i + 2] ? px[i + 1] : px[i + 2]);
+                if (v > maxv) maxv = v;
+                if (v) ++nonzero;
+            }
+            GLint fbo = -1;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo);
+            Msg("* p4: PPUI_main RT probe #%d max=%u lit=%.1f%% fbo=%d err=0x%x", s_p4_ppui, maxv,
+                n ? 100.0 * nonzero / n : 0.0, fbo, glGetError());
+        }
     }
     // Distort
     {
@@ -86,6 +108,20 @@ void CRender::Render()
     g_r = 1;
 
     rmNormal(RCache);
+
+    // p4: monolith's CMainMenu::OnRender calls Render() (dev calls RenderMenu()
+    // directly). Replicate the monolith DX R2 dispatch: an active PP dialog
+    // (main menu) composites PP-UI through RenderMenu; without this the menu
+    // branch below binds the base RT and returns, leaving the frame black.
+    bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
+    if (_menu_pp)
+    {
+        static int s_p4_menu_pp = 0;
+        if (s_p4_menu_pp < 3)
+            Msg("* p4: CRender::Render -> RenderMenu (PP UI) #%d", s_p4_menu_pp++);
+        RenderMenu();
+        return;
+    }
 
     IMainMenu* pMainMenu = g_pGamePersistent ? g_pGamePersistent->m_pMainMenu : 0;
     bool bMenu = pMainMenu ? pMainMenu->CanSkipSceneRendering() : false;

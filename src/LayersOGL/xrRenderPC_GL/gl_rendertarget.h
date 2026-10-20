@@ -301,10 +301,13 @@ public:
     u32 get_width(CBackend& cmd_list) { return dwWidth[cmd_list.context_id]; }
     u32 get_height(CBackend& cmd_list) { return dwHeight[cmd_list.context_id]; }
 
-    // p4: engine's IRender_Target queries (no context at hand there — the
-    // immediate context is the only one that renders frames on this backend).
-    u32 get_width() override { return dwWidth[R__NUM_PARALLEL_CONTEXTS]; }
-    u32 get_height() override { return dwHeight[R__NUM_PARALLEL_CONTEXTS]; }
+    // p4: engine's IRender_Target queries (no context at hand there). On the
+    // GL backend the single immediate context IS the main render context and
+    // u_setrt writes dwWidth[CHW::IMM_CTX_ID]; the DX11 main-context slot
+    // (R__NUM_PARALLEL_CONTEXTS) is never written here — reading it returned 0
+    // and collapsed the UI's PP frustum (black menu).
+    u32 get_width() override { return dwWidth[CHW::IMM_CTX_ID]; }
+    u32 get_height() override { return dwHeight[CHW::IMM_CTX_ID]; }
 
     void set_blur(float f) { param_blur = f; }
     void set_gray(float f) { param_gray = f; }

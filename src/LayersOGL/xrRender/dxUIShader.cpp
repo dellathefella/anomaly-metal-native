@@ -4,7 +4,15 @@
 namespace xray::render::RENDER_NAMESPACE
 {
 void dxUIShader::Copy(IUIShader& _in) { *this = *((dxUIShader*)&_in); }
-void dxUIShader::create(LPCSTR sh, LPCSTR tex) { hShader.create(sh, tex); }
+void dxUIShader::create(LPCSTR sh, LPCSTR tex)
+{
+    // p4: UI shaders came up un-inited (black menu) — trace creation.
+    static int s_p4_uicreate = 0;
+    hShader.create(sh, tex);
+    if (s_p4_uicreate < 40 || !hShader._get())
+        Msg("* p4: dxUIShader::create #%d '%s' tex='%s' -> %s", s_p4_uicreate++, sh ? sh : "?",
+            tex ? tex : "?", hShader._get() ? "ok" : "NULL");
+}
 void dxUIShader::destroy() { hShader.destroy(); }
 
 bool dxUIShader::operator==(const IUIShader& other) const

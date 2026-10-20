@@ -424,6 +424,13 @@ void CInput::MouseUpdate()
 
 	if (had_events)
 	{
+		// p4: mouse-to-menu path probe
+		static int s_p4_mm = 0;
+		if (s_p4_mm < 5 && (offs[0] || offs[1]))
+			Msg("* p4: MouseUpdate dispatch move dx=%d dy=%d cbStack=%zu", offs[0], offs[1],
+				cbStack.size());
+		if (offs[0] || offs[1])
+			s_p4_mm++;
 		if (offs[0] || offs[1])
 			cbStack.back()->IR_OnMouseMove(offs[0], offs[1]);
 		if (offs[2])

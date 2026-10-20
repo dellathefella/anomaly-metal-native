@@ -3,8 +3,11 @@
 -- alpha blending, no depth, no fog. (Deliberately NOT font2: that one flips
 -- alpha for the inverted font atlas and drops vertex color, which renders UI
 -- sprites as white silhouettes.)
+-- VS must be stub_notransform_t: the DX11-style UI pipeline pre-transforms
+-- vertices to screen space on the CPU; stub_default.vs would apply m_WVP a
+-- second time and project every sprite off-screen (invisible-menu bug).
 function normal		(shader, t_base, t_second, t_detail)
-	shader:begin	("stub_default","stub_default")
+	shader:begin	("stub_notransform_t","stub_default")
 			: fog		(false)
 			: zb 		(false,false)
 			: blend		(true,blend.srcalpha,blend.invsrcalpha)

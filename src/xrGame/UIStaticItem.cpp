@@ -50,6 +50,13 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 	Fvector2 ts;
 	UIRender->GetActiveTextureResolution(ts);
 
+	// p4: zero texture resolution => degenerate UVs => silent (unclipped) quad.
+	static int s_p4_si = 0;
+	if (s_p4_si < 5)
+		Msg("* p4: StaticItem::RenderInternal #%d ts=%.0fx%.0f size=%.0fx%.0f rect=(%d,%d,%d,%d)",
+			s_p4_si++, ts.x, ts.y, vSize.x, vSize.y, TextureRect.x1, TextureRect.y1, TextureRect.x2,
+			TextureRect.y2);
+
 	if (!uFlags.test(flValidSize))
 		SetSize(ts);
 
@@ -58,13 +65,13 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 
 	Fvector2 LTp, RBp;
 	Fvector2 LTt, RBt;
-	//координаты на экране в пикселях
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	LTp.set(pos);
 
 	UI().ClientToScreenScaled(RBp, vSize.x, vSize.y);
 	RBp.add(pos);
 
-	//текстурные координаты
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	LTt.set(TextureRect.x1 / ts.x, TextureRect.y1 / ts.y);
 	RBt.set(TextureRect.x2 / ts.x, TextureRect.y2 / ts.y);
 
@@ -185,6 +192,23 @@ void CUIStaticItem::RenderInternal(float angle)
 void CUIStaticItem::Render()
 {
 	VERIFY(g_bRendering);
+	// p4: sprite render probe вЂ” log first quads with tiny/degenerate geometry
+	// (the 'text-only menu' symptom: statics walk but emit nothing).
+	static int s_p4_render = 0;
+	const float w = GetSize().x, h = GetSize().y;
+	if (s_p4_render < 12)
+	{
+		Msg("* p4: staticItem Render #%d sz=(%.1f,%.1f) tr=(%.0f,%.0f,%.0f,%.0f) pos=(%.0f,%.0f) dbg='%s'",
+			s_p4_render, w, h, TextureRect.x1, TextureRect.y1, TextureRect.x2, TextureRect.y2,
+			vPos.x, vPos.y
+#ifdef DEBUG
+			, dbg_tex_name.c_str()
+#else
+			, "?"
+#endif
+		);
+		s_p4_render++;
+	}
 	UIRender->SetShader(*hShader);
 	UIRender->StartPrimitive(8, IUIRender::ptTriList, UI().m_currentPointType);
 	RenderInternal(vPos);

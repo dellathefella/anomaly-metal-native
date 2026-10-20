@@ -276,7 +276,12 @@ namespace detail
 
 		GLI_ASSERT(Format != gli::FORMAT_UNDEFINED);
 
-		size_t const MipMapCount = (Header.Flags & detail::DDSD_MIPMAPCOUNT) ? Header.MipMapLevels : 1;
+		// p4: XRay-authored DDS files ship DDSD_MIPMAPCOUNT set with
+		// MipMapLevels == 0. A zero level count wraps texture::MaxLevel to
+		// SIZE_MAX and the texture cache then spins ~1.8e19 iterations in
+		// Storage.layer_size() — the loader hangs at 100% CPU. Windows' DDS
+		// loader treats 0 as 1; clamp the same way.
+		size_t const MipMapCount = std::max<size_t>(1, (Header.Flags & detail::DDSD_MIPMAPCOUNT) ? Header.MipMapLevels : 1);
 		size_t FaceCount = 1;
 		if(Header.CubemapFlags & detail::DDSCAPS2_CUBEMAP)
 			FaceCount = int(glm::bitCount(Header.CubemapFlags & detail::DDSCAPS2_CUBEMAP_ALLFACES));

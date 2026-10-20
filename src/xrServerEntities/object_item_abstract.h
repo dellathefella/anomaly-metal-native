@@ -27,6 +27,14 @@ public:
 	virtual ObjectFactory::CLIENT_BASE_CLASS* client_object() const = 0;
 #endif
 	virtual ObjectFactory::SERVER_BASE_CLASS* server_object(LPCSTR section) const = 0;
+	// p4: xr_special_free<is_polymorphic<T>> calls ptr->~T() directly. With
+	// pure-virtual methods but no declared destructor, this class is
+	// polymorphic yet has a NON-virtual implicit destructor; clang treats a
+	// destructor call through an abstract base with a non-virtual dtor as UB
+	// and emits `brk #1` (SIGTRAP at new-game start, ~CObjectFactory). MSVC
+	// silently ran the trivial dtor. A virtual dtor makes the call well
+	// defined and dispatches to the derived item (correct member cleanup).
+	virtual ~CObjectItemAbstract() {}
 };
 
 #include "object_item_abstract_inline.h"

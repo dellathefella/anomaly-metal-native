@@ -76,6 +76,25 @@ static void fill_vid_mode_list_sdl(SDL_Window* win)
     vid_mode_token[_tmp.size()].name = nullptr;
     vid_mode_token[_tmp.size()].id = -1;
 }
+
+// p4: the settings UI (ui_options.script) gates every video option through
+// for_renderer() against the "renderer" cvar status, which reads
+// vid_quality_token. DX11 filled it; the GL path left it null so
+// get_console_cmd(0,"renderer") returned "?" and no option matched.
+// The GL renderer implements the R2 feature set, so advertise exactly that:
+// r1/r3/r4-only rows (DX11 tessellation, MSAA list, fixed-function gamma)
+// then hide themselves, and the renderer picker offers one entry.
+extern xr_token* vid_quality_token; // defined in xrEngine/xr_ioc_cmd.cpp
+static void fill_vid_quality_list()
+{
+    if (vid_quality_token != nullptr)
+        return;
+    vid_quality_token = xr_alloc<xr_token>(2);
+    vid_quality_token[0].name = xr_strdup("renderer_r2");
+    vid_quality_token[0].id = 1; // monolith quality ids: 0=r1, 1..3=r2 family
+    vid_quality_token[1].name = nullptr;
+    vid_quality_token[1].id = -1;
+}
 CHW HW;
 
 void CALLBACK OnDebugCallback(GLenum /*source*/, GLenum /*type*/, GLuint id, GLenum severity, GLsizei /*length*/,
@@ -290,6 +309,7 @@ void CHW::CreateDevice(SDL_Window* hWnd)
         UpdateViews();
 
     fill_vid_mode_list_sdl(m_window);
+    fill_vid_quality_list();
 }
 
 void CHW::DestroyDevice()

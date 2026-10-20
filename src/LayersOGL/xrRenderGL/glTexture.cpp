@@ -115,6 +115,14 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
 #ifdef DEBUG
     Msg("* Loaded: %s[%d]b", fn, img_size);
 #endif // DEBUG
+    // p4 debug probe: last name printed before a stall names the culprit DDS.
+    // Main loop doesn't tick during a stall, so flush ourselves periodically.
+    {
+        static u32 p4_tex_seq = 0;
+        Msg("* p4: gli-load '%s' [%zu b]", fn, img_size);
+        if ((p4_tex_seq++ & 63) == 0)
+            FlushLog();
+    }
     gli::texture texture = gli::load((char*)S->pointer(), img_size);
     R_ASSERT2(!texture.empty(), fn);
 
@@ -255,6 +263,68 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
     }
 
 
+    // p4: GL forbids compressed formats on 3D textures entirely (glTexStorage3D
+    // 0x502) — water_sbumpvolume is a DXT volume. Decode whole levels to RGBA8
+    // and upload through plain glTexSubImage3D.
+    bool p4_decode3d = false;
+    xr_vector<u8> p4_dec3d;
+    xr_vector<size_t> p4_off3d;
+    if (gli::TARGET_3D == texture.target() && gli::is_compressed(texture.format()))
+    {
+        enum
+        {
+            p4_DXT1 = 0x83F0, p4_DXT3 = 0x83F1, p4_DXT5 = 0x83F2
+        };
+        const GLenum fmt3d = format.Internal;
+        if (p4_DXT1 == fmt3d || p4_DXT3 == fmt3d || p4_DXT5 == fmt3d)
+        {
+            p4_decode3d = true;
+            const size_t bbytes3d = (p4_DXT1 == fmt3d) ? 8 : 16; // blocks are 8B (BC1) / 16B
+            p4_format.Internal = static_cast<gli::gl::internal_format>(GL_RGBA8);
+            p4_format.External = static_cast<gli::gl::external_format>(GL_RGBA);
+            p4_format.Type = static_cast<gli::gl::type_format>(GL_UNSIGNED_BYTE);
+            const size_t lvls = texture.levels();
+            p4_off3d.resize(lvls + 1);
+            size_t total = 0;
+            for (size_t lv = 0; lv < lvls; ++lv)
+            {
+                p4_off3d[lv] = total;
+                const auto e = texture.extent(lv);
+                total += size_t(e.x) * e.y * e.z * 4;
+            }
+            p4_off3d[lvls] = total;
+            p4_dec3d.resize(total);
+            u8 scratch[16 * 4];
+            for (size_t lv = 0; lv < lvls; ++lv)
+            {
+                const auto e = texture.extent(lv);
+                const size_t slice_stride = texture.size(lv) / size_t(e.z);
+                u8* lvl = p4_dec3d.data() + p4_off3d[lv];
+                const u8* vol = static_cast<const u8*>(texture.data(0, 0, lv));
+                for (size_t z = 0; z < size_t(e.z); ++z)
+                {
+                    const u8* src = vol + z * slice_stride;
+                    u8* dst = lvl + z * size_t(e.x) * e.y * 4;
+                    const GLsizei w = GLsizei(e.x), h = GLsizei(e.y);
+                    const GLsizei bw = (w + 3) / 4, bh = (h + 3) / 4;
+                    for (GLsizei by = 0; by < bh; ++by)
+                        for (GLsizei bx = 0; bx < bw; ++bx)
+                        {
+                            const u8* blk = src + (size_t(by) * bw + bx) * bbytes3d;
+                            if (p4_DXT1 == fmt3d)
+                                bcdec_bc1(blk, scratch, 16);
+                            else
+                                bcdec_bc3(blk, scratch, 16);
+                            for (GLsizei y = 0; y < 4 && by * 4 + y < h; ++y)
+                                for (GLsizei x = 0; x < 4 && bx * 4 + x < w; ++x)
+                                    std::memcpy(dst + (size_t(by * 4 + y) * w + bx * 4 + x) * 4,
+                                                scratch + (size_t(y) * 4 + x) * 4, 4);
+                        }
+                }
+            }
+        }
+    }
+
     const texture_upload_unit uploadUnit(target);
     glGenTextures(1, &pTexture);
     glBindTexture(target, pTexture);
@@ -278,7 +348,7 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
         return reordered.data();
     };
 #else
-    if (!p4_decode && gli::gl::EXTERNAL_RED != format.External) // skip for proper greyscale-alpha font textures
+    if (!p4_decode && !p4_decode3d && gli::gl::EXTERNAL_RED != format.External) // skip for proper greyscale-alpha font textures
         glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, &format.Swizzles[gli::SWIZZLE_RED]);
     // p4: decoded textures are plain RGBA — identity swizzle is correct for
     // every BCn family (BC5 keeps x/y in R/G as the *2-1 shaders expect).
@@ -308,7 +378,7 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
         break;
     case gli::TARGET_3D:
     case gli::TARGET_CUBE_ARRAY:
-        glTexStorage3D(target, static_cast<GLint>(texture.levels()), format.Internal,
+        glTexStorage3D(target, static_cast<GLint>(texture.levels()), p4_decode3d ? p4_format.Internal : format.Internal,
                        tex_extent.x, tex_extent.y, tex_extent.z);
         err = glGetError();
         if (err != GL_NO_ERROR)
@@ -370,20 +440,20 @@ GLuint CRender::texture_load(pcstr fRName, u32& ret_msize, GLenum& ret_desc, u32
                 case gli::TARGET_3D:
                 case gli::TARGET_CUBE_ARRAY:
                 {
-                    if (gli::is_compressed(texture.format()))
+                    if (p4_decode3d)
                     {
-                        glCompressedTexSubImage3D(target, static_cast<GLint>(level),
+                        glTexSubImage3D(target, static_cast<GLint>(level),
                                     0, 0, 0, tex_level_extent.x, tex_level_extent.y, tex_level_extent.z,
-                                    format.Internal, static_cast<GLsizei>(texture.size(level)),
-                                    texture.data(layer, face, level));
+                                    p4_format.External, p4_format.Type,
+                                    p4_dec3d.data() + p4_off3d[level]);
                         err = glGetError();
                         if (err != GL_NO_ERROR)
                         {
                             VERIFY(err == GL_NO_ERROR);
-                            Msg("! OpenGL: 0x%x: Invalid compressed 3D subtexture: '%s'", err, fn);
+                            Msg("! OpenGL: 0x%x: Invalid decoded 3D subtexture: '%s'", err, fn);
                         }
                     }
-                    else
+                    else if (gli::is_compressed(texture.format()))
                     {
                         glTexSubImage3D(target, static_cast<GLint>(level),
                                     0, 0, 0, tex_level_extent.x, tex_level_extent.y, tex_level_extent.z,

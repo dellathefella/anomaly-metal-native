@@ -43,6 +43,12 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 	// Usage: to create random weapon loadouts
 	LPCSTR loadout_section = "spawn_loadout";
 	u8 iItr = 1;
+	// p4: 'string32 buf' used to be declared INSIDE the loop body, so
+	// loadout_section dangled across the next iteration (MSVC happened to
+	// keep the bytes alive in the reused stack slot; clang's call
+	// temporaries clobber them -> r_section FATAL on "pawn_loadout2").
+	// One buffer for the whole loop keeps the pointer valid.
+	string32 buf;
 	while (ini.section_exist(loadout_section))
 	{
 		LPCSTR itmSection, V;
@@ -139,7 +145,6 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 		}
 
 		iItr++;
-		string32 buf;
 		loadout_section = strconcat(sizeof(buf), buf, "spawn_loadout", std::to_string(iItr).c_str());
 	}
 	//-Alundaio 

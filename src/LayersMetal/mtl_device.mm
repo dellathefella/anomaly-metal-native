@@ -15,7 +15,11 @@
 #include <SDL_syswm.h>
 
 #include <atomic>
+#include <cmath>
+#include <map>
 #include <memory>
+#include <utility>
+#include <vector>
 
 // deprecated legacy API, still exported by CoreGraphics (same route as the
 // GL path's occlusion guard): catches the screen lock where occlusion lags.
@@ -35,11 +39,14 @@ namespace xray::metal
 		uint32_t height = 0;
 		int presentInterval = 1;
 		bool ignoreDisplay = false;
+		// Ownership arena for NewBuffer/NewTexture2D (see mtl_device.h).
+		std::vector<id<NSObject>> arena;
 		// Drawables handed out but not yet presented+GPU-complete. macOS SDK's
 		// CAMetalLayer exposes no available-drawable count (nextDrawable always
 		// blocks; only a 1s timeout-nil escape hatch), so we account ourselves
 		// via command-buffer completed handlers and skip frames instead.
 		std::shared_ptr<std::atomic<int>> inFlight = std::make_shared<std::atomic<int>>(0);
+		std::map<std::pair<int, int>, id<MTLSamplerState>> samplers;
 	};
 
 	MetalDevice::MetalDevice() : m_impl(new Impl()) {}
@@ -261,6 +268,93 @@ namespace xray::metal
 		  bytesPerRow:bytesPerRow
 		   fromRegion:MTLRegionMake2D(0, 0, w, h)
 		  mipmapLevel:0];
+		return true;
+	}
+
+	void* MetalDevice::NewBuffer(size_t bytes)
+	{
+		if (!m_impl->device || bytes == 0)
+			return nullptr;
+		id<MTLBuffer> buf = [m_impl->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+		if (buf)
+			m_impl->arena.push_back(buf); // device-owned arena; borrowed handle back
+		return (__bridge void*)buf;
+	}
+
+	void* MetalDevice::NewTexture2D(uint32_t w, uint32_t h, uint32_t mips, int pixelFormat,
+	                                bool framebufferOnly, bool shaderReadable)
+	{
+		if (!m_impl->device || w == 0 || h == 0)
+			return nullptr;
+		MTLTextureDescriptor* td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:(MTLPixelFormat)pixelFormat
+																					 width:w
+																				height:h
+																		 mipmapped:mips != 1];
+		if (mips == 0)
+			td.mipmapLevelCount = (NSUInteger)(std::log2((double)(w > h ? w : h))) + 1;
+		else if (mips > 1)
+			td.mipmapLevelCount = mips;
+		// MTLTextureDescriptor has no framebufferOnly knob (read-only on the
+		// texture): usage bits decide. framebufferOnly == usage RenderTarget;
+		// readable/copyable textures need ShaderRead (also enables getBytes).
+		td.usage = MTLTextureUsageRenderTarget;
+		if (shaderReadable || !framebufferOnly)
+			td.usage |= MTLTextureUsageShaderRead;
+		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
+		if (tex)
+			m_impl->arena.push_back(tex);
+		return (__bridge void*)tex;
+	}
+
+	void MetalDevice::ReleaseResource(void* obj)
+	{
+		if (!obj)
+			return;
+		id<NSObject> target = (__bridge id<NSObject>)obj;
+		for (auto it = m_impl->arena.begin(); it != m_impl->arena.end(); ++it)
+		{
+			if (*it == target)
+			{
+				m_impl->arena.erase(it);
+				return;
+			}
+		}
+	}
+
+	void* MetalDevice::Sampler(int addressMode, int filter)
+	{
+		if (!m_impl->device)
+			return nullptr;
+		auto key = std::make_pair(addressMode, filter);
+		auto it = m_impl->samplers.find(key);
+		if (it != m_impl->samplers.end())
+			return (__bridge void*)it->second;
+		MTLSamplerDescriptor* sd = [MTLSamplerDescriptor new];
+		MTLSamplerAddressMode am = addressMode == 1 ? MTLSamplerAddressModeRepeat
+		                 : addressMode == 2 ? MTLSamplerAddressModeMirrorRepeat
+		                 : MTLSamplerAddressModeClampToEdge;
+		sd.sAddressMode = am;
+		sd.tAddressMode = am;
+		sd.minFilter = filter == 1 ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+		sd.magFilter = filter == 1 ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+		id<MTLSamplerState> s = [m_impl->device newSamplerStateWithDescriptor:sd];
+		if (s)
+			m_impl->samplers[key] = s;
+		return (__bridge void*)s;
+	}
+
+	bool MetalDevice::WriteTexture(void* texture, const void* pixels, uint32_t w, uint32_t h, std::string& error)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex || !pixels)
+		{
+			error = "null texture/pixels";
+			return false;
+		}
+		[tex replaceRegion:MTLRegionMake2D(0, 0, w, h)
+			   mipmapLevel:0
+				 withBytes:pixels
+			   bytesPerRow:4 * w];
 		return true;
 	}
 

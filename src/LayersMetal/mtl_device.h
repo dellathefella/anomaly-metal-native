@@ -71,6 +71,24 @@ namespace xray::metal
 		// (texture: id<MTLTexture>). For validation/screenshot paths.
 		bool Readback(void* texture, uint8_t* dst, uint32_t bytesPerRow, uint32_t w, uint32_t h, std::string& error);
 
+		// --- Resource factories (p5 t2 substrate for the renderer backend).
+		// Created objects live in the device's ownership arena and the returned
+		// void* handles are BORROWED, valid until ReleaseResource() or device
+		// teardown; backend classes (CTexture/CBuffer equivalents) call
+		// ReleaseResource() in their destructors. ---
+		void* NewBuffer(size_t bytes); // id<MTLBuffer>, shared storage (CPU+GPU)
+		// pixelFormat: MTLPixelFormat raw value (RGBA8Unorm=70, BGRA8Unorm=80,
+		// Depth32Float=252...). mips=0 -> full mip chain.
+		void* NewTexture2D(uint32_t w, uint32_t h, uint32_t mips, int pixelFormat,
+		                   bool framebufferOnly, bool shaderReadable); // id<MTLTexture>
+		// Cached sampler states. addressMode: 0=clamp 1=repeat 2=mirror;
+		// filter: 0=nearest 1=linear. id<MTLSamplerState>, owned by the cache.
+		void* Sampler(int addressMode, int filter);
+		// Drop an arena entry (buffer/texture). Safe with nullptr.
+		void ReleaseResource(void* obj);
+		// Replace a texture's mip0 with CPU pixels (BGRA8/RGBA8, region w x h).
+		bool WriteTexture(void* texture, const void* pixels, uint32_t w, uint32_t h, std::string& error);
+
 		const char* DeviceName() const;
 
 	private:

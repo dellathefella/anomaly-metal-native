@@ -43,6 +43,9 @@ add_executable(metal_poc metal_poc.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx
 add_executable(metal_shader_batch metal_shader_batch.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx9_translate.cpp)
 # Swapchain validation tool: CAMetalLayer on the SDL2 window (MetalDevice).
 add_executable(metal_swap_test metal_swap_test.mm mtl_device.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx9_translate.cpp)
+# Resource/state substrate validation: buffers, textures, samplers, cbuffers,
+# pipeline cache, depth, blend — offscreen, on-device.
+add_executable(metal_devicetest metal_devicetest.mm mtl_device.mm mtl_state.mm mtl_shader_compiler.cpp mtl_dxc.cpp mtl_dx9_translate.cpp)
 
 # Objective-C++ (Metal) with ARC; linked via the C++ driver. The DXC/SPIRV-Cross
 # compiler sources are pure C++ (WinAdapter.h macros stay out of .mm TUs).
@@ -52,17 +55,20 @@ set_source_files_properties(metal_shader_batch.mm PROPERTIES
 	COMPILE_FLAGS "-x objective-c++ -fobjc-arc")
 set_source_files_properties(metal_swap_test.mm mtl_device.mm PROPERTIES
 	COMPILE_FLAGS "-x objective-c++ -fobjc-arc")
+set_source_files_properties(metal_devicetest.mm mtl_state.mm PROPERTIES
+	COMPILE_FLAGS "-x objective-c++ -fobjc-arc")
 
 find_library(METAL_FRAMEWORK NAMES Metal)
 find_library(FOUNDATION_FRAMEWORK NAMES Foundation)
 find_library(QUARTZCORE_FRAMEWORK NAMES QuartzCore)
 find_library(COREGRAPHICS_FRAMEWORK NAMES CoreGraphics) # CGSessionCopyCurrentDictionary
 
-foreach(_mtl_tool metal_poc metal_shader_batch metal_swap_test)
+foreach(_mtl_tool metal_poc metal_shader_batch metal_swap_test metal_devicetest)
 	target_include_directories(${_mtl_tool} PRIVATE
 		"${CMAKE_CURRENT_SOURCE_DIR}"
 		"${SPIRV_CROSS_INCLUDE_DIR}"
-		"${XR_DXC_INCLUDE_DIR}")
+		"${XR_DXC_INCLUDE_DIR}"
+		${SDL2_INCLUDE_DIRS})
 	target_link_libraries(${_mtl_tool} PRIVATE
 		"${SPIRV_CROSS_MSL_LIBRARY}"
 		"${SPIRV_CROSS_GLSL_LIBRARY}"
@@ -83,9 +89,9 @@ foreach(_mtl_tool metal_poc metal_shader_batch metal_swap_test)
 	endif()
 endforeach()
 
-# SDL2 (sdl2-compat config package) for the swapchain tool's window.
-target_include_directories(metal_swap_test PRIVATE ${SDL2_INCLUDE_DIRS})
+# SDL2 (sdl2-compat config package) for the window-attach path in mtl_device.mm.
 target_link_libraries(metal_swap_test PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(metal_devicetest PRIVATE ${SDL2_LIBRARIES})
 
 # Default shader corpus for metal_shader_batch: the searge-coc r2 tree
 # (Anomaly-lineage DX9 HLSL). Override by passing a root path on the CLI.

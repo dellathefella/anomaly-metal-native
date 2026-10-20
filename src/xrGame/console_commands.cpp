@@ -229,6 +229,32 @@ public:
 		full_memory_stats();
 	}
 };
+
+// p4: dump the actor's engine-side tasks (id + state) to the log — the MCP harness
+// has no other way to enumerate CGameTaskManager (neither console nor Lua exposes it;
+// AXR's task_manager.task_info only covers dynamic faction tasks).
+#include "GametaskManager.h"
+#include "string_table.h"
+class CCC_P4Tasks : public IConsole_Command
+{
+public:
+	CCC_P4Tasks(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+	virtual void Execute(LPCSTR args)
+	{
+		if (!g_pGameLevel)
+		{
+			Msg("* p4 tasks: no level");
+			return;
+		}
+		vGameTasks& vt = Level().GameTaskManager().GetGameTasks();
+		Msg("* p4 tasks: %d", (int)vt.size());
+		for (auto& k : vt)
+			if (k.game_task)
+				Msg("* p4 task: '%s' state=%d title='%s'", *k.game_task->m_ID,
+				    (int)k.game_task->GetTaskState(),
+				    CStringTable().translate(k.game_task->m_Title).c_str());
+	}
+};
 #ifdef DEBUG
 class CCC_MemCheckpoint : public IConsole_Command
 {
@@ -2008,6 +2034,7 @@ void CCC_RegisterCommands()
 	//g_OptConCom.Init();
 
 	CMD1(CCC_MemStats, "stat_memory");
+	CMD1(CCC_P4Tasks, "p4_tasks"); // p4: task dump for the MCP harness
 #ifdef DEBUG
 	CMD1(CCC_MemCheckpoint, "stat_memory_checkpoint");
 #endif //#ifdef DEBUG

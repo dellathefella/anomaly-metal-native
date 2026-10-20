@@ -231,14 +231,14 @@ sndShot is played, it will play all the sound items with the same alias.
 //----------------------------------------------------------
 HUD_SOUND_COLLECTION_LAYERED::~HUD_SOUND_COLLECTION_LAYERED()
 {
-	typename xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
-	typename xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
-
-	for (; it != it_e; ++it)
-	{
-		it->~HUD_SOUND_COLLECTION();
-	}
-
+	// p4: the original explicitly called it->~HUD_SOUND_COLLECTION() on every
+	// element and then clear() ran each element's destructor AGAIN - the
+	// second pass freed the inner sound buffers a second time. Windows'
+	// free() silently fails an invalid free; macOS malloc aborts (SIGABRT
+	// 'pointer being freed was not allocated' the first time any hud item
+	// is destroyed - e.g. AXR replacing the spawn loadout right after a new
+	// game). clear() destroys each element exactly once; the destructor body
+	// still stops & releases every sound.
 	m_sound_items.clear();
 }
 

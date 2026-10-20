@@ -102,8 +102,10 @@ public:
                 if (2 == sscanf(line.c_str() + 5, "%d %d", &cx, &cy))
                 {
                     SetCursorPos(cx, cy);
-                    xr_raw_input_push(XrRawInputEvent::MouseButtonDown, 1 /*SDL_BUTTON_LEFT*/);
-                    m_pending_release = 1; // button-up next frame (see OnFrame)
+                    // p4: staged — let the UI cursor consume the warped
+                    // position for a frame before the button events; XRay
+                    // buttons need press AND release inside the widget rect.
+                    m_pending_release = 3; // down @N+2, up @N+3 (see OnFrame)
                 }
                 else
                     Msg("! harness: bad click '%s'", line.c_str());

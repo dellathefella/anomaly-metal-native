@@ -459,12 +459,27 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         ok = true;
         break;
     case SDL_MOUSEMOTION:
+    {
+        int prev_x = 0, prev_y = 0;
+        const bool had_prev = xr_cursor_abs(prev_x, prev_y);
         xr_cursor_abs_set(e.motion.x, e.motion.y); // p4: absolute mirror
-        xr_raw_input_push(XrRawInputEvent::MouseMotion, e.motion.xrel, e.motion.yrel);
+        int dx = e.motion.xrel, dy = e.motion.yrel;
+        // p4: Cocoa delivers SDL_WarpMouseInWindow motion events with
+        // xrel/yrel = 0. The UI cursor in relative mode (m_b_use_win_cursor
+        // false whenever the desktop is smaller than the drawable) only
+        // consumes deltas, so warps — harness clicks — moved nothing.
+        // Synthesize the delta from the absolute mirror when SDL reports none.
+        if (!dx && !dy && had_prev)
+        {
+            dx = e.motion.x - prev_x;
+            dy = e.motion.y - prev_y;
+        }
+        xr_raw_input_push(XrRawInputEvent::MouseMotion, dx, dy);
         m.message = WM_MOUSEMOVE;
         m.lParam = MAKELPARAM(e.motion.x, e.motion.y);
         ok = true;
         break;
+    }
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
     {

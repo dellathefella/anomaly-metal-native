@@ -242,6 +242,13 @@ Fvector3 ps_r2_dof = Fvector3().set(-1.25f, 1.4f, 600.f);
 float ps_r2_dof_sky = 30; //    distance to sky
 float ps_r2_dof_kernel_size = 5.0f; //  7.0f
 
+// p4: AXR Lua unconditionally sets these monolith gasmask-tuning cvars
+// (rendertarget_phase_gasmask_drops/dudv consumers); the staged renderer has
+// no consumers yet, so back them with local storage to keep the commands
+// accepted (was 'Unknown command' spam) and the tuning values persistent.
+static Fvector4 p4_axr_mask_control = Fvector4().set(0, 0, 0, 0);
+static Fvector p4_axr_drops_control = Fvector().set(0, 1.15f, 0);
+
 float ps_r3_dyn_wet_surf_near = 5.f; // 10.0f
 float ps_r3_dyn_wet_surf_far = 20.f; // 30.0f
 int ps_r3_dyn_wet_surf_sm_res = 256; // 256
@@ -975,5 +982,11 @@ void xrRender_initconsole()
 #if RENDER == R_R4
     CMD4(CCC_Integer, "r2_mt_render",       &ps_r2_mt_render,    0, 1);
 #endif
+    // p4: AXR gasmask tuning knobs (see p4_axr_* storage above); ranges match
+    // the monolith Layers/xrRender/xrRender_console.cpp registrations.
+    CMD4(CCC_Vector4, "r2_mask_control", &p4_axr_mask_control,
+         Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 3, 1, 1));
+    CMD4(CCC_Vector3, "r2_drops_control", &p4_axr_drops_control,
+         Fvector().set(0, 0, 0), Fvector().set(1, 2, 1));
 }
 } // namespace xray::render::RENDER_NAMESPACE

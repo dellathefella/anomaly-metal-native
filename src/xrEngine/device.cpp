@@ -31,6 +31,7 @@
 
 #include "xrSash.h"
 #include "igame_persistent.h"
+#include "xr_mcp.h" // p4: -mcp in-game control server tick
 
 #pragma comment( lib, "d3dx9.lib" )
 
@@ -298,6 +299,8 @@ void mt_FreezeThread(void *ptr) {
 void CRenderDevice::on_idle()
 {
 	FreezeTimer.Start();
+
+	xr_mcp_frame(); // p4: in-game control server tick (frame boundary)
 
 	if (!b_is_Ready)
 	{

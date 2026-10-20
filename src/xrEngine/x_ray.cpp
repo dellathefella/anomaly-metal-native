@@ -17,6 +17,7 @@
 #include "xr_ioconsole.h"
 #include "x_ray.h"
 #include "harness_driver.h" // p4: -harness <file> visual-regression driver
+#include "xr_mcp.h"         // p4: -mcp in-game control server
 #include "std_classes.h"
 #include "GameFont.h"
 #include "resource.h"
@@ -601,6 +602,7 @@ void Startup()
 	Memory.mem_usage();
 
 	harness_init(); // p4: visual regression harness (-harness <file>)
+	xr_mcp_init();  // p4: in-game control server (-mcp [port])
 
 	Device.Run();
 
@@ -1313,6 +1315,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	}
 	else if (E == eStart)
 	{
+		Msg("* P4DBG: eStart server='%s' client='%s'", P1 ? LPSTR(P1) : "-", P2 ? LPSTR(P2) : "-");
 		LPSTR op_server = LPSTR(P1);
 		LPSTR op_client = LPSTR(P2);
 		Level_Current = u32(-1);

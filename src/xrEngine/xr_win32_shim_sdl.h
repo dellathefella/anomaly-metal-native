@@ -394,6 +394,24 @@ inline void xr_cursor_abs_set(int x, int y)
     xr_cursor_abs_valid() = true;
 }
 
+// p4: cursor freeze for synthetic clicks. A harness click warps the OS
+// cursor, but the player's physical mouse (hand resting on it) emits motion
+// events that immediately overwrite the warped position, so the staged
+// press/release land off-target. During the freeze window every incoming
+// motion event is rewritten back to the frozen point, so the click lands
+// regardless of physical movement. Only the harness engages this.
+inline Uint32& xr_cursor_freeze_until_ms()
+{
+    static Uint32 v = 0;
+    return v;
+}
+inline void xr_cursor_freeze_now(Uint32 ms)
+{
+    if (!xr_cursor_abs_valid())
+        return;
+    xr_cursor_freeze_until_ms() = SDL_GetTicks() + ms;
+}
+
 inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
 {
     MSG m{};
@@ -462,7 +480,19 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
     {
         int prev_x = 0, prev_y = 0;
         const bool had_prev = xr_cursor_abs(prev_x, prev_y);
-        xr_cursor_abs_set(e.motion.x, e.motion.y); // p4: absolute mirror
+        int mx = e.motion.x, my = e.motion.y;
+        if (SDL_GetTicks() < xr_cursor_freeze_until_ms())
+        {
+            // freeze window: physical motion cannot move the UI cursor
+            mx = xr_cursor_abs_pts(0);
+            my = xr_cursor_abs_pts(1);
+            xr_raw_input_push(XrRawInputEvent::MouseMotion, 0, 0);
+            m.message = WM_MOUSEMOVE;
+            m.lParam = MAKELPARAM(mx, my);
+            ok = true;
+            break;
+        }
+        xr_cursor_abs_set(mx, my); // p4: absolute mirror
         int dx = e.motion.xrel, dy = e.motion.yrel;
         // p4: Cocoa delivers SDL_WarpMouseInWindow motion events with
         // xrel/yrel = 0. The UI cursor in relative mode (m_b_use_win_cursor
@@ -471,12 +501,12 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         // Synthesize the delta from the absolute mirror when SDL reports none.
         if (!dx && !dy && had_prev)
         {
-            dx = e.motion.x - prev_x;
-            dy = e.motion.y - prev_y;
+            dx = mx - prev_x;
+            dy = my - prev_y;
         }
         xr_raw_input_push(XrRawInputEvent::MouseMotion, dx, dy);
         m.message = WM_MOUSEMOVE;
-        m.lParam = MAKELPARAM(e.motion.x, e.motion.y);
+        m.lParam = MAKELPARAM(mx, my);
         ok = true;
         break;
     }
@@ -747,9 +777,25 @@ inline BOOL ClipCursor(const RECT* r)
 {
     // Engine semantics: confine the cursor while playing. SDL window grab is
     // the equivalent; the input port (p3 t2) uses the same mechanism.
+    // p4 (turn-around fix): macOS Cocoa delivers motion xrel/yrel = 0 even
+    // while grabbed, and absolute coords clamp at the window edge — so mouse
+    // look stopped after one window-width of travel ("can't turn around").
+    // Relative mouse mode is the DirectInput-equivalent: real deltas forever.
     SDL_Window* win = xr_sdl_window_of(xr_sdl_primary_window());
     if (win)
+    {
         SDL_SetWindowGrab(win, r ? SDL_TRUE : SDL_FALSE);
+        SDL_SetRelativeMouseMode(r ? SDL_TRUE : SDL_FALSE);
+        if (!r)
+        {
+            // leaving relative mode: re-seed the absolute mirror so the UI
+            // cursor resumes from the true pointer position
+            int px = 0, py = 0;
+            Uint32 b = SDL_GetMouseState(&px, &py);
+            (void)b;
+            xr_cursor_abs_set(px, py);
+        }
+    }
     return TRUE;
 }
 

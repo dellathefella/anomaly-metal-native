@@ -113,6 +113,8 @@ public:
                 if (2 == sscanf(line.c_str() + 5, "%d %d", &cx, &cy))
                 {
                     SetCursorPos(cx, cy);
+                    xr_cursor_freeze_now(500); // physical mouse cannot steal
+                                               // the target during the click
                     // p4: staged — let the UI cursor consume the warped
                     // position for a frame before the button events; XRay
                     // buttons need press AND release inside the widget rect.

@@ -18,6 +18,8 @@ class CHarnessDriver : public pureFrame
     int m_grace{ 30 }; // frames to let the renderer/menu settle first
     int m_dbg_counter{ 0 };
     int m_pending_release{ 0 }; // p4: deferred button-up frame (see `click`)
+    int m_hold_scancode{ 0 };  // p4: `hold` key with a key-up pending
+    float m_hold_release_at{ -1.f };
 
 public:
     explicit CHarnessDriver(LPCSTR path)
@@ -76,7 +78,16 @@ public:
         const float t = Device.fTimeGlobal;
         if (m_t0 < 0.f)
             m_t0 = t; // (re)base after level transitions reset the clock
+        if (t < m_t0)
+            m_t0 = t; // clock jumped back (level load) — rebase
         const float now = t - m_t0;
+
+        // p4: pending `hold` release.
+        if (m_hold_scancode && now >= m_hold_release_at)
+        {
+            xr_raw_input_push(XrRawInputEvent::KeyUp, m_hold_scancode);
+            m_hold_scancode = 0;
+        }
 
         while (m_next < m_lines.size())
         {
@@ -115,35 +126,67 @@ public:
             // p4: `key <NAME>` injects a synthetic key press+release through
             // the SDL raw-input queue (same path real keys take) so UI
             // navigation (menu, dialogs) is scriptable.
-            if (line.compare(0, 4, "key ") == 0)
+            // `hold <NAME> <secs>` presses the key and releases it secs
+            // (wall-clock) later — movement (hold KEY_W 5) needs a real hold.
+            static const struct
             {
-                static const struct
+                const char* name;
+                int scancode;
+            } s_keys[] = {
+                {"RETURN", 40}, {"ESCAPE", 41}, {"SPACE", 44}, {"TAB", 43},
+                {"RIGHT", 79}, {"LEFT", 80}, {"DOWN", 81}, {"UP", 82},
+                {"KEY_W", 26}, {"KEY_A", 4}, {"KEY_S", 22}, {"KEY_D", 7},
+                {"LSHIFT", 225},
+            };
+            const bool is_key = line.compare(0, 4, "key ") == 0;
+            const bool is_hold = line.compare(0, 4, "hold") == 0;
+            if (is_key || is_hold)
+            {
+                char nm[64] = "";
+                float secs = 1.f;
+                const char* args = line.c_str() + 4;
+                if (is_hold)
                 {
-                    const char* name;
-                    int scancode;
-                } s_keys[] = {
-                    {"RETURN", 40}, {"ESCAPE", 41}, {"SPACE", 44}, {"TAB", 43},
-                    {"RIGHT", 79}, {"LEFT", 80}, {"DOWN", 81}, {"UP", 82},
-                };
-                const char* nm = line.c_str() + 4;
-                while (*nm == ' ')
-                    ++nm;
-                if (nm[0] == 'k' || nm[0] == 'K') // tolerate kDOWN/DIK-style names
-                    ++nm;
-                bool hit = false;
+                    if (2 != sscanf(args, "%63s %f", nm, &secs) && 1 != sscanf(args, "%63s", nm))
+                        nm[0] = 0;
+                }
+                else
+                {
+                    if (1 != sscanf(args, "%63s", nm))
+                        nm[0] = 0;
+                }
+                const char* p = nm;
+                while (*p == ' ')
+                    ++p;
+                if (*p == 'k' || *p == 'K') // tolerate kDOWN/DIK-style names
+                    ++p;
+                int sc = 0;
                 for (auto& k : s_keys)
-                    if (!xr_stricmp(nm, k.name))
+                    if (!xr_stricmp(p, k.name))
                     {
-                        xr_raw_input_push(XrRawInputEvent::KeyDown, k.scancode);
-                        xr_raw_input_push(XrRawInputEvent::KeyUp, k.scancode);
-                        hit = true;
+                        sc = k.scancode;
                         break;
                     }
-                if (!hit)
+                if (!sc)
                     Msg("! harness: unknown key '%s'", nm);
+                else if (is_key)
+                {
+                    xr_raw_input_push(XrRawInputEvent::KeyDown, sc);
+                    xr_raw_input_push(XrRawInputEvent::KeyUp, sc);
+                }
+                else
+                {
+                    xr_raw_input_push(XrRawInputEvent::KeyDown, sc);
+                    m_hold_scancode = sc;
+                    m_hold_release_at = now + (secs > 0.f ? secs : 1.f);
+                    Msg("* harness: hold '%s' for %.1fs", p, (double)secs);
+                }
                 ++m_next;
                 continue;
             }
+            if (line.compare(0, 10, "screenshot") == 0)
+                Msg("* harness: fps=%.1f at '%s'",
+                    Device.fTimeDelta > 1e-6f ? 1.f / Device.fTimeDelta : 0.f, line.c_str());
             Console->ExecuteCommand(line.c_str(), false);
             ++m_next;
         }

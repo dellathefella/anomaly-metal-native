@@ -66,6 +66,8 @@
 #include "Flashlight.h"
 #include "CharacterPhysicsSupport.h"
 
+#include <functional> // p4: p4_ui_defer marshalling
+
 bool CScriptGameObject::GiveInfoPortion(LPCSTR info_id)
 {
 	CInventoryOwner* pInventoryOwner = smart_cast<CInventoryOwner*>(&object());
@@ -89,16 +91,22 @@ void CScriptGameObject::AddIconedTalkMessage(LPCSTR caption, LPCSTR text, LPCSTR
 	_AddIconedTalkMessage(caption, text, texture_name, templ_name);
 }
 
+// p4 (actor_communication.cpp): marshals UI calls onto the render thread; the
+// alife thread has no GL context and UI static creation uploads textures.
+void p4_ui_defer(std::function<void()> callback);
+
 void _AddIconedTalkMessage(LPCSTR caption, LPCSTR text, LPCSTR texture_name, LPCSTR templ_name)
 {
-	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-	if (!pGameSP) return;
+	xr_string cap(caption ? caption : ""), txt(text ? text : ""), tex(texture_name ? texture_name : "");
+	xr_string templ(templ_name ? templ_name : "iconed_answer_item");
+	p4_ui_defer([cap, txt, tex, templ]() {
+		CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
+		if (!pGameSP)
+			return;
 
-	if (pGameSP->TalkMenu->IsShown())
-	{
-		pGameSP->TalkMenu->AddIconedMessage(caption, text, texture_name,
-		                                    templ_name ? templ_name : "iconed_answer_item");
-	}
+		if (pGameSP->TalkMenu->IsShown())
+			pGameSP->TalkMenu->AddIconedMessage(cap.c_str(), txt.c_str(), tex.c_str(), templ.c_str());
+	});
 }
 
 void _give_news(LPCSTR caption, LPCSTR news, LPCSTR texture_name, int delay, int show_time, int type);

@@ -110,8 +110,18 @@ Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMP
 int psActorSleepTime = 1;
 
 
+// p4 (actor_communication.cpp): UI-thread capture for the GL deferral queue.
+extern unsigned long g_p4_ui_thread_id;
+extern CRITICAL_SECTION g_p4_ui_cs;
+
 CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
 {
+	// p4: the actor is constructed on the main (render) thread — record it so
+	// alife-thread UI calls can be marshalled back (see p4_ui_defer).
+	static const bool s_p4_cs_init = (InitializeCriticalSection(&g_p4_ui_cs), true);
+	(void)s_p4_cs_init;
+	g_p4_ui_thread_id = GetCurrentThreadId();
+
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
 	// Cameras
 	cameras[eacFirstEye] = xr_new<CCameraFirstEye>(this);

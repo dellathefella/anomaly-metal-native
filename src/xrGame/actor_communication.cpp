@@ -31,16 +31,45 @@
 #include "ai/trader/ai_trader.h"
 #include "Flashlight.h"
 
+#include <functional>
+#include <deque>
+
+// p4: GL-threading fix. Script callbacks scheduled from the alife update
+// thread (AXR delivers PDA news / talk messages from sim updates) reach the
+// HUD here and create UI textures + shaders. The staged GL renderer issues
+// real GL calls on object creation (glGenTextures inside texture_load), which
+// SIGSEGVs on Apple GL when run on a thread without a context; D3D9 tolerated
+// it. Calls made off the main (render) thread are therefore marshalled into a
+// lock-protected queue and drained from CActor::UpdateDefferedMessages, i.e.
+// on the client update (main) thread.
+CRITICAL_SECTION g_p4_ui_cs;
+unsigned long g_p4_ui_thread_id = 0;
+typedef std::deque<std::function<void()>> p4_ui_deferred_q;
+p4_ui_deferred_q g_p4_ui_deferred;
+
+void p4_ui_defer(std::function<void()> callback)
+{
+	if (g_p4_ui_thread_id && GetCurrentThreadId() != g_p4_ui_thread_id)
+	{
+		EnterCriticalSection(&g_p4_ui_cs);
+		g_p4_ui_deferred.push_back(std::move(callback));
+		LeaveCriticalSection(&g_p4_ui_cs);
+	}
+	else
+		callback();
+}
+
 void CActor::AddGameNews(GAME_NEWS_DATA& news_data)
 {
-	GAME_NEWS_VECTOR& news_vector = game_news_registry->registry().objects();
-	news_data.receive_time = Level().GetGameTime();
-	news_vector.push_back(news_data);
+	GAME_NEWS_DATA data = news_data;
+	p4_ui_defer([this, data]() mutable {
+		GAME_NEWS_VECTOR& news_vector = game_news_registry->registry().objects();
+		data.receive_time = Level().GetGameTime();
+		news_vector.push_back(data);
 
-	if (CurrentGameUI())
-	{
-		CurrentGameUI()->UIMainIngameWnd->ReceiveNews(&news_data);
-	}
+		if (CurrentGameUI())
+			CurrentGameUI()->UIMainIngameWnd->ReceiveNews(&data);
+	});
 }
 
 
@@ -56,7 +85,7 @@ bool CActor::OnReceiveInfo(shared_str info_id) const
 
 	if (!CurrentGameUI())
 		return false;
-	//только если находимся в режиме single
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ single
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP) return false;
 
@@ -77,7 +106,7 @@ void CActor::OnDisableInfo(shared_str info_id) const
 	if (!CurrentGameUI())
 		return;
 
-	//только если находимся в режиме single
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ single
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP) return;
 
@@ -87,7 +116,7 @@ void CActor::OnDisableInfo(shared_str info_id) const
 
 void CActor::ReceivePhrase(DIALOG_SHARED_PTR& phrase_dialog)
 {
-	//только если находимся в режиме single
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ single
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP) return;
 
@@ -102,7 +131,7 @@ void CActor::UpdateAvailableDialogs(CPhraseDialogManager* partner)
 	m_AvailableDialogs.clear();
 	m_CheckedDialogs.clear();
 
-	//добавить актерский диалог собеседника
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CInventoryOwner* pInvOwnerPartner = smart_cast<CInventoryOwner*>(partner);
 	VERIFY(pInvOwnerPartner);
 
@@ -122,7 +151,7 @@ void CActor::TryToTalk()
 
 void CActor::RunTalkDialog(CInventoryOwner* talk_partner, bool disable_break)
 {
-	//предложить поговорить с нами
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
 	if (talk_partner->OfferTalk(this))
 	{
 		StartTalk(talk_partner);
@@ -181,6 +210,14 @@ void CActor::AddGameNews_deffered(GAME_NEWS_DATA& news_data, u32 delay)
 
 void CActor::UpdateDefferedMessages()
 {
+	// p4: drain UI calls marshalled off the alife thread (see p4_ui_defer).
+	p4_ui_deferred_q local;
+	EnterCriticalSection(&g_p4_ui_cs);
+	local.swap(g_p4_ui_deferred);
+	LeaveCriticalSection(&g_p4_ui_cs);
+	for (auto& f : local)
+		f();
+
 	while (m_defferedMessages.size())
 	{
 		SDefNewsMsg& M = m_defferedMessages.back();

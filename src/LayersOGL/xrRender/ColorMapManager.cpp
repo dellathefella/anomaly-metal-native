@@ -35,6 +35,9 @@ void ColorMapManager::UpdateTexture(const shared_str& strTexName, int iTex)
 #elif defined(USE_OGL)
             GLuint e0 = I->second->surface_get();
             m_CMap[iTex]->surface_set(GL_TEXTURE_2D, e0);
+#elif defined(USE_METAL)
+            void* e0 = I->second->surface_get();
+            m_CMap[iTex]->surface_set(e0);
 #else
 #    error No graphics API selected or in use!
 #endif
@@ -53,6 +56,9 @@ void ColorMapManager::UpdateTexture(const shared_str& strTexName, int iTex)
 #elif defined(USE_OGL)
             GLuint e0 = tmp->surface_get();
             m_CMap[iTex]->surface_set(GL_TEXTURE_2D, e0);
+#elif defined(USE_METAL)
+            void* e0 = tmp->surface_get();
+            m_CMap[iTex]->surface_set(e0);
 #else
 #    error No graphics API selected or in use!
 #endif
@@ -64,6 +70,8 @@ void ColorMapManager::UpdateTexture(const shared_str& strTexName, int iTex)
         m_CMap[iTex]->surface_set(nullptr);
 #elif defined(USE_OGL)
         m_CMap[iTex]->surface_set(GL_TEXTURE_2D, 0);
+#elif defined(USE_METAL)
+        m_CMap[iTex]->surface_set(nullptr);
 #else
 #    error No graphics API selected or in use!
 #endif

@@ -33,7 +33,7 @@ void CRenderTarget::accum_reflected(CBackend& cmd_list, light* L)
         float _h = float(Device.dwHeight);
         float o_w = (.5f / _w);
         float o_h = (.5f / _h);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust =
         {
             0.5f, 0.0f, 0.0f, 0.0f,

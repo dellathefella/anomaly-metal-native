@@ -42,6 +42,12 @@ public:
     GLuint pRT{};
     GLuint pZRT{};
     GLenum target{};
+#elif defined(USE_METAL)
+    // p5 Metal: id<MTLTexture> handles (bridged; color + depth both live as
+    // textures — Metal render encoders take them directly at pass start).
+    void* pRT{};
+    void* pZRT{};
+    u32 target{};
 #else
 #   error No graphics API selected or enabled!
 #endif

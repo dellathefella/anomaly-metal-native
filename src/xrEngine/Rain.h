@@ -9,6 +9,7 @@
 // p4: the ported GL renderer (LayersOGL) declares the same class inside
 // xray::render::render_gl; grant it the same friend access as the DX11 one.
 namespace xray::render::render_gl { class dxRainRender; }
+namespace xray::render::render_metal { class dxRainRender; } // p5
 
 #include "../xrcdb/xr_collide_defs.h"
 
@@ -23,6 +24,7 @@ class ENGINE_API CEffect_Rain
 {
 	friend class dxRainRender;
 	friend class xray::render::render_gl::dxRainRender; // p4
+	friend class xray::render::render_metal::dxRainRender; // p5
 private:
 	struct Item
 	{

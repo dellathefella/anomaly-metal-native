@@ -368,7 +368,7 @@ void CResourceManager::DeferredUpload()
 
 #if defined(USE_DX11)
     xr_parallel_for_each(m_textures, [&](auto m_tex) { m_tex.second->Load(); });
-#elif defined(USE_OGL) // XXX: OGL: Set additional contexts for all worker threads?
+#elif defined(USE_OGL) || defined(USE_METAL) // XXX: OGL: Set additional contexts for all worker threads?
     for (auto& texture : m_textures)
         texture.second->Load();
 #else
@@ -385,7 +385,7 @@ void CResourceManager::DeferredUnload()
 
 #if defined(USE_DX11)
     xr_parallel_for_each(m_textures, [&](auto m_tex) { m_tex.second->Unload(); });
-#elif defined(USE_OGL) // XXX: OGL: Set additional contexts for all worker threads?
+#elif defined(USE_OGL) || defined(USE_METAL) // XXX: OGL: Set additional contexts for all worker threads?
     for (auto& texture : m_textures)
         texture.second->Unload();
 #else

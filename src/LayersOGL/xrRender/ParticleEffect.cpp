@@ -37,7 +37,8 @@ static void ApplyTexgen(CBackend& cmd_list, const Fmatrix& mVP)
 {
     Fmatrix mTexgen;
 
-#if defined(USE_DX11)
+// p5 Metal: Metal's clip/viewport convention matches D3D — DX11 form.
+#if defined(USE_DX11) || defined(USE_METAL)
     Fmatrix mTexelAdjust =
     {
         0.5f, 0.0f, 0.0f, 0.0f,

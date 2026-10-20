@@ -57,8 +57,8 @@ void CRenderTarget::u_stencil_optimize(CBackend& cmd_list, eStencilOptimizeMode 
 
     cmd_list.set_Geometry(g_combine);
     cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
-#elif defined(USE_OGL)
-    //	TODO: OGL: should we implement stencil optimization?
+#elif defined(USE_OGL) || defined(USE_METAL)
+    //	TODO: OGL/Metal: should we implement stencil optimization?
     VERIFY(RImplementation.o.nvstencil);
     VERIFY(!"CRenderTarget::u_stencil_optimize no implemented");
     UNUSED(eSOM);
@@ -70,7 +70,7 @@ void CRenderTarget::u_stencil_optimize(CBackend& cmd_list, eStencilOptimizeMode 
 // 2D texgen (texture adjustment matrix)
 void CRenderTarget::u_compute_texgen_screen(CBackend& cmd_list, Fmatrix& m_Texgen)
 {
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
     Fmatrix m_TexelAdjust =
     {
         0.5f, 0.0f, 0.0f, 0.0f,
@@ -100,7 +100,7 @@ void CRenderTarget::u_compute_texgen_jitter(CBackend& cmd_list, Fmatrix& m_Texge
     Fmatrix m_TexelAdjust =
     {
         0.5f, 0.0f, 0.0f, 0.0f,
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         0.0f, -0.5f, 0.0f, 0.0f,
 #elif defined(USE_OGL)
         0.0f, 0.5f, 0.0f, 0.0f,
@@ -733,6 +733,16 @@ CRenderTarget::~CRenderTarget()
 
     t_noise_mipped->surface_set(GL_TEXTURE_2D, 0);
     glDeleteTextures(1, &t_noise_surf_mipped);
+#elif defined(USE_METAL)
+    // p5 Metal: t_material/t_LUM_*/t_noise* are CTexture objects owned by the
+    // device arena (mtl_device.h); their MTL textures are released at teardown.
+    // No GL-name unbinding needed — stage bindings are pass-manager state.
+    t_material.destroy();
+    t_LUM_src.destroy();
+    t_LUM_dest.destroy();
+    for (u32 it = 0; it < TEX_jitter_count; it++)
+        t_noise[it].destroy();
+    t_noise_mipped.destroy();
 #else
 #   error No graphics API selected or enabled!
 #endif

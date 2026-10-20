@@ -1,0 +1,212 @@
+#pragma once
+// xrRender_METAL stdafx (p5) — adapted from the ported OpenXRay GL stdafx.
+// Same shim surface (the staged OpenXRay layers are compiled against the
+// MONOLITH engine/xrRender interface), but the device layer is the native
+// Metal backend under src/LayersMetal/xrRenderMetal.
+
+// D3D9 type set must precede the engine headers so the engine's POSIX shim
+// (Include/POSIXShims/d3d9types.h) stands down (see XRAY_D3D9_TYPES_PROVIDED).
+#include "Common/d3d9compat.hpp"
+
+// p4 (GL): dev's CHK_GL — release no-op form. Metal TUs don't use it, but the
+// staged layers reference it in shared code paths.
+#ifndef CHK_GL
+#define CHK_GL(expr) expr
+#endif
+
+// p4: dev's assert-with-recovery form; release builds strip the assert, so the
+// cure clause is a no-op here.
+#ifndef R_ASSERT1
+#define R_ASSERT1(expr) R_ASSERT(expr)
+#endif
+#ifndef R_ASSERT1_CURE
+#define R_ASSERT1_CURE(FUNC, CURE) R_ASSERT1(FUNC)
+#endif
+#ifndef R_ASSERT2_CURE
+#define R_ASSERT2_CURE(FUNC, E2, CURE) R_ASSERT2(FUNC, E2)
+#endif
+#ifndef R_ASSERT3_CURE
+#define R_ASSERT3_CURE(FUNC, E2, E3, CURE) R_ASSERT3(FUNC, E2, E3)
+#endif
+
+// p4: dev's Tracy profiling macros — no-op in the port (xrCore has no tracy).
+#ifndef ZoneScoped
+#define ZoneScoped
+#define ZoneScopedN(x)
+#endif
+
+// p4: dev's path-delimiter macro (shader cache paths) and cpstr spelling
+// (xrCore/xr_types.h). Backslash: the monolith FS indexes loose and archive
+// entries with backslash-separated virtual names (Windows parity) — a POSIX
+// '/' query never matches the registered keys.
+#ifndef DELIMITER
+#define DELIMITER "\\"
+#endif
+#ifndef cpstr
+using cpstr = char* const;
+#endif
+
+// p4: dev's global SoC-resources toggle (xrEngine/defines.h); the monolith has
+// no such switch — defined false in xrRender_METAL_factory.cpp.
+extern bool ShadowOfChernobylMode;
+
+// p4: dev's xrAPI EngineGlobalEnvironment (xrAPI.h) — the staged renderer only
+// reads GEnv.isDedicatedServer; the monolith's flag is g_dedicated_server
+// (xrEngine/IGame_Persistent.h). Defined in xrRender_METAL_factory.cpp.
+struct xr_genv_shim
+{
+	bool& isDedicatedServer;
+};
+extern xr_genv_shim GEnv;
+
+// OpenXRay's xr_types.h spelling used by the staged layers (xrCore untouched).
+using cpcstr = const char* const;
+
+#pragma warning(disable:4995)
+#include "xrEngine/stdafx.h"
+
+// Dear ImGui texture id + xrImTextureData (OpenXRay's render.h): the staged
+// renderer only passes texture handles through these; imgui itself is not
+// linked in this port. imgui 1.92 defines: typedef ImU64 ImTextureID.
+typedef uint64_t ImTextureID;
+struct xrImTextureData
+{
+	ImTextureID texture{};
+	Fvector2 size{};
+};
+#pragma warning(default:4995)
+#pragma warning(disable:4714)
+#pragma warning( 4 : 4018 )
+#pragma warning( 4 : 4244 )
+#pragma warning(disable:4237)
+
+#include "xrEngine/vis_common.h"
+#include "xrEngine/Render.h"
+#include "xrEngine/IGame_Level.h"
+
+#include "xrParticles/psystem.h"
+
+// p5 Metal: the device API enters only through the xrRenderMetal .mm TUs; the
+// shared staged layers see void* handles (see CommonTypes.h).
+#include <SDL.h>
+
+// The staged pipeline-variant macros: R_GL selects the non-DX11 pipeline
+// variants the GL port uses — Metal shares them (device API is chosen by
+// USE_METAL branches, not by RENDER).
+#define R_GL 0
+#define R_R1 1
+#define R_R2 2
+#define R_R3 3
+#define R_R4 4
+#define RENDER R_GL
+
+// p4: dev's parallel-context counts (dev's xrEngine/Engine.h). The Metal port
+// renders on one immediate context, but staged graph arrays keep dev sizing.
+#define R__NUM_SUN_CASCADES (3u)
+#define R__NUM_AUX_CONTEXTS (1u)
+#define R__NUM_PARALLEL_CONTEXTS (R__NUM_SUN_CASCADES + R__NUM_AUX_CONTEXTS)
+#define R__NUM_CONTEXTS (R__NUM_PARALLEL_CONTEXTS + 1/* imm */)
+
+// p4: the IRender boundary (IRender_interface/IRender_Sector/IRender_Light…)
+// must precede the staged layers so every renderer TU sees the same types
+// regardless of staged include order. CameraManager.h brings SPPInfo
+// (SetPostProcessParams) which the staged r2.h references unqualified.
+#include "xrEngine/Render.h"
+#include "xrEngine/CameraManager.h"
+
+// p4: dev's SpatialBase (default ISpatial implementation, dev xrCDB/ISpatial.h)
+// on top of the monolith's ISpatial — the staged light class derives from it.
+// The monolith ISpatial already provides the virtuals the staged overrides
+// target (spatial_move/spatial_sector_point/dcast_Light) and `spatial`.
+#include "xrCDB/ISpatial.h"
+class SpatialBase : public virtual ISpatial
+{
+public:
+	explicit SpatialBase(ISpatial_DB& space) : ISpatial(&space) {}
+	virtual ~SpatialBase() {}
+
+	virtual bool spatial_inside() { return spatial.sector != nullptr; }
+};
+
+// p4: dev's CRenderDevice::mInvView (per-frame inverse view held by the dev
+// device) — the monolith device has no such member; compute on demand (only
+// shadow/accum pass call sites).
+ICF Fmatrix xr_inv_view()
+{
+	Fmatrix m;
+	m.invert(Device.mView); // 4x3 invert — view matrices are affine (dev mInvView use-sites)
+	return m;
+}
+
+// p4: dev's size-less strconcat overloads (xrCore/string_concatenations.h) for
+// fixed char arrays. Implemented as a manual append loop because some staged
+// call sites pass more string args than the monolith's strconcat overloads
+// (max 6) accept.
+inline pcstr xr_strcat_arg(pcstr s) { return s; }
+template <class T, class = std::enable_if_t<!std::is_convertible_v<const T&, pcstr>>>
+inline pcstr xr_strcat_arg(const T& v) { return v.c_str(); }
+template <size_t Size, class... Args>
+inline LPSTR strconcat(char (&dest)[Size], const Args&... sources)
+{
+	const char* arr[] = { xr_strcat_arg(sources)... };
+	dest[0] = '\0';
+	for (const char* s : arr)
+	{
+		const size_t used = std::strlen(dest);
+		if (used + 1 >= Size)
+			break;
+		std::strncat(dest, s, Size - used - 1);
+	}
+	return dest;
+}
+
+// p4: dev containers key std::unordered_map by shared_str; the monolith's
+// shared_str has no std::hash specialization (MSVC-era stdext::hash_map).
+#include <string_view>
+namespace std
+{
+	template <>
+	struct hash<shared_str>
+	{
+		size_t operator()(const shared_str& v) const
+		{
+			return std::hash<std::string_view>{}(v.c_str() ? std::string_view(v.c_str()) : std::string_view());
+		}
+	};
+} // namespace std
+
+// p4: synchronous task-shim (dev's xrCore/Threading; staged headers use Task
+// by pointer/reference without including it themselves).
+#include "xrCore/Threading/TaskManager.hpp"
+
+#include "Layers/xrRenderMetal/CommonTypes.h"
+
+#include "Layers/xrRenderMetal/mtlHW.h"
+#include "Layers/xrRender/Debug/dxPixEventWrapper.h"
+
+#include "Layers/xrRender/Shader.h"
+
+#include "Layers/xrRender/R_Backend.h"
+#include "Layers/xrRender/R_Backend_Runtime.h"
+
+#include "Layers/xrRender/Blender.h"
+#include "Layers/xrRender/Blender_CLSID.h"
+
+#include "Common/_d3d_extensions.h"
+
+#include "Layers/xrRender/ResourceManager.h"
+#include "Layers/xrRender/xrRender_console.h"
+
+#include "r2.h"
+#include "mtl_rendertarget.h"
+
+namespace xray::render::RENDER_NAMESPACE
+{
+IC void jitter(CBlender_Compile& C)
+{
+    C.r_Sampler("jitter0", JITTER(0), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+    C.r_Sampler("jitter1", JITTER(1), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+    C.r_Sampler("jitter2", JITTER(2), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+    C.r_Sampler("jitter3", JITTER(3), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+}
+} // namespace xray::render::RENDER_NAMESPACE

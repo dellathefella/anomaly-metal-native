@@ -94,7 +94,7 @@ r_aabb_ssa r_pixel_calculator::calculate(dxRender_Visual* V)
     }
 
     return result;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     VERIFY(!"Not implemented!");
     return {};
 #else

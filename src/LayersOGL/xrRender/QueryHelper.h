@@ -15,6 +15,15 @@ IC HRESULT GetData(GLuint query, void* pData, u32 DataSize);
 IC HRESULT BeginQuery(GLuint query);
 IC HRESULT EndQuery(GLuint query);
 IC HRESULT ReleaseQuery(GLuint pQuery);
+#elif defined(USE_METAL)
+// p5 Metal: occlusion via MTLCounterSampleBuffer (mtlQuery.mm). v1 semantics:
+// GetData reports S_FALSE (pending) until the sample buffer is resolved —
+// callers treat pending as "visible", so wrong-culling can never occur.
+IC HRESULT CreateQuery(void** pQuery, D3D_QUERY type);
+IC HRESULT GetData(void* query, void* pData, u32 DataSize);
+IC HRESULT BeginQuery(void* query);
+IC HRESULT EndQuery(void* query);
+IC HRESULT ReleaseQuery(void* pQuery);
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -110,6 +119,41 @@ IC HRESULT EndQuery(GLuint query)
 IC HRESULT ReleaseQuery(GLuint query)
 {
     CHK_GL(glDeleteQueries(1, &query));
+    return S_OK;
+}
+
+#elif defined(USE_METAL)
+
+// p5 Metal v1: occlusion queries report "pending" (S_FALSE) — the callers
+// treat pending as visible, i.e. occlusion culling is conservatively off.
+// Real MTLCounterSampleBuffer resolution arrives with the R7 pass (p5 t3).
+IC HRESULT CreateQuery(void** pQuery, D3D_QUERY type)
+{
+    *pQuery = MtlCreateOcclusionQuery();
+    return *pQuery ? S_OK : E_FAIL;
+}
+
+IC HRESULT GetData(void* query, void* pData, u32 DataSize)
+{
+    const int32_t s = MtlGetQueryDataStatus(query, pData, DataSize);
+    return s == 0 ? S_OK : (s == 1 ? S_FALSE : E_FAIL);
+}
+
+IC HRESULT BeginQuery(void* query)
+{
+    MtlBeginOcclusionQuery(query);
+    return S_OK;
+}
+
+IC HRESULT EndQuery(void* query)
+{
+    MtlEndOcclusionQuery(query);
+    return S_OK;
+}
+
+IC HRESULT ReleaseQuery(void* pQuery)
+{
+    MtlReleaseOcclusionQuery(pQuery);
     return S_OK;
 }
 

@@ -10,7 +10,7 @@
 #include "DirectXMath.h"
 
 using namespace DirectX;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
 namespace xray::render::RENDER_NAMESPACE
 {
 void XRMatrixOrthoOffCenterLH(Fmatrix* pout, float l, float r, float b, float t, float zn, float zf);
@@ -91,7 +91,7 @@ void render_rain::calculate()
 #if defined(USE_DX11)
         XMStoreFloat4x4(reinterpret_cast<XMFLOAT4X4*>(&ex_full_inverse),
             XMMatrixInverse(nullptr, XMLoadFloat4x4(reinterpret_cast<XMFLOAT4X4*>(&ex_full))));
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
         XRMatrixInverse(&ex_full_inverse, nullptr, ex_full);
 #else
 #   error No graphics API selected or enabled!
@@ -209,7 +209,7 @@ void render_rain::calculate()
                 bb.min.z + 2 * tweak_rain_ortho_xform_initial_offs
             )
         );
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
         XRMatrixOrthoOffCenterLH(&mdir_Project,
             bb.min.x, bb.max.x, bb.min.y, bb.max.y,
             bb.min.z - tweak_rain_ortho_xform_initial_offs,
@@ -237,7 +237,7 @@ void render_rain::calculate()
         Fmatrix m_viewport_inv;
         XMStoreFloat4x4(reinterpret_cast<XMFLOAT4X4*>(&m_viewport_inv),
             XMMatrixInverse(nullptr, XMLoadFloat4x4(reinterpret_cast<XMFLOAT4X4*>(&m_viewport))));
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
         Fmatrix m_viewport =
         {
             view_dim / 2.f, 0.0f, 0.0f, 0.0f,

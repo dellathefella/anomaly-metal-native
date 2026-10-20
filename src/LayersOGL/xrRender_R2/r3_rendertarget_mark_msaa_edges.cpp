@@ -10,7 +10,7 @@ void CRenderTarget::mark_msaa_edges()
 
     // Fill vertex buffer
     FVF::TL2uv* pv = (FVF::TL2uv*)RImplementation.Vertex.Lock(4, g_combine_2UV->vb_stride, Offset);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
     pv->set(-1, -1,   0, d_W, C, 0, 1, 0, 0);
     pv++;
     pv->set(-1,  1, d_Z, d_W, C, 0, 0, 0, 0);

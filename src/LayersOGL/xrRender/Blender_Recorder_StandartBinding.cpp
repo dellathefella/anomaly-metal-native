@@ -68,7 +68,9 @@ class cl_texgen : public R_constant_setup
     {
         Fmatrix mTexgen;
 
-#if defined(USE_DX11)
+// p5 Metal: Metal's clip space matches D3D (Y-up NDC, top-left viewport,
+// [0..1] depth) — the DX11 texel-adjust form is the correct one here.
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix mTexelAdjust =
         {
             0.5f, 0.0f, 0.0f, 0.0f,
@@ -100,7 +102,9 @@ class cl_VPtexgen : public R_constant_setup
     {
         Fmatrix mTexgen;
 
-#if defined(USE_DX11)
+// p5 Metal: Metal's clip space matches D3D (Y-up NDC, top-left viewport,
+// [0..1] depth) — the DX11 texel-adjust form is the correct one here.
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix mTexelAdjust =
         {
             0.5f, 0.0f, 0.0f, 0.0f,

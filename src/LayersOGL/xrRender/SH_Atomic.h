@@ -7,6 +7,8 @@
 #include "Layers/xrRenderDX11/StateManager/dx11State.h"
 #elif defined(USE_OGL)
 #include "Layers/xrRenderGL/glState.h"
+#elif defined(USE_METAL)
+#include "Layers/xrRenderMetal/mtlState.h"
 #endif
 
 namespace xray::render::RENDER_NAMESPACE
@@ -31,6 +33,8 @@ struct ECORE_API SVS : public xr_resource_named
     ID3DVertexShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -50,6 +54,8 @@ struct ECORE_API SPS : public xr_resource_named
     ID3DPixelShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -65,6 +71,8 @@ struct ECORE_API SGS : public xr_resource_named
     ID3DGeometryShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -79,6 +87,8 @@ struct ECORE_API SHS : public xr_resource_named
 	ID3D11HullShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -93,6 +103,8 @@ struct ECORE_API SDS : public xr_resource_named
     ID3D11DomainShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -107,6 +119,8 @@ struct ECORE_API SCS : public xr_resource_named
     ID3D11ComputeShader* sh;
 #elif defined(USE_OGL)
     GLuint sh;
+#elif defined(USE_METAL)
+    void* sh; // id<MTLFunction>, borrowed from the shader compiler arena
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -115,20 +129,30 @@ struct ECORE_API SCS : public xr_resource_named
 };
 typedef resptr_core<SCS, resptr_base<SCS>> ref_cs;
 
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
 struct ECORE_API SPP : public xr_resource_named
 {
     // Program pipeline object
     // or shader program if ARB_separate_shader_objects is unavailabe
+    // p5 Metal: compiled VS+PS pair record (mtlShaderPair, owned by the
+    // device layer); the PSO itself is built lazily by the state manager.
+#ifdef USE_METAL
+    void* pp{};
+#else
     GLuint pp{};
+#endif
     R_constant_table constants;
 
     SPP() = default;
+#ifdef USE_METAL
+    explicit SPP(void* _pp) : pp(_pp) {}
+#else
     SPP(GLuint _pp) : pp(_pp) {}
+#endif
     ~SPP();
 };
 typedef resptr_core<SPP, resptr_base<SPP>> ref_pp;
-#endif // USE_OGL
+#endif // USE_OGL || USE_METAL
 
 //////////////////////////////////////////////////////////////////////////
 struct ECORE_API SState : public xr_resource_flagged
@@ -158,6 +182,10 @@ struct ECORE_API SDeclaration : public xr_resource_flagged
     u32 pointer_base{};
     GLuint pointer_ib{};
 #   endif
+#elif defined(USE_METAL)
+    // MTLVertexDescriptor is derived from dcl_code + the VS's [[attribute]]
+    // layout and cached by the state manager; nothing per-decl to own.
+    void* dcl{};
 #else
 #   error No graphics API selected or enabled!
 #endif

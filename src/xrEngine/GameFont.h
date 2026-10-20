@@ -5,6 +5,7 @@
 // p4: the ported GL renderer (LayersOGL) declares the same class inside
 // xray::render::render_gl; grant it the same friend access as the DX11 one.
 namespace xray::render::render_gl { class dxFontRender; }
+namespace xray::render::render_metal { class dxFontRender; } // p5
 
 #include "MbHelpers.h"
 
@@ -14,6 +15,7 @@ class ENGINE_API CGameFont
 {
 	friend class dxFontRender;
 	friend class xray::render::render_gl::dxFontRender; // p4
+	friend class xray::render::render_metal::dxFontRender; // p5
 public:
 	enum EAligment
 	{

@@ -151,7 +151,7 @@ public:
 //	DX10 cut CRTC*							_CreateRTC			(LPCSTR Name, u32 size,	D3DFORMAT f);
 //	DX10 cut void							_DeleteRTC			(const CRTC*	RT	);
 
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     SPP* _CreatePP(pcstr vs, pcstr ps, pcstr gs, pcstr hs, pcstr ds);
     bool _LinkPP(SPass& pass);
     void _DeletePP(const SPP* p);

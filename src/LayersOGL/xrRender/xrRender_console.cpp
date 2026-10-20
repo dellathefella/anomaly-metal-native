@@ -327,8 +327,8 @@ public:
         clamp(val, 1, 16);
 #if defined(USE_DX11)
         SSManager.SetMaxAnisotropy(val);
-#elif defined(USE_OGL)
-        // OGL: don't set aniso here because it will be updated after vid restart
+#elif defined(USE_OGL) || defined(USE_METAL)
+        // OGL/Metal: don't set aniso here because it will be updated after vid restart
 #else
 #   error No graphics API selected or enabled!
 #endif

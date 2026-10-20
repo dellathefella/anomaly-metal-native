@@ -2,7 +2,7 @@
 
 #if defined(USE_DX11)
 #   define FVF_COLOR(c) ((c & 0xff00ff00) | ((c >> 16) & 0xff) | ((c & 0xff) << 16u))
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
 #   define FVF_COLOR(c) (c)
 #else
 #   error No graphics API selected or enabled!

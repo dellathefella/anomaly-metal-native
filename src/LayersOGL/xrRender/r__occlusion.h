@@ -24,6 +24,8 @@ private:
         ID3DQuery* Q;
 #elif defined(USE_OGL)
         GLuint Q;
+#elif defined(USE_METAL)
+        void* Q; // id<MTLCounterSampleBuffer> (mtlOcclusion.mm, p5 t3)
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -41,7 +43,7 @@ private:
 public:
 #if defined(USE_DX11)
     typedef u64 occq_result;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     typedef u32 occq_result;
 #else
 #   error No graphics API selected or enabled!

@@ -57,7 +57,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
         float view_dimY = float(RainSetup.X.D[0].maxX - RainSetup.X.D[0].minX) / smapsize;
         float view_sx = float(RainSetup.X.D[0].minX) / smapsize;
         float view_sy = float(RainSetup.X.D[0].minY) / smapsize;
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust =
         {
             view_dimX / 2.f, 0.0f, 0.0f, 0.0f,
@@ -94,7 +94,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
         //float			fBias				= (SE_SUN_NEAR==sub_phase)?ps_r2_sun_depth_near_bias:ps_r2_sun_depth_far_bias;
         //	TODO: DX11: Remove this when fix inverse culling for far region
         float			fBias				= 0;
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix			m_TexelAdjust		=
         {
             0.5f,				0.0f,				0.0f,			0.0f,
@@ -161,7 +161,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
 
         // Fill vertex buffer
         FVF::TL2uv* pv = (FVF::TL2uv*)RImplementation.Vertex.Lock(3, g_combine_2UV->vb_stride, Offset);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         pv->set(-1, -1, d_Z, d_W, C, 0, 1, 0, scale_X);
         pv++;
         pv->set(-1, 3, d_Z, d_W, C, 0, -1, 0, -scale_X);
@@ -290,7 +290,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
                     cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
                 }
                 cmd_list.StateManager.SetSampleMask(0xffffffff);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
                 VERIFY(!"Only optimized MSAA is supported in OpenGL");
 #else
 #   error No graphics API selected or enabled!
@@ -347,7 +347,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
                     cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
                 }
                 cmd_list.StateManager.SetSampleMask(0xffffffff);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
                 VERIFY(!"Only optimized MSAA is supported in OpenGL");
 #else
 #   error No graphics API selected or enabled!
@@ -394,7 +394,7 @@ void CRenderTarget::draw_rain(CBackend& cmd_list, light& RainSetup)
                     cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
                 }
                 cmd_list.StateManager.SetSampleMask(0xffffffff);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
                 VERIFY(!"Only optimized MSAA is supported in OpenGL");
 #else
 #   error No graphics API selected or enabled!

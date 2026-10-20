@@ -1,6 +1,6 @@
 #pragma once
 
-#if !defined(USE_OGL)
+#if !defined(USE_OGL) && !defined(USE_METAL)
 #include <DirectXMath.h>
 
 using namespace DirectX;

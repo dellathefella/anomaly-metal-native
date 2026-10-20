@@ -86,7 +86,7 @@ void render_sun::calculate()
         view_dim / 2.f, view_dim / 2.f, 0.0f, 1.0f
     };
     Fmatrix m_viewport_inv;
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     XRMatrixInverse(&m_viewport_inv, nullptr, m_viewport);
 #else
     XMStoreFloat4x4((XMFLOAT4X4*)&m_viewport_inv,
@@ -143,7 +143,7 @@ void render_sun::calculate()
         }
 
         float map_size = m_sun_cascades[cascade_ind].size;
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
         XRMatrixOrthoOffCenterLH(&mdir_Project, -map_size * 0.5f, map_size * 0.5f, -map_size * 0.5f,
                                    map_size * 0.5f, 0.1f, dist + /*sqrt(2)*/1.41421f * map_size);
 #else

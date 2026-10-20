@@ -83,6 +83,15 @@ struct ECORE_API R_constant_load
     GLuint program;
 
     R_constant_load() : index(u16(-1)), cls(u16(-1)), location(0), program(0) {};
+#elif defined(USE_METAL)
+    // p5 Metal: byte range of this constant inside the stage's $Globals
+    // cbuffer image (from SPIRV-Cross reflection). stride = per-element
+    // stride for arrays (seta); 0 when the name is absent in that stage.
+    u32 offset;
+    u32 size;
+    u32 stride;
+
+    R_constant_load() : index(u16(-1)), cls(u16(-1)), offset(u32(-1)), size(0), stride(0) {};
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -93,6 +102,8 @@ struct ECORE_API R_constant_load
         return (index == C.index) && (cls == C.cls);
 #elif defined(USE_OGL)
         return (index == C.index) && (cls == C.cls) && (location == C.location) && (program == C.program);
+#elif defined(USE_METAL)
+        return (index == C.index) && (cls == C.cls) && (offset == C.offset) && (size == C.size);
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -112,7 +123,7 @@ struct ECORE_API R_constant : public xr_resource
     R_constant_load hs;
     R_constant_load ds;
     R_constant_load cs;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     R_constant_load pp;
 #endif
 
@@ -134,7 +145,7 @@ struct ECORE_API R_constant : public xr_resource
         case RC_dest_hull: return hs;
         case RC_dest_domain: return ds;
         case RC_dest_compute: return cs;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
         case RC_dest_all: return pp;
 #endif
         default: FATAL("invalid enumeration for shader");

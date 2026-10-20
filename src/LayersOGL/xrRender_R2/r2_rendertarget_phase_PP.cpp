@@ -9,7 +9,7 @@ void CRenderTarget::u_calc_tc_noise(Fvector2& p0, Fvector2& p1)
     VERIFY(RC_dest_sampler == C->destination);
 #if defined(USE_DX11)
     VERIFY(RC_dx11texture == C->type);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     VERIFY(RC_sampler == C->type);
 #else
 #   error Select correct check for your graphics API
@@ -159,7 +159,7 @@ void CRenderTarget::phase_pp()
     // Fill vertex buffer
     float du = ps_r1_pps_u, dv = ps_r1_pps_v;
     TL_2c3uv* pv = (TL_2c3uv*)RImplementation.Vertex.Lock(4, g_postprocess.stride(), Offset);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
     pv->set(du + 0, dv + float(_h), p_color, p_gray, r0.x, r1.y, l0.x, l1.y, n0.x, n1.y);
     pv++;
     pv->set(du + 0, dv + 0, p_color, p_gray, r0.x, r0.y, l0.x, l0.y, n0.x, n0.y);

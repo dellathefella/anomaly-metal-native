@@ -100,6 +100,13 @@ private:
     GLuint pFB;
     GLuint pRT[4];
     GLuint pZB;
+#elif defined(USE_METAL)
+    // p5 Metal: pFB is unused (no FBOs) — kept for the shared runtime shape.
+    // The actual MTLRenderCommandEncoder is owned by the state manager and
+    // (re)created whenever RT/ZB/load-action identity changes.
+    void* pFB;
+    void* pRT[4];
+    void* pZB;
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -128,6 +135,13 @@ private:
     GLuint vs;
     GLuint gs;
     GLuint pp;
+#elif defined(USE_METAL)
+    // p5 Metal: id<MTLFunction> handles (bridged, borrowed from the shader
+    // compiler arena); pp = mtlShaderPair record (see mtlShader.h).
+    void* ps;
+    void* vs;
+    void* gs;
+    void* pp;
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -141,7 +155,7 @@ private:
     LPCSTR ds_name;
     LPCSTR cs_name;
 #   endif
-#   ifdef USE_OGL
+#   if defined(USE_OGL) || defined(USE_METAL)
     pcstr pp_name;
 #   endif
 #endif // DEBUG
@@ -308,6 +322,13 @@ public:
     IC GLuint get_FB();
     IC GLuint get_RT(u32 ID = 0);
     IC GLuint get_ZB();
+#elif defined(USE_METAL)
+    IC void set_FB(void* FB = nullptr);
+    IC void set_RT(void* RT, u32 ID = 0);
+    IC void set_ZB(void* ZB);
+    IC void* get_FB();
+    IC void* get_RT(u32 ID = 0);
+    IC void* get_ZB();
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -328,6 +349,16 @@ public:
 
     IC bool ClearRTRect(GLuint rt, const Fcolor& color, size_t numRects, const Irect* rects);
     IC bool ClearZBRect(GLuint zb, float depth, size_t numRects, const Irect* rects);
+#elif defined(USE_METAL)
+    // p5 Metal: rt/zb are id<MTLTexture>; clears run through the pass
+    // descriptor load-action or an explicit encoder clear (see runtime hdr).
+    IC void ClearRT(void* rt, const Fcolor& color);
+
+    IC void ClearZB(void* zb, float depth);
+    IC void ClearZB(void* zb, float depth, u8 stencil);
+
+    IC bool ClearRTRect(void* rt, const Fcolor& color, size_t numRects, const Irect* rects);
+    IC bool ClearZBRect(void* zb, float depth, size_t numRects, const Irect* rects);
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -340,7 +371,7 @@ public:
         return ClearRTRect(rt->pRT, color, numRects, rects);
     }
 
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     ICF void ClearZB(ref_rt& zb, float depth) { ClearZB(zb->pRT, depth);}
     ICF void ClearZB(ref_rt& zb, float depth, u8 stencil) { ClearZB(zb->pRT, depth, stencil);}
     ICF bool ClearZBRect(ref_rt& zb, float depth, size_t numRects, const Irect* rects)
@@ -386,6 +417,10 @@ private:
     ICF void set_PS(ID3DPixelShader* _ps, LPCSTR _n = nullptr);
 #elif defined(USE_OGL)
     ICF void set_PS(GLuint _ps, LPCSTR _n = 0);
+#elif defined(USE_METAL)
+    ICF void set_PS(void* _ps, LPCSTR _n = nullptr);
+    // p5 Metal: assemble the plain draw-state for the pass manager.
+    ICF MtlDrawState mtl_collect_draw_state();
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -407,6 +442,11 @@ private:
 
     ICF void set_PP(GLuint _pp, pcstr _n = nullptr);
     ICF void set_PP(ref_pp& _pp) { set_PP(_pp->pp, _pp->cName.c_str()); }
+#   elif defined(USE_METAL)
+    ICF void set_GS(void* _gs, LPCSTR _n = nullptr);
+
+    ICF void set_PP(void* _pp, pcstr _n = nullptr);
+    ICF void set_PP(ref_pp& _pp) { set_PP(_pp->pp, _pp->cName.c_str()); }
 #   endif
 
     ICF void set_VS(ref_vs& _vs);
@@ -419,6 +459,8 @@ private:
     ICF void set_VS(ID3DVertexShader* _vs, LPCSTR _n = nullptr);
 #elif defined(USE_OGL)
     ICF void set_VS(GLuint _vs, LPCSTR _n = 0);
+#elif defined(USE_METAL)
+    ICF void set_VS(void* _vs, LPCSTR _n = nullptr);
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -431,7 +473,7 @@ public:
 #endif
 
 public:
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     ICF bool is_TessEnabled() { return false; }
 #elif defined(USE_DX11)
     ICF bool is_TessEnabled();

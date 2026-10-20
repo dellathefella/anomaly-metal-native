@@ -29,6 +29,10 @@ bool IsStreamVertexBuffer(GLuint buffer);
 void ForgetVertexArrays(GLuint buffer);
 void ForgetVertexArrays(const SDeclaration* decl);
 #   endif
+#elif defined(USE_METAL)
+// p5 Metal: builds + caches the MTLVertexDescriptor for a declaration
+// against the current VS's [[attribute]] layout (state manager).
+void SetMetalVertexPointer(SDeclaration* decl, u32 baseOffset = 0);
 #endif
 
 namespace BufferUtils

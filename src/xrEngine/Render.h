@@ -230,7 +230,8 @@ public:
 		D3D9,
 		D3D10,
 		D3D11,
-		OpenGL
+		OpenGL,
+		Metal // p5: native Metal renderer (xrRenderMetal)
 	};
 
 	enum RenderContext

@@ -9,11 +9,13 @@
 // p4: the ported GL renderer (LayersOGL) declares the same class inside
 // xray::render::render_gl; grant it the same friend access as the DX11 one.
 namespace xray::render::render_gl { class dxStatGraphRender; }
+namespace xray::render::render_metal { class dxStatGraphRender; } // p5
 
 class ENGINE_API CStatGraph : public pureRender
 {
 	friend class dxStatGraphRender;
 	friend class xray::render::render_gl::dxStatGraphRender; // p4
+	friend class xray::render::render_metal::dxStatGraphRender; // p5
 public:
 	enum EStyle
 	{

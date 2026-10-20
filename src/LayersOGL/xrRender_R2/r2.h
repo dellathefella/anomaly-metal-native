@@ -452,6 +452,12 @@ public:
     BackendAPI GetBackendAPI() const { return IRender::BackendAPI::OpenGL; } // p4: not a monolith IRender virtual
     u32 get_dx_level() override { return /*HW.pDevice1?0x000A0001:*/0x000A0000; }
     pcstr getShaderPath() override { return "gl\\"; }
+#elif defined(USE_METAL)
+    // p5 Metal: Anomaly's own DX9 r2 HLSL tree (compiled at runtime through
+    // DXC→SPIRV-Cross→MSL; the same corpus validated by metal_shader_batch).
+    BackendAPI GetBackendAPI() const { return IRender::BackendAPI::Metal; }
+    u32 get_dx_level() override { return 0x000A0000; }
+    pcstr getShaderPath() override { return "r2\\"; }
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -475,6 +481,10 @@ public:
     ID3DBaseTexture* texture_load(pcstr fname, u32& msize);
 #elif defined(USE_OGL)
     GLuint           texture_load(pcstr fname, u32& msize, GLenum& ret_desc, u32& ret_width, u32& ret_height);
+#elif defined(USE_METAL)
+    // p5 Metal: returns id<MTLTexture> (bridged); ret_desc = resource dim
+    // (0=2D, 1=3D, 2=CUBE), size recorded for stage binding (see CTexture).
+    void* texture_load(pcstr fname, u32& msize, u32& ret_desc, u32& ret_width, u32& ret_height);
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -549,6 +559,9 @@ public:
 #ifdef USE_OGL
     RenderContext GetCurrentContext() const;
     void MakeContextCurrent(RenderContext context);
+#elif defined(USE_METAL)
+    RenderContext GetCurrentContext() const;
+    void MakeContextCurrent(RenderContext context);
 #endif
 
     // Render mode
@@ -566,7 +579,7 @@ public:
 private:
 #if defined(USE_DX11)
     xr_vector<D3D_SHADER_MACRO> m_ShaderOptions;
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     xr_string m_ShaderOptions;
 #else
 #   error No graphics API selected or enabled!

@@ -213,6 +213,11 @@ struct ShaderTypeTraits<SVS>
     using HWShaderType = ID3DVertexShader*;
     using BufferType = DWORD const*;
     using ResultType = HRESULT;
+#elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -259,6 +264,12 @@ struct ShaderTypeTraits<SVS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_VERTEX_SHADER>(buffer, size, name);
+#elif defined(USE_METAL)
+        // p5 Metal: HLSL→(DXC)→SPIR-V→(SPIRV-Cross)→MSL happens in
+        // rmtl_shaders.cpp's CRender::shader_compile (entry-point aware);
+        // the traits-level compile path is not used on Metal.
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -284,6 +295,11 @@ struct ShaderTypeTraits<SPS>
     using HWShaderType = ID3DPixelShader*;
     using BufferType = DWORD const*;
     using ResultType = HRESULT;
+#elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -344,6 +360,9 @@ struct ShaderTypeTraits<SPS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_FRAGMENT_SHADER>(buffer, size, name);
+#elif defined(USE_METAL)
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #else
 #       error No graphics API selected or enabled!
 #endif
@@ -369,6 +388,11 @@ struct ShaderTypeTraits<SGS>
     using HWShaderType = GLuint;
     using BufferType = pcstr*;
     using ResultType = std::pair<char, GLuint>;
+#   elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -416,6 +440,9 @@ struct ShaderTypeTraits<SGS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_GEOMETRY_SHADER>(buffer, size, name);
+#   elif defined(USE_METAL)
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -441,6 +468,11 @@ struct ShaderTypeTraits<SHS>
     using HWShaderType = GLuint;
     using BufferType = pcstr*;
     using ResultType = std::pair<char, GLuint>;
+#   elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -471,6 +503,9 @@ struct ShaderTypeTraits<SHS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_TESS_CONTROL_SHADER>(buffer, size, name);
+#   elif defined(USE_METAL)
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -496,6 +531,11 @@ struct ShaderTypeTraits<SDS>
     using HWShaderType = GLuint;
     using BufferType = pcstr*;
     using ResultType = std::pair<char, GLuint>;
+#   elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #   else
 #       error No graphics API selected or enabled!
 #endif
@@ -526,6 +566,9 @@ struct ShaderTypeTraits<SDS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_TESS_EVALUATION_SHADER>(buffer, size, name);
+#   elif defined(USE_METAL)
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -551,6 +594,11 @@ struct ShaderTypeTraits<SCS>
     using HWShaderType = GLuint;
     using BufferType = pcstr*;
     using ResultType = std::pair<char, GLuint>;
+#   elif defined(USE_METAL)
+    using LinkageType = void*;
+    using HWShaderType = void*; // id<MTLFunction>
+    using BufferType = pcstr*;
+    using ResultType = std::pair<char, void*>;
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -598,6 +646,9 @@ struct ShaderTypeTraits<SCS>
             res = GLUseBinary(buffer, size, linkage, name);
         else
             res = GLCompileShader<GL_COMPUTE_SHADER>(buffer, size, name);
+#elif defined(USE_METAL)
+        VERIFY(!"Metal: traits-level CreateHWShader must not be called");
+        res = { 's', nullptr };
 #else
 #   error No graphics API selected or enabled!
 #endif

@@ -30,6 +30,7 @@ void CRender::RenderMenu()
     {
         Target->u_setrt(RCache, Target->rt_Generic_0, nullptr, nullptr, Target->rt_Base_Depth); // LDR RT
         g_pGamePersistent->OnRenderPPUI_main(); // PP-UI
+#ifdef USE_OGL
         // p4: did PP-UI actually land in the LDR RT? (draw-vs-composite bisect)
         static int s_p4_ppui = 0;
         if (s_p4_ppui < 3)
@@ -52,6 +53,7 @@ void CRender::RenderMenu()
             Msg("* p4: PPUI_main RT probe #%d max=%u lit=%.1f%% fbo=%d err=0x%x", s_p4_ppui, maxv,
                 n ? 100.0 * nonzero / n : 0.0, fbo, glGetError());
         }
+#endif // USE_OGL (p4 GL-only probe)
     }
     // Distort
     {
@@ -76,7 +78,8 @@ void CRender::RenderMenu()
     p1.set((_w + .5f) / _w, (_h + .5f) / _h);
 
     FVF::TL* pv = (FVF::TL*)RImplementation.Vertex.Lock(4, Target->g_menu->vb_stride, Offset);
-#if defined(USE_DX11)
+// p5 Metal: Metal's clip/viewport convention matches D3D — DX11 corner order.
+#if defined(USE_DX11) || defined(USE_METAL)
     pv->set(EPS, float(_h + EPS), d_Z, d_W, C, p0.x, p1.y);
     pv++;
     pv->set(EPS, EPS, d_Z, d_W, C, p0.x, p0.y);

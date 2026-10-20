@@ -102,7 +102,7 @@ public:
         // C.r_Sampler_rtf		("s_tonemap",	"$user$tonemap"	);	//. hack
         C.r_dx11Texture("s_tonemap", "$user$tonemap"); //. hack
         C.PassSET_ZB(FALSE, FALSE);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
         C.r_Sampler_clf("s_sky0", "$null");
         C.r_Sampler_clf("s_sky1", "$null");
         C.r_Sampler_rtf("s_tonemap", "$user$tonemap"); //. hack
@@ -187,6 +187,10 @@ void dxEnvironmentRender::lerp(CEnvDescriptorMixer& currentEnv, IEnvDescriptorRe
 #ifdef USE_OGL
     tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
     tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
+#elif defined(USE_METAL)
+    // p5 Metal: borrowed id<MTLTexture> — no target, no refcount release.
+    tsky0->surface_set(e0);
+    tsky1->surface_set(e1);
 #else // USE_OGL
     tsky0->surface_set(e0);
     _RELEASE(e0);
@@ -200,6 +204,9 @@ void dxEnvironmentRender::lerp(CEnvDescriptorMixer& currentEnv, IEnvDescriptorRe
 #   ifdef USE_OGL
     t_envmap_0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
     t_envmap_1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
+#   elif defined(USE_METAL)
+    t_envmap_0->surface_set(e0);
+    t_envmap_1->surface_set(e1);
 #   else // USE_OGL
     t_envmap_0->surface_set(e0);
     _RELEASE(e0);
@@ -251,7 +258,7 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_xform_world(mSky);
     RCache.set_Geometry(sh_2geom);
     RCache.set_Shader(sh_2sky);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
     RCache.set_Textures(&sky_r_textures);
 #elif defined(USE_OGL)
     if (HW.Caps.geometry.bVTF)
@@ -392,7 +399,7 @@ void dxEnvironmentRender::OnDeviceDestroy()
     sky_r_textures.clear();
     clouds_r_textures.clear();
 
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
     tsky0->surface_set(nullptr);
     tsky1->surface_set(nullptr);
     t_envmap_0->surface_set(nullptr);

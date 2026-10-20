@@ -80,7 +80,7 @@ static class cl_pos_decompress_params : public R_constant_setup
 {
     void setup(CBackend& cmd_list, R_constant* C) override
     {
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         const float VertTan = -1.0f * tanf(deg2rad(Device.fFOV / 2.0f));
         const float HorzTan = -VertTan / Device.fASPECT;
 #elif defined(USE_OGL)
@@ -385,8 +385,8 @@ void CRender::create()
     o.ssao_hdao = ps_r2_ls_flags_ext.test(R2FLAGEXT_SSAO_HDAO) && (ps_r_ssao != 0);
     o.ssao_ultra = HW.ComputeShadersSupported && ssao_hdao_cs_shaders_exist();
     o.ssao_hbao = !o.ssao_hdao && ps_r2_ls_flags_ext.test(R2FLAGEXT_SSAO_HBAO) && (ps_r_ssao != 0);
-#elif defined(USE_OGL)
-    // TODO: OGL: temporary disabled HBAO/HDAO, need to fix it
+#elif defined(USE_OGL) || defined(USE_METAL)
+    // TODO: OGL/Metal: temporary disabled HBAO/HDAO, need to fix it
     o.ssao_hbao = false;
     o.ssao_hdao = false;
 #else
@@ -402,7 +402,7 @@ void CRender::create()
 #if defined(USE_DX11)
     o.dx11_sm4_1 = ps_r2_ls_flags.test((u32)R3FLAG_USE_DX10_1);
     o.dx11_sm4_1 = o.dx11_sm4_1 && (HW.FeatureLevel >= D3D_FEATURE_LEVEL_10_1);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     o.dx11_sm4_1 = true;
 #else
 #   error No graphics API selected or enabled!
@@ -420,8 +420,8 @@ void CRender::create()
     // o.msaa_hybrid	= ps_r2_ls_flags.test(R3FLAG_MSAA_HYBRID);
     o.msaa_hybrid = ps_r2_ls_flags.test((u32)R3FLAG_USE_DX10_1);
     o.msaa_hybrid &= !o.msaa_opt && o.msaa && (HW.FeatureLevel >= D3D_FEATURE_LEVEL_10_1);
-#elif defined(USE_OGL)
-    // TODO: OGL: temporary disabled, need to fix it
+#elif defined(USE_OGL) || defined(USE_METAL)
+    // TODO: OGL/Metal: temporary disabled, need to fix it
     o.msaa = false;
     o.msaa_samples = 0;
     o.msaa_opt = o.msaa;
@@ -813,19 +813,27 @@ void CRender::models_PrefetchOne(LPCSTR name)
 void CRender::rmNear()
 {
     m_p4_phase = 1;
+#ifdef USE_OGL
     glDepthRange(0.0, 0.02);
+#endif
+    // p5 Metal: no viewport z-range in Metal — near/far split range emulation
+    // via per-phase projection z-remap arrives with the R7 pass (p5 t3).
 }
 
 void CRender::rmFar()
 {
     m_p4_phase = 2;
+#ifdef USE_OGL
     glDepthRange(0.99999, 1.0);
+#endif
 }
 
 void CRender::rmNormal()
 {
     m_p4_phase = 0;
+#ifdef USE_OGL
     glDepthRange(0.0, 1.0);
+#endif
 }
 
 u32 CRender::memory_usage()
@@ -851,6 +859,7 @@ void CRender::RenderToTarget(RRT target)
     if (!RT || !*RT)
         return;
 
+#ifdef USE_OGL
     GLint prev_draw = 0, prev_read = 0;
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_draw);
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
@@ -862,6 +871,10 @@ void CRender::RenderToTarget(RRT target)
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_draw);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_read);
+#elif defined(USE_METAL)
+    // p5 Metal: blit the current swapchain drawable into the target texture.
+    MtlBlitFromBackBuffer((*RT)->pRT, Device.dwWidth, Device.dwHeight);
+#endif
 }
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {

@@ -208,7 +208,7 @@ void uber_deffer(CBlender_Compile& C, bool hq, LPCSTR _vspec, LPCSTR _pspec, BOO
         C.r_dx11Texture("s_hemi", C.L_textures[2]);
         C.r_dx11Sampler("smp_rtlinear");
     }
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     C.r_Pass(vs, ps, FALSE);
     VERIFY(C.L_textures[0].size());
     if (bump)

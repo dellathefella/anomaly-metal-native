@@ -71,7 +71,7 @@ void CRenderTarget::phase_smap_spot_tsh(CBackend& cmd_list, light* L)
         p1.set((_w + .5f) / _w, (_h + .5f) / _h);
 
         FVF::TL* pv = (FVF::TL*)RImplementation.Vertex.Lock(4, g_combine->vb_stride, Offset);
-#if defined(USE_DX11)
+#if defined(USE_DX11) || defined(USE_METAL)
         pv->set(EPS, float(_h + EPS), d_Z, d_W, C, p0.x, p1.y);
         pv++;
         pv->set(EPS, EPS, d_Z, d_W, C, p0.x, p0.y);

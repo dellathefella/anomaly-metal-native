@@ -53,6 +53,9 @@ SVS::~SVS()
         CHK_GL(glDeleteProgram(sh));
     else
         CHK_GL(glDeleteShader(sh));
+#elif defined(USE_METAL)
+    // p5 Metal: id<MTLFunction> is owned by the shader compiler arena; the
+    // stage record (MtlStageRefl) is borrowed. Nothing to release here.
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -69,6 +72,8 @@ SPS::~SPS()
         CHK_GL(glDeleteProgram(sh));
     else
         CHK_GL(glDeleteShader(sh));
+#elif defined(USE_METAL)
+    // p5 Metal: see SVS note (arena-owned function).
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -87,6 +92,8 @@ SGS::~SGS()
         CHK_GL(glDeleteProgram(sh));
     else
         CHK_GL(glDeleteShader(sh));
+#   elif defined(USE_METAL)
+    // p5 Metal: arena-owned MSL function (unused on Metal anyway — no GS/HS).
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -103,6 +110,8 @@ SHS::~SHS()
         CHK_GL(glDeleteProgram(sh));
     else
         CHK_GL(glDeleteShader(sh));
+#   elif defined(USE_METAL)
+    // p5 Metal: arena-owned MSL function (unused on Metal anyway — no GS/HS).
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -133,6 +142,8 @@ SCS::~SCS()
         CHK_GL(glDeleteProgram(sh));
     else
         CHK_GL(glDeleteShader(sh));
+#    elif defined(USE_METAL)
+    // p5 Metal: arena-owned MSL function (compute not used on this path yet).
 #   else
 #       error No graphics API selected or enabled!
 #   endif
@@ -147,6 +158,16 @@ SPP::~SPP()
         CHK_GL(glDeleteProgramPipelines(1, &pp));
     else
         CHK_GL(glDeleteProgram(pp));
+
+    RImplementation.Resources->_DeletePP(this);
+}
+#elif defined(USE_METAL)
+SPP::~SPP()
+{
+    // pp = MtlShaderPair (heap, created by MtlMakeShaderPair). The MSL
+    // functions it references are compiler-arena-owned.
+    delete static_cast<MtlShaderPair*>(pp);
+    pp = nullptr;
 
     RImplementation.Resources->_DeletePP(this);
 }
@@ -197,6 +218,9 @@ SDeclaration::~SDeclaration()
     ForgetVertexArrays(this);
 #   endif
     glDeleteVertexArrays(1, &dcl);
+#elif defined(USE_METAL)
+    // p5 Metal: MTLVertexDescriptors are cached centrally by the pass manager
+    // (mtlRuntime.mm) keyed by decl+VS — nothing per-SDeclaration to release.
 #else
 #   error No graphics API selected or enabled!
 #endif

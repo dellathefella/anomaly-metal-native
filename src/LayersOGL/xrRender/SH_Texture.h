@@ -46,8 +46,8 @@ public:
         rstCompute = rstDomain + 256,
         rstInvalid = rstCompute + 256
     };
-#elif defined(USE_OGL)
-    //	Since OGL doesn't differentiate between stages,
+#elif defined(USE_OGL) || defined(USE_METAL)
+    //	Since OGL/Metal doesn't differentiate between stages,
     //	distance between enum values should be the max for that stage.
     enum ResourceShaderType
     {
@@ -80,6 +80,15 @@ public:
 #elif defined(USE_OGL)
     void surface_set(GLenum target, GLuint surf);
     [[nodiscard]] GLuint surface_get() const;
+    void size_set(u32 width, u32 height)
+    {
+        m_loaded_width = width;
+        m_loaded_height = height;
+    }
+#elif defined(USE_METAL)
+    // p5 Metal: surf = id<MTLTexture> (bridged, owned by the texture itself)
+    void surface_set(void* surf);
+    [[nodiscard]] void* surface_get() const;
     void size_set(u32 width, u32 height)
     {
         m_loaded_width = width;
@@ -133,6 +142,13 @@ public:
             Load();
         return static_cast<ImTextureID>(pSurface);
     }
+#elif defined(USE_METAL)
+    ImTextureID GetImTextureID()
+    {
+        if (!flags.bLoaded)
+            Load();
+        return reinterpret_cast<ImTextureID>(pSurface);
+    }
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -150,7 +166,7 @@ private:
     }
 
     void desc_update();
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     u32 m_loaded_width{}, m_loaded_height{}; // recorded at creation, WebGL cannot query texture levels
 #endif
 #if defined(USE_DX11)
@@ -206,6 +222,15 @@ private:
     GLint m_height;
     GLuint desc_cache;
     GLenum desc;
+#elif defined(USE_METAL)
+    void* pSurface{}; // id<MTLTexture>, owned by this texture (device arena)
+    void* pBuffer{};
+    // Sequence data
+    xr_vector<void*> seqDATA;
+    // Description
+    u32 m_width{};
+    u32 m_height{};
+    void* desc_cache{};
 #else
 #   error No graphics API selected or enabled!
 #endif

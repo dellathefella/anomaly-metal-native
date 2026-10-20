@@ -98,3 +98,7 @@ target_link_libraries(metal_devicetest PRIVATE ${SDL2_LIBRARIES})
 set(XR_METAL_CORPUS_DIR "${_xr_repo_root}/repos/searge-coc/res/gamedata/shaders/r2"
 	CACHE PATH "DX9 shader corpus for metal_shader_batch")
 target_compile_definitions(metal_shader_batch PRIVATE XR_METAL_CORPUS_DIR="${XR_METAL_CORPUS_DIR}")
+
+# --- xrRender_METAL: the renderer module (device layer + PC layer + shared
+# logic layers recompiled against USE_METAL). -------------------------------
+add_subdirectory(xrRenderPC_Metal)

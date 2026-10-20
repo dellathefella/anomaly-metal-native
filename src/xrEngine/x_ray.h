@@ -5,6 +5,7 @@
 // p4: the ported GL renderer (LayersOGL) declares the same class inside
 // xray::render::render_gl; grant it the same friend access as the DX11 one.
 namespace xray::render::render_gl { class dxApplicationRender; }
+namespace xray::render::render_metal { class dxApplicationRender; } // p5
 
 class ENGINE_API CGameFont;
 
@@ -18,6 +19,7 @@ class ENGINE_API CApplication :
 {
 	friend class dxApplicationRender;
 	friend class xray::render::render_gl::dxApplicationRender; // p4
+	friend class xray::render::render_metal::dxApplicationRender; // p5
 
 	// levels
 	struct sLevelInfo

@@ -30,12 +30,12 @@ void CBackend::OnFrameBegin()
 #ifndef USE_DX9
         Invalidate();
         // DX9 sets base rt and base zb by default
-#ifndef USE_OGL
+#   if !defined(USE_OGL) && !defined(USE_METAL)
         // XXX: Getting broken HUD hands for OpenGL after calling rmNormal()
         RImplementation.rmNormal(*this);
-#else
+#   else
         set_FB(HW.pFB);
-#endif
+#   endif
         set_RT(RImplementation.Target->get_base_rt());
         set_ZB(RImplementation.Target->get_base_zb());
 #endif
@@ -52,7 +52,7 @@ void CBackend::Invalidate()
     pRT[2] = 0;
     pRT[3] = 0;
     pZB = 0;
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     pFB = 0;
     pp = 0;
 #endif
@@ -140,7 +140,7 @@ void CBackend::Invalidate()
 
 void CBackend::set_ClipPlanes(u32 _enable, Fplane* _planes /*=NULL */, u32 count /* =0*/)
 {
-#if defined(USE_DX11) || defined(USE_OGL)
+#if defined(USE_DX11) || defined(USE_OGL) || defined(USE_METAL)
     // TODO: DX11: Implement in the corresponding vertex shaders
     // Use this to set up location, were shader setup code will get data
     // VERIFY(!"CBackend::set_ClipPlanes not implemented!");
@@ -160,7 +160,7 @@ void CBackend::set_ClipPlanes(u32 _enable, Fmatrix* _xform /*=NULL */, u32 fmask
         return;
     if (!_enable)
     {
-#if defined(USE_DX11) || defined(USE_OGL)
+#if defined(USE_DX11) || defined(USE_OGL) || defined(USE_METAL)
     // TODO: DX11: Implement in the corresponding vertex shaders
     // Use this to set up location, were shader setup code will get data
     // VERIFY(!"CBackend::set_ClipPlanes not implemented!");
@@ -387,6 +387,9 @@ void CBackend::set_Textures(STextureList* textures_list)
             CHK_GL(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
         CHK_GL(glBindTexture(GL_TEXTURE_3D, 0));
         CHK_GL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+#elif defined(USE_METAL)
+        // p5 Metal: stage bindings are applied to the encoder at draw time
+        // from textures_ps[] — clearing the CPU-side entry above is enough.
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -422,6 +425,8 @@ void CBackend::set_Textures(STextureList* textures_list)
             CHK_GL(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
         CHK_GL(glBindTexture(GL_TEXTURE_3D, 0));
         CHK_GL(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+#elif defined(USE_METAL)
+        // p5 Metal: see PS note — bindings are applied at draw time.
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -491,6 +496,8 @@ void CBackend::SetupStates()
     SSManager.SetMipLODBias(ps_r__tf_Mipbias);
 #elif defined(USE_OGL)
     // TODO: OGL: Implement SetupStates().
+#elif defined(USE_METAL)
+    // TODO: Metal: global sampler overrides (anisotropy/mip bias) — p5 t3.
 #else
 #   error No graphics API selected or enabled!
 #endif
@@ -537,7 +544,7 @@ void CBackend::apply_lmaterial()
     VERIFY(RC_dest_sampler == C->destination);
 #if defined(USE_DX11)
     VERIFY(RC_dx11texture == C->type);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
     VERIFY(RC_sampler == C->type);
 #else
 #   error No graphics API selected or enabled!

@@ -105,7 +105,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
         float view_sy = float(L->X.S.posY + 1) / smapsize;
         float fRange = float(1.f) * ps_r2_ls_depth_scale;
         float fBias = ps_r2_ls_depth_bias;
-#ifdef USE_DX11
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust =
         {
             view_dim / 2.f, 0.0f, 0.0f, 0.0f,
@@ -135,7 +135,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
         view_dim = 1.f;
         view_sx = 0.f;
         view_sy = 0.f;
-#ifdef USE_DX11
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust2 =
         {
             view_dim / 2.f, 0.0f, 0.0f, 0.0f,
@@ -245,7 +245,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
                     draw_volume(cmd_list, L);
                 }
                 cmd_list.StateManager.SetSampleMask(0xffffffff);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
                 VERIFY(!"Only optimized MSAA is supported in OpenGL");
 #else
 #   error No graphics API selected or enabled!
@@ -298,7 +298,7 @@ void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
                     draw_volume(cmd_list, L);
                 }
                 cmd_list.StateManager.SetSampleMask(0xffffffff);
-#elif defined(USE_OGL)
+#elif defined(USE_OGL) || defined(USE_METAL)
                 VERIFY(!"Only optimized MSAA is supported in OpenGL");
 #else
 #   error No graphics API selected or enabled!
@@ -368,7 +368,7 @@ void CRenderTarget::accum_volumetric(CBackend& cmd_list, light* L)
         float view_sy = float(L->X.S.posY + 1) / smapsize;
         float fRange = float(1.f) * ps_r2_ls_depth_scale;
         float fBias = ps_r2_ls_depth_bias;
-#ifdef USE_DX11
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust =
         {
             view_dim / 2.f, 0.0f, 0.0f, 0.0f,
@@ -399,7 +399,7 @@ void CRenderTarget::accum_volumetric(CBackend& cmd_list, light* L)
         view_dim = 1.f;
         view_sx = 0.f;
         view_sy = 0.f;
-#ifdef USE_DX11
+#if defined(USE_DX11) || defined(USE_METAL)
         Fmatrix m_TexelAdjust2 =
         {
             view_dim / 2.f, 0.0f, 0.0f, 0.0f,

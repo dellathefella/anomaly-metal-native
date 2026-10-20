@@ -366,6 +366,34 @@ inline void xr_raw_input_push(XrRawInputEvent::Type t, int a, int b = 0, int c =
     }
 }
 
+// p4: absolute cursor mirror (points). Set on every SDL mouse-motion event
+// (SDL_SendWarpEvent includes absolute coords) and immediately by
+// SetCursorPos. GetCursorPos prefers this over SDL_GetMouseState.
+inline bool& xr_cursor_abs_valid()
+{
+    static bool v = false;
+    return v;
+}
+inline int& xr_cursor_abs_pts(int idx)
+{
+    static int v[2] = { 0, 0 };
+    return v[idx];
+}
+inline bool xr_cursor_abs(int& x, int& y)
+{
+    if (!xr_cursor_abs_valid())
+        return false;
+    x = xr_cursor_abs_pts(0);
+    y = xr_cursor_abs_pts(1);
+    return true;
+}
+inline void xr_cursor_abs_set(int x, int y)
+{
+    xr_cursor_abs_pts(0) = x;
+    xr_cursor_abs_pts(1) = y;
+    xr_cursor_abs_valid() = true;
+}
+
 inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
 {
     MSG m{};
@@ -431,6 +459,7 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
         ok = true;
         break;
     case SDL_MOUSEMOTION:
+        xr_cursor_abs_set(e.motion.x, e.motion.y); // p4: absolute mirror
         xr_raw_input_push(XrRawInputEvent::MouseMotion, e.motion.xrel, e.motion.yrel);
         m.message = WM_MOUSEMOVE;
         m.lParam = MAKELPARAM(e.motion.x, e.motion.y);
@@ -732,7 +761,12 @@ inline int GetSystemMetrics(int idx)
 inline BOOL GetCursorPos(LPPOINT p)
 {
     int x = 0, y = 0;
-    SDL_GetMouseState(&x, &y);
+    // p4: absolute-position tracking. SDL2/macOS does not refresh
+    // SDL_GetMouseState after SDL_WarpMouseInWindow (harness clicks, any
+    // SetCursorPos consumer), so mirror the absolute coords carried by
+    // motion events (warp events included) and prefer them once seen.
+    if (!xr_cursor_abs(x, y))
+        SDL_GetMouseState(&x, &y);
     // p4: SDL reports mouse position in window POINTS, but the engine sizes
     // dwWidth/dwHeight from the drawable (BACKING PIXELS on Retina — 2x).
     // Without scaling the UI cursor only reaches the top-left quarter of the
@@ -765,6 +799,7 @@ inline BOOL SetCursorPos(int x, int y)
             x = (int)((int64_t)x * ww / dw);
         if (dh > 0 && wh > 0)
             y = (int)((int64_t)y * wh / dh);
+        xr_cursor_abs_set(x, y); // p4: mirror now; SDL state lags warp badly
         SDL_WarpMouseInWindow(win, x, y);
     }
     return TRUE;

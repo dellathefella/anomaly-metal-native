@@ -17,6 +17,7 @@ class CHarnessDriver : public pureFrame
     float m_schedule{ 0.f };
     int m_grace{ 30 }; // frames to let the renderer/menu settle first
     int m_dbg_counter{ 0 };
+    int m_pending_release{ 0 }; // p4: deferred button-up frame (see `click`)
 
 public:
     explicit CHarnessDriver(LPCSTR path)
@@ -46,6 +47,18 @@ public:
 
     virtual void OnFrame() override
     {
+        // p4: staged click completion. Frame after the warp the UI cursor
+        // update has consumed the new position, so the press (frame+1) and
+        // release (frame+2) both land on the target widget — XRay buttons
+        // need press AND release inside the window rect to activate.
+        if (m_pending_release > 0)
+        {
+            --m_pending_release;
+            if (m_pending_release == 1)
+                xr_raw_input_push(XrRawInputEvent::MouseButtonDown, 1);
+            else if (m_pending_release == 0)
+                xr_raw_input_push(XrRawInputEvent::MouseButtonUp, 1);
+        }
         if (m_lines.empty())
             return;
         // p4 debug: prove dispatch + timing state once, then every ~60s.
@@ -90,7 +103,7 @@ public:
                 {
                     SetCursorPos(cx, cy);
                     xr_raw_input_push(XrRawInputEvent::MouseButtonDown, 1 /*SDL_BUTTON_LEFT*/);
-                    xr_raw_input_push(XrRawInputEvent::MouseButtonUp, 1);
+                    m_pending_release = 1; // button-up next frame (see OnFrame)
                 }
                 else
                     Msg("! harness: bad click '%s'", line.c_str());

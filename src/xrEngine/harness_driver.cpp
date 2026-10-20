@@ -79,6 +79,24 @@ public:
             }
 
             Msg("* harness: exec '%s'", line.c_str());
+            // p4: `click <x> <y>` warps the OS cursor to engine-pixel coords
+            // (SetCursorPos shim scales px→SDL points) and injects a left
+            // button press+release through the raw-input queue — AXR dialogs
+            // (newgame Start/Randomize) only react to mouse clicks, not keys.
+            if (line.compare(0, 5, "click") == 0)
+            {
+                int cx = 0, cy = 0;
+                if (2 == sscanf(line.c_str() + 5, "%d %d", &cx, &cy))
+                {
+                    SetCursorPos(cx, cy);
+                    xr_raw_input_push(XrRawInputEvent::MouseButtonDown, 1 /*SDL_BUTTON_LEFT*/);
+                    xr_raw_input_push(XrRawInputEvent::MouseButtonUp, 1);
+                }
+                else
+                    Msg("! harness: bad click '%s'", line.c_str());
+                ++m_next;
+                continue;
+            }
             // p4: `key <NAME>` injects a synthetic key press+release through
             // the SDL raw-input queue (same path real keys take) so UI
             // navigation (menu, dialogs) is scriptable.

@@ -837,9 +837,31 @@ u32 CRender::memory_usage()
 
 void CRender::RenderToTarget(RRT target)
 {
-    // p4: monolith copies the backbuffer into rt_ui_pda/rt_secondVP; those GL
-    // render targets are not ported yet (tracked in p4 t2).
-    Msg("! xrRender_GL: RenderToTarget(%d) not supported yet", int(target));
+    // p4: monolith copies the backbuffer into rt_ui_pda/rt_secondVP (DX11
+    // D3DXLoadSurfaceFromSurface). GL: blit the default framebuffer into the
+    // target's FBO. Bound FBO is restored; depth is not copied (the UI only
+    // samples color).
+    ref_rt* RT = nullptr;
+    switch (target)
+    {
+    case rtPDA: RT = &Target->rt_ui_pda; break;
+    case rtSVP: RT = &Target->rt_secondVP; break;
+    default: VERIFY2(false, "None or wrong Target specified"); break;
+    }
+    if (!RT || !*RT)
+        return;
+
+    GLint prev_draw = 0, prev_read = 0;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_draw);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read);
+
+    const u32 w = Device.dwWidth, h = Device.dwHeight;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0); // backbuffer
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (*RT)->pRT);
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_draw);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_read);
 }
 void CRender::add_Visual(u32 context_id, IRenderable* root, IRenderVisual* V, Fmatrix& m)
 {

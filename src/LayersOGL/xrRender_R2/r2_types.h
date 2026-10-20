@@ -25,6 +25,10 @@ namespace xray::render::RENDER_NAMESPACE
 
 #define     r2_RT_generic0      "$user$generic0"
 #define     r2_RT_generic0_r    "$user$generic0_r"
+// p4: Anomaly snapshot targets consumed by IRender::RenderToTarget:
+// rt_ui_pda (PDA background snapshot) + rt_secondVP (second-viewport/scope).
+#define     r2_RT_ui            "$user$ui"
+#define     r2_RT_secondVP      "$user$viewport2"
 
 #define     r2_RT_generic1      "$user$generic1"
 #define     r2_RT_generic1_r    "$user$generic1_r"

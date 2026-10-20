@@ -312,6 +312,9 @@ CRenderTarget::CRenderTarget()
         rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A8R8G8B8, 1);
         rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A8R8G8B8, 1);
         rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A8R8G8B8, 1);
+        // p4: Anomaly RenderToTarget snapshot targets (PDA bg + second VP)
+        rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A8R8G8B8, 1);
+        rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8, 1);
 #ifdef XR_PLATFORM_WEB
         rt_Forward.create("$user$forward", w, h, D3DFMT_A8R8G8B8, 1);
 #endif

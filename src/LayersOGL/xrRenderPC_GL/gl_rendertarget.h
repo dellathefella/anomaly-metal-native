@@ -62,6 +62,10 @@ public:
     ref_rt rt_Accumulator_temp; // only for HW which doesn't feature fp16 blend
     ref_rt rt_Generic_0; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
     ref_rt rt_Generic_1; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
+    // p4: Anomaly snapshot targets for IRender::RenderToTarget (PDA
+    // background + second viewport), mirrors DX11 r2_rendertarget.h.
+    ref_rt rt_secondVP;
+    ref_rt rt_ui_pda;
 #ifdef XR_PLATFORM_WEB
     ref_rt rt_Forward; // 32bit		(r,g,b,a)				// scene copy the forward pass draws into
 #endif

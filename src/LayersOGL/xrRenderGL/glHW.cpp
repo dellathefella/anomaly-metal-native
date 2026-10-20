@@ -6,9 +6,76 @@
 
 #include "glHW.h"
 #include "xrEngine/XR_IOConsole.h"
+#include "Include/xrAPI/xrAPI.h" // p4: vid_mode_token (settings dialog enumerates it)
 
 namespace xray::render::RENDER_NAMESPACE
 {
+// p4: monolith DX11 filled vid_mode_token from DXGI mode enumeration
+// (fill_vid_mode_list); the GL path left it null, so game.get_resolutions()
+// returned "" and ui_options.script cont_vid_mode() did arithmetic on nil
+// (settings dialog aborted). Enumerate SDL display modes instead.
+static void fill_vid_mode_list_sdl(SDL_Window* win)
+{
+    if (vid_mode_token != nullptr)
+        return;
+
+    xr_vector<LPCSTR> _tmp;
+    const int nd = SDL_GetNumDisplayModes(0);
+    for (int i = 0; i < nd; ++i)
+    {
+        SDL_DisplayMode dm{};
+        if (SDL_GetDisplayMode(0, i, &dm) != 0)
+            continue;
+        if (dm.w < 800 || dm.h < 600)
+            continue;
+        string32 str;
+        xr_sprintf(str, sizeof(str), "%dx%d", dm.w, dm.h);
+        bool dup = false;
+        for (const auto& s : _tmp)
+            if (xr_strcmp(s, str) == 0)
+            {
+                dup = true;
+                break;
+            }
+        if (!dup)
+            _tmp.push_back(xr_strdup(str));
+    }
+
+    if (_tmp.empty())
+    {
+        // No enumerable modes (headless/odd driver): at least the current
+        // drawable size, so the settings dialog always has one entry.
+        int w = 0, h = 0;
+        if (win)
+            SDL_GL_GetDrawableSize(win, &w, &h);
+        if (w <= 0 || h <= 0)
+        {
+            SDL_DisplayMode dm{};
+            if (SDL_GetDesktopDisplayMode(0, &dm) == 0)
+            {
+                w = dm.w;
+                h = dm.h;
+            }
+        }
+        if (w > 0 && h > 0)
+        {
+            string32 str;
+            xr_sprintf(str, sizeof(str), "%dx%d", w, h);
+            _tmp.push_back(xr_strdup(str));
+        }
+    }
+    if (_tmp.empty())
+        return;
+
+    vid_mode_token = xr_alloc<xr_token>(_tmp.size() + 1);
+    for (size_t i = 0; i < _tmp.size(); ++i)
+    {
+        vid_mode_token[i].name = _tmp[i];
+        vid_mode_token[i].id = (int)i;
+    }
+    vid_mode_token[_tmp.size()].name = nullptr;
+    vid_mode_token[_tmp.size()].id = -1;
+}
 CHW HW;
 
 void CALLBACK OnDebugCallback(GLenum /*source*/, GLenum /*type*/, GLuint id, GLenum severity, GLsizei /*length*/,
@@ -221,6 +288,8 @@ void CHW::CreateDevice(SDL_Window* hWnd)
 
     if (glGenFramebuffers && glBindFramebuffer)
         UpdateViews();
+
+    fill_vid_mode_list_sdl(m_window);
 }
 
 void CHW::DestroyDevice()

@@ -733,6 +733,21 @@ inline BOOL GetCursorPos(LPPOINT p)
 {
     int x = 0, y = 0;
     SDL_GetMouseState(&x, &y);
+    // p4: SDL reports mouse position in window POINTS, but the engine sizes
+    // dwWidth/dwHeight from the drawable (BACKING PIXELS on Retina — 2x).
+    // Without scaling the UI cursor only reaches the top-left quarter of the
+    // window. Convert points -> pixels by the drawable/window ratio.
+    SDL_Window* win = xr_sdl_window_of(xr_sdl_primary_window());
+    if (win)
+    {
+        int ww = 0, wh = 0, dw = 0, dh = 0;
+        SDL_GetWindowSize(win, &ww, &wh);
+        SDL_GL_GetDrawableSize(win, &dw, &dh);
+        if (ww > 0 && dw > 0)
+            x = (int)((int64_t)x * dw / ww);
+        if (wh > 0 && dh > 0)
+            y = (int)((int64_t)y * dh / wh);
+    }
     p->x = x;
     p->y = y;
     return TRUE;
@@ -741,7 +756,17 @@ inline BOOL SetCursorPos(int x, int y)
 {
     SDL_Window* win = xr_sdl_window_of(xr_sdl_primary_window());
     if (win)
+    {
+        // inverse of GetCursorPos: engine coords are pixels, warp wants points
+        int ww = 0, wh = 0, dw = 0, dh = 0;
+        SDL_GetWindowSize(win, &ww, &wh);
+        SDL_GL_GetDrawableSize(win, &dw, &dh);
+        if (dw > 0 && ww > 0)
+            x = (int)((int64_t)x * ww / dw);
+        if (dh > 0 && wh > 0)
+            y = (int)((int64_t)y * wh / dh);
         SDL_WarpMouseInWindow(win, x, y);
+    }
     return TRUE;
 }
 inline HCURSOR SetCursor(HCURSOR) { return nullptr; }

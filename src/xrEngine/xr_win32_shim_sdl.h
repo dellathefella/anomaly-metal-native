@@ -640,25 +640,19 @@ inline int MapWindowPoints(HWND frm, HWND to, LPPOINT pts, unsigned int cnt)
 
 inline BOOL ScreenToClient(HWND hwnd, LPPOINT p)
 {
-    if (!hwnd)
-        return TRUE;
-    int x = 0, y = 0;
-    if (SDL_Window* win = xr_sdl_window_of(hwnd))
-        SDL_GetWindowPosition(win, &x, &y);
-    p->x -= x;
-    p->y -= y;
+    // p4: shim convention — GetCursorPos already returns WINDOW-RELATIVE
+    // drawable pixels (SDL mouse coords), so there is nothing to convert.
+    // Subtracting SDL_GetWindowPosition here (POINTS, and the origin was
+    // already accounted for) corrupted every win-cursor position.
+    (void)hwnd;
+    (void)p;
     return TRUE;
 }
 
-inline BOOL ClientToScreen(HWND hwnd, LPPOINT p) // inverse of ScreenToClient above
+inline BOOL ClientToScreen(HWND hwnd, LPPOINT p) // identity: see above
 {
-    if (!hwnd)
-        return TRUE;
-    int x = 0, y = 0;
-    if (SDL_Window* win = xr_sdl_window_of(hwnd))
-        SDL_GetWindowPosition(win, &x, &y);
-    p->x += x;
-    p->y += y;
+    (void)hwnd;
+    (void)p;
     return TRUE;
 }
 
@@ -763,12 +757,28 @@ inline int GetSystemMetrics(int idx)
 {
     SDL_DisplayMode dm{};
     SDL_GetDesktopDisplayMode(0, &dm);
+    // p4: the engine compares SM_CXSCREEN/SM_CYSCREEN against dwWidth/dwHeight
+    // (BACKING PIXELS) to pick the UI cursor mode; SDL's desktop mode is in
+    // POINTS, so the win-cursor mode flipped off arbitrarily and synthetic
+    // pointer input degraded to drifting relative mode. Report drawable
+    // pixels: window drawable wins over the desktop mode when larger.
+    int w = dm.w, h = dm.h;
+    SDL_Window* win = xr_sdl_window_of(xr_sdl_primary_window());
+    if (win)
+    {
+        int dw = 0, dh = 0;
+        SDL_GL_GetDrawableSize(win, &dw, &dh);
+        if (dw > w)
+            w = dw;
+        if (dh > h)
+            h = dh;
+    }
     switch (idx)
     {
-    case SM_CXSCREEN: return dm.w;
-    case SM_CYSCREEN: return dm.h;
-    case SM_CXVIRTUALSCREEN: return dm.w;
-    case SM_CYVIRTUALSCREEN: return dm.h;
+    case SM_CXSCREEN: return w;
+    case SM_CYSCREEN: return h;
+    case SM_CXVIRTUALSCREEN: return w;
+    case SM_CYVIRTUALSCREEN: return h;
     default: return 0;
     }
 }

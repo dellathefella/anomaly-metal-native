@@ -92,7 +92,6 @@ bool CLevel::net_Start(const char* op_server, const char* op_client)
 	}
 	//---------------------------------------------------------------------------
 	g_loading_events.push_back(LOADING_EVENT(this, &CLevel::net_start1));
-	Msg("* P4DBG: net_Start queued (queue was %d)", (int)g_loading_events.size() - 1);
 	g_loading_events.push_back(LOADING_EVENT(this, &CLevel::net_start2));
 	g_loading_events.push_back(LOADING_EVENT(this, &CLevel::net_start3));
 	g_loading_events.push_back(LOADING_EVENT(this, &CLevel::net_start4));

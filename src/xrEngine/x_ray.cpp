@@ -1315,7 +1315,6 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	}
 	else if (E == eStart)
 	{
-		Msg("* P4DBG: eStart server='%s' client='%s'", P1 ? LPSTR(P1) : "-", P2 ? LPSTR(P2) : "-");
 		LPSTR op_server = LPSTR(P1);
 		LPSTR op_client = LPSTR(P2);
 		Level_Current = u32(-1);

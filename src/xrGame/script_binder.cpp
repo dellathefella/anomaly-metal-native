@@ -140,10 +140,6 @@ BOOL CScriptBinder::net_Spawn(CSE_Abstract* DC)
 #endif // DEBUG_MEMORY_MANAGER
 	CSE_Abstract* abstract = (CSE_Abstract*)DC;
 	CSE_ALifeObject* object = smart_cast<CSE_ALifeObject*>(abstract);
-	if (CGameObject* go = smart_cast<CGameObject*>(this))
-		if (go->cName() == "actor")
-			Msg("* P4DBG: actor binder CScriptBinder::net_Spawn m_object=%p lua=%d", (void*)m_object,
-			    object ? 1 : 0);
 	if (object && m_object)
 	{
 		try

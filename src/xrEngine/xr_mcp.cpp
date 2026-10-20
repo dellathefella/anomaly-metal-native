@@ -209,6 +209,11 @@ namespace
             lua_State* L = ai_space->script_engine().lua();
             if (!L)
                 return push_resp("ERR no lua state");
+            // p4 fix: 'top' MUST be captured BEFORE loadstring pushes the chunk —
+            // pcall pops the chunk, so return values start at top+1. Capturing it
+            // after loadstring made nret = k-1 and silently swallowed the first
+            // return value (pcall's status boolean -> 'OK lua' for true,"").
+            const int top = lua_gettop(L);
             if (luaL_loadstring(L, chunk.c_str()))
             {
                 string256 err;
@@ -217,7 +222,6 @@ namespace
                 Msg("! xr_mcp lua load: %s", err);
                 return push_resp(std::string("ERR load: ") + err);
             }
-            int top = lua_gettop(L);
             if (lua_pcall(L, 0, LUA_MULTRET, 0))
             {
                 // NOTE: must NOT call script_engine().lua_pcall_failed() here —
@@ -261,6 +265,10 @@ namespace
                 out += piece;
             }
             lua_settop(L, top);
+            // protocol is line-based: keep multi-line lua errors on one line
+            for (auto& ch : out)
+                if (ch == '\n')
+                    ch = ' ';
             return push_resp(out.empty() ? "OK lua" : "OK " + out);
         }
         if (raw.compare(0, 10, "mouse_move") == 0)

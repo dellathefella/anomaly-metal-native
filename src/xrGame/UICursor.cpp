@@ -63,18 +63,7 @@ u32 last_render_frame = 0;
 
 void CUICursor::OnRender()
 {
-	// p4: cursor visibility probe
-	static int s_p4_cur = 0;
-	if (s_p4_cur < 3 || s_p4_cur % 3000 == 0)
-	{
-		Frect r4;
-		m_static->GetAbsoluteRect(r4);
-		Msg("* p4: CUICursor::OnRender #%d vis=%d pos=(%.0f,%.0f) rect=(%d,%d,%d,%d) sh=%s inited=%d",
-			s_p4_cur, bVisible ? 1 : 0, vPos.x, vPos.y, r4.x1, r4.y1, r4.x2, r4.y2,
-			m_static->GetShader() ? "have" : "NULL",
-			m_static->GetShader() ? (m_static->GetShader()->inited() ? 1 : 0) : -1);
-	}
-	s_p4_cur++;
+
 	g_btnHint->OnRender();
 	g_statHint->OnRender();
 

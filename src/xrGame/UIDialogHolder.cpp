@@ -165,11 +165,7 @@ void CDialogHolder::RemoveDialogToRender(CUIWindow* pDialog)
 
 void CDialogHolder::DoRenderDialogs()
 {
-	// p4: probe — dialog list state on the render path
-	static int s_p4_dlg = 0;
-	if (s_p4_dlg < 3 || s_p4_dlg % 900 == 0)
-		Msg("* p4: DoRenderDialogs #%d toRender=%zu", s_p4_dlg, m_dialogsToRender.size());
-	s_p4_dlg++;
+
 	typename xr_vector<dlgItem>::iterator it = m_dialogsToRender.begin();
 	for (; it != m_dialogsToRender.end(); ++it)
 	{

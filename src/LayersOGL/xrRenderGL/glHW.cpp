@@ -331,6 +331,9 @@ void CHW::UpdateViews()
 void CHW::BeginScene() { }
 void CHW::EndScene() { }
 
+// p4: defined in glr_screenshot.cpp — deferred screenshot capture hook.
+void p4_present_screenshot();
+
 void CHW::Present()
 {
 #if 0 // kept for historical reasons
@@ -343,6 +346,10 @@ void CHW::Present()
         0, 0, Device.dwWidth, Device.dwHeight,
         GL_COLOR_BUFFER_BIT, GL_NEAREST);
 #endif
+
+    // p4: queued 'screenshot <name>' captures land here — the rendered frame is
+    // complete and pFB is bound as GL_READ_FRAMEBUFFER.
+    p4_present_screenshot();
 
 #ifndef XR_PLATFORM_WEB
     SDL_GL_SwapWindow(m_window); // on the web the frame is presented when the loop callback returns

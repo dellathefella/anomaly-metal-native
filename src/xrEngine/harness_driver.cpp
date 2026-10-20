@@ -15,6 +15,7 @@ class CHarnessDriver : public pureFrame
     float m_t0{ -1.f };
     float m_schedule{ 0.f };
     int m_grace{ 30 }; // frames to let the renderer/menu settle first
+    int m_dbg_counter{ 0 };
 
 public:
     explicit CHarnessDriver(LPCSTR path)
@@ -46,6 +47,12 @@ public:
     {
         if (m_lines.empty())
             return;
+        // p4 debug: prove dispatch + timing state once, then every ~60s.
+        ++m_dbg_counter;
+        if (m_dbg_counter == 1 || (m_dbg_counter % 600) == 0)
+            Msg("* harness dbg: calls=%d grace=%d t=%.2f t0=%.2f ready=%d active=%d",
+                m_dbg_counter, m_grace, Device.fTimeGlobal, m_t0, (int)Device.b_is_Ready,
+                (int)Device.b_is_Active);
         if (m_grace > 0)
         {
             --m_grace;
@@ -103,4 +110,8 @@ void harness_init()
     s_harness = xr_new<CHarnessDriver>(path);
     // CRenderDevice hides the override privately; dispatch via the interface.
     static_cast<IRenderDevice&>(Device).AddSeqFrame(s_harness, false);
+    Msg("* harness dbg: obj=%p dev=%p seqFrame.size=%zu", (void*)s_harness, (void*)&Device,
+        Device.seqFrame.R.size());
+    Msg("* layout probe(xrEngine): dev=%p seqFrame=%+td seqRender=%+td", (void*)&Device,
+        (char*)&Device.seqFrame - (char*)&Device, (char*)&Device.seqRender - (char*)&Device);
 }

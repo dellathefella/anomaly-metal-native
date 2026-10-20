@@ -22,6 +22,10 @@ protected:
 public:
 	IInputReceiver* m_pStoredInputReceiver;
 	CUISequencer();
+	// p4: xr_delete(m_intro) destroyed started sequencers without unregistering
+	// them from seqFrame/seqRender, leaving dangling entries that crashed in
+	// OnRender. Defined in the .cpp.
+	virtual ~CUISequencer();
 	void Start(LPCSTR tutor_name);
 	void Stop();
 	void Next();

@@ -96,6 +96,17 @@ bool CUISequenceItem::Stop(bool bForce)
 CUISequencer::CUISequencer()
 {
 	m_flags.zero();
+	m_UIWindow = NULL; // p4: ctor left it uninitialized; Start assigns, teardown must see 0
+	m_pStoredInputReceiver = NULL;
+}
+
+// p4: see header note — safe teardown for xr_delete on started/stopped sequencers.
+CUISequencer::~CUISequencer()
+{
+	Device.seqFrame.Remove(this);
+	Device.seqRender.Remove(this);
+	delete_data(m_sequencer_items);
+	delete_data(m_UIWindow);
 }
 
 void CUISequencer::Start(LPCSTR tutor_name)
@@ -162,9 +173,19 @@ void CUISequencer::Start(LPCSTR tutor_name)
 	}
 
 	Device.seqRender.Add(this, render_prio /*-2*/);
+	// p4 debug: verify the stored registration pointer.
+	for (size_t di = 0; di < Device.seqRender.R.size(); ++di)
+		if (Device.seqRender.R[di].Object == static_cast<pureRender*>(this))
+			Msg("* CUISequencer::Start seqRender[%zu] obj=%p prio=%d (this=%p)", di,
+				Device.seqRender.R[di].Object, Device.seqRender.R[di].Prio, (void*)this);
+	Msg("* layout probe(xrGame): dev=%p seqFrame=%+td seqRender=%+td", (void*)&Device,
+		(char*)&Device.seqFrame - (char*)&Device, (char*)&Device.seqRender - (char*)&Device);
 
 	CUISequenceItem* pCurrItem = GetNextItem();
 	R_ASSERT3(pCurrItem, "no item(s) to start", tutor_name);
+	// p4 debug: lifecycle trace for the intro/tutorial crash hunt.
+	Msg("* CUISequencer::Start '%s' this=%p items=%zu", tutor_name, (void*)this,
+		m_sequencer_items.size());
 	pCurrItem->Start();
 	m_pStoredInputReceiver = pInput->CurrentIR();
 	IR_Capture();
@@ -231,6 +252,9 @@ void CUISequencer::Destroy()
 		CallFunction(m_stop_lua_function);
 
 	m_global_sound.stop();
+	// p4 debug: confirm the unregistration actually lands.
+	Msg("* CUISequencer::Destroy this=%p sf=%zu sr=%zu", (void*)this,
+		Device.seqFrame.R.size(), Device.seqRender.R.size());
 	Device.seqFrame.Remove(this);
 	Device.seqRender.Remove(this);
 	delete_data(m_sequencer_items);
@@ -307,6 +331,15 @@ void CUISequencer::OnFrame()
 
 void CUISequencer::OnRender()
 {
+	// p4: an active-but-destroyed sequencer can linger in seqRender when a
+	// delete races the unregistration — guard the torn-down window.
+	if (!m_UIWindow)
+	{
+		Msg("! CUISequencer::OnRender: stale registration (this=%p, sr=%zu) -> auto-remove",
+			(void*)this, Device.seqRender.R.size());
+		Device.seqRender.Remove(this);
+		return;
+	}
 	if (m_UIWindow->IsShown())
 		m_UIWindow->Draw();
 

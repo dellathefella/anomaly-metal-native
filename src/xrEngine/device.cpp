@@ -285,6 +285,12 @@ void mt_FreezeThread(void *ptr) {
 			FlushLog();
 			repeatcheck = 5000.f;
 		}
+		else if (Device.b_is_Ready)
+		{
+			// p4: Windows sessions rely on the freeze-triggered flush only;
+			// flush every tick so `tail -f` works during normal frames.
+			FlushLog();
+		}
 		Sleep(repeatcheck);
 	}
 }
@@ -456,6 +462,22 @@ void CRenderDevice::message_loop()
 #endif
 	MSG msg;
 	PeekMessage(&msg, NULL, 0U, 0U, PM_NOREMOVE);
+#ifdef XR_PLATFORM_POSIX
+	// p4: Windows delivered WM_ACTIVATE synchronously at window creation; SDL
+	// only queues a FOCUS_GAINED event which startup code may have already
+	// drained. Prime activation from SDL's live focus state so b_is_Active
+	// reflects reality from the very first frame (else nothing ever renders).
+	{
+		MSG act{};
+		act.hwnd = m_hWnd;
+		act.message = WM_ACTIVATE;
+		SDL_Window* focus = SDL_GetKeyboardFocus();
+		u32 code = (focus == nullptr || focus == m_hWnd) ? 1 /*WA_ACTIVE*/ : 0 /*WA_INACTIVE*/;
+		act.wParam = (WPARAM)(u32)code;
+		act.lParam = 0;
+		DispatchMessage(&act);
+	}
+#endif
 	while (msg.message != WM_QUIT)
 	{
 		if (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))

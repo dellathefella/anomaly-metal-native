@@ -429,6 +429,58 @@ void CHW::EndScene() { }
 void p4_present_screenshot();
 void p4_gl_fence(pcstr stage);
 
+// p4: macOS occlusion guard. With vsync on, SDL3/Cocoa's SDL_GL_SwapWindow blocks in a
+// condition-wait for the swap-completion callback while the window receives no frames:
+// (a) OCCLUDED — hidden behind other apps / another Space; sdl2-compat drops SDL3's
+// occlusion event and doesn't map the flag, but libSDL3 is already loaded in-process and
+// compat passes the identical SDL_Window* through — so query SDL3_GetWindowFlags directly.
+// (b) SCREEN LOCKED — the window server stops presenting to app windows without touching
+// any SDL flag (CGSSessionScreenIsLocked is the ground truth).
+// Both cases otherwise freeze the whole engine (0% CPU, MCP dead, looks like a hang).
+#ifdef __APPLE__
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include <CoreFoundation/CoreFoundation.h>
+// deprecated legacy API, still exported by CoreGraphics (loaded via libSDL3):
+extern "C" CFDictionaryRef CGSessionCopyCurrentDictionary(void);
+
+static bool p4_window_hidden(SDL_Window* wnd)
+{
+    using get_flags3_t = uint64_t (*)(SDL_Window*);
+    static get_flags3_t get_flags3 = [] {
+        for (uint32_t i = 0; i < _dyld_image_count(); ++i)
+        {
+            const char* name = _dyld_get_image_name(i);
+            if (name && std::strstr(name, "libSDL3"))
+            {
+                void* h = dlopen(name, RTLD_LAZY | RTLD_NOLOAD);
+                if (h)
+                    return reinterpret_cast<get_flags3_t>(dlsym(h, "SDL_GetWindowFlags"));
+            }
+        }
+        return static_cast<get_flags3_t>(nullptr);
+    }();
+    // SDL3 3.4 SDL_video.h: SDL_WINDOW_OCCLUDED = 0x4, SDL_WINDOW_HIDDEN = 0x8
+    return get_flags3 && (get_flags3(wnd) & (0x4ull | 0x8ull)) != 0;
+}
+
+static bool p4_screen_locked()
+{
+    CFDictionaryRef d = CGSessionCopyCurrentDictionary();
+    if (!d)
+        return false;
+    bool locked = false;
+    if (CFNumberRef v = (CFNumberRef)CFDictionaryGetValue(d, CFSTR("CGSSessionScreenIsLocked")))
+    {
+        int x = 0;
+        CFNumberGetValue(v, kCFNumberIntType, &x);
+        locked = x != 0;
+    }
+    CFRelease(d);
+    return locked;
+}
+#endif
+
 void CHW::Present()
 {
     p4_gl_fence("present"); // drains errors from PP/UI since CRender::Render
@@ -448,7 +500,17 @@ void CHW::Present()
     p4_present_screenshot();
 
 #ifndef XR_PLATFORM_WEB
+    // Skip only the swap while hidden/locked: the scene still renders into pFB, so
+    // screenshots and the main loop (message pump, MCP) stay fully alive. Without the
+    // vsync wait, pace the loop manually so the skip doesn't spin the CPU.
+#ifdef __APPLE__
+    if (!p4_window_hidden(m_window) && !p4_screen_locked())
+        SDL_GL_SwapWindow(m_window);
+    else
+        Sleep(10);
+#else
     SDL_GL_SwapWindow(m_window); // on the web the frame is presented when the loop callback returns
+#endif
 #endif
     CurrentBackBuffer = (CurrentBackBuffer + 1) % BackBufferCount;
 }

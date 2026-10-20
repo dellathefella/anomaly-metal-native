@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+
+<!--
+	p4 mac port: labels for options added by the ui-overlay's ui_options.script.
+	Loose file: the engine merges every xml under $game_text$\<lang>\, so this
+	adds keys without shadowing the archive's own tables.
+-->
+
+	<string id="ui_mm_show_fps">
+		<text>Performance overlay</text>
+	</string>
+	<string id="ui_mm_show_fps_desc">
+		<text>On-screen counters. "FPS + ms + RAM" also shows average frame time and resident memory.</text>
+	</string>
+
+</string_table>

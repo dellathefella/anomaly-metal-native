@@ -27,3 +27,11 @@ if(XRAY_RENDERER_GL)
 	# registers them at launch.
 	target_link_libraries(xr_3da PRIVATE xrRender_GL)
 endif()
+
+# p5: native Metal renderer. Currently the metal_poc foundation (runtime
+# HLSL->SPIR-V->MSL shader pipeline + Metal device/render proof-of-life); the
+# xrRenderMetal device backend builds on top of it.
+option(XRAY_RENDERER_METAL "Build the native Metal renderer foundations" OFF)
+if(XRAY_RENDERER_METAL)
+	add_subdirectory("LayersMetal")
+endif()

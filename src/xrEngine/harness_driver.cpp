@@ -95,6 +95,8 @@ public:
                 const char* nm = line.c_str() + 4;
                 while (*nm == ' ')
                     ++nm;
+                if (nm[0] == 'k' || nm[0] == 'K') // tolerate kDOWN/DIK-style names
+                    ++nm;
                 bool hit = false;
                 for (auto& k : s_keys)
                     if (!xr_stricmp(nm, k.name))

@@ -75,7 +75,7 @@ PROTECT_API void CRenderDevice::Initialize()
 		// configs if present, else the desktop mode (so the first-run menu is
 		// at native aspect instead of the engine's 640x480 placeholder).
 		int init_w = 0, init_h = 0;
-		if (pSettings->section_exist("video") && pSettings->exist("video", "vid_mode"))
+		if (pSettings->section_exist("video") && pSettings->line_exist("video", "vid_mode"))
 		{
 			u32 vw = 0, vh = 0;
 			if (2 == sscanf(pSettings->r_string("video", "vid_mode"), "%ux%u", &vw, &vh) &&

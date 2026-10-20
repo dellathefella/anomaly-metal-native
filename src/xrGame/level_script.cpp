@@ -136,7 +136,10 @@ CScriptGameObject* get_object_by_id(luabind::object ob)
 
 LPCSTR get_weather()
 {
-	return (*g_pGamePersistent->Environment().GetWeather());
+	// p4: shared_str may be null before any level/environment init (settings
+	// dialog reads it from the main menu); luabind strlen'd the null.
+	LPCSTR w = *g_pGamePersistent->Environment().GetWeather();
+	return w ? w : "";
 }
 
 void set_weather(LPCSTR weather_name, bool forced)
@@ -349,6 +352,9 @@ bool patrol_path_exists(LPCSTR patrol_path)
 
 LPCSTR get_name()
 {
+	// p4: no CLevel at the main menu — return empty instead of dereferencing.
+	if (!g_pGameLevel)
+		return "";
 	return (*Level().name());
 }
 

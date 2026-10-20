@@ -67,6 +67,13 @@ void CRender::Calculate()
 {
     ZoneScopedN("r2_calculate");
 
+    // p4: dev invokes CRender::OnCameraUpdated from CRenderDevice::OnCameraUpdated
+    // (device.cpp) every frame before Calculate; monolith's IRender has no such
+    // hook, so drive it here. It refreshes ViewBase, arms ProcessHOMTask (the
+    // Wait below would otherwise dereference a wild pointer on the first
+    // in-world frame) and dispatches the detail-manager cache update.
+    OnCameraUpdated();
+
     // Transfer to global space to avoid deep pointer access
     float fov_factor = _sqr(90.f / Device.fFOV);
     g_fSCREEN = float(Target->get_width(RCache) * Target->get_height(RCache)) * fov_factor * (EPS_S + ps_r__LOD);

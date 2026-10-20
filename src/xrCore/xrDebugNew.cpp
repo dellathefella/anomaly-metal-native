@@ -1065,6 +1065,14 @@ void _terminate()
 
 static void handler_base(LPCSTR reason_string)
 {
+#ifdef XR_PLATFORM_POSIX
+	// p4: Windows got the stack from the DrWatson dialog; POSIX must capture
+	// it manually. Do this for EVERY fatal (R_ASSERT, SIGABRT, terminate,
+	// purecall) — the signal handlers alone missed the abort()/libc paths,
+	// where the empty 'stack trace:' left us blind.
+	posix_log_backtrace();
+	FlushLog();
+#endif
 	bool ignore_always = false;
 	Debug.backend(
 		nullptr,

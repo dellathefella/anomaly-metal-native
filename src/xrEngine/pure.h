@@ -35,7 +35,11 @@ DECLARE_MESSAGE(ScreenResolutionChanged);
 struct _REG_INFO
 {
 	void* Object;
-	int Prio;
+	// p4 LP64 fix: Prio held 0xfffffffful (INVALID) in an int -> -1, and on
+	// macOS `int != 0xfffffffful` promotes to 64-bit so the comparison is
+	// never equal; clang then optimized the INVALID filter in Process() away
+	// entirely, dispatching removed (dangling) registrations. Keep it u32.
+	u32 Prio;
 	u32 Flags;
 };
 
@@ -49,7 +53,9 @@ class CRegistrator // the registrator itself
 	{
 		_REG_INFO* p1 = (_REG_INFO*)e1;
 		_REG_INFO* p2 = (_REG_INFO*)e2;
-		return (p2->Prio - p1->Prio);
+		// p4: u32 subtraction, single conversion to int (matches the 32-bit
+		// Windows semantics; the old int field + 64-bit promotion diverged).
+		return (int)(p2->Prio - p1->Prio);
 	}
 
 public:

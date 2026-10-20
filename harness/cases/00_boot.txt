@@ -1,0 +1,6 @@
+# case: boot — engine reaches the main menu and renders it.
+# Acceptance: menu_boot.jpg is NOT black (menu UI + background visible).
+# 60 s covers the shader compile wave at first launch (waits are wall-clock
+# seconds; warm runs settle much sooner).
+wait 60
+screenshot menu_boot

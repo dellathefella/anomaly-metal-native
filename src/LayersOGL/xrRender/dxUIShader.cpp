@@ -9,7 +9,7 @@ void dxUIShader::create(LPCSTR sh, LPCSTR tex)
     // p4: UI shaders came up un-inited (black menu) — trace creation.
     static int s_p4_uicreate = 0;
     hShader.create(sh, tex);
-    if (s_p4_uicreate < 40 || !hShader._get())
+    if (s_p4_uicreate < 40 || !hShader._get() || (tex && strstr(tex, "nGame2")))
         Msg("* p4: dxUIShader::create #%d '%s' tex='%s' -> %s", s_p4_uicreate++, sh ? sh : "?",
             tex ? tex : "?", hShader._get() ? "ok" : "NULL");
 }

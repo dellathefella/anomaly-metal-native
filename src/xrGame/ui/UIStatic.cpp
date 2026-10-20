@@ -69,11 +69,6 @@ void CUIStatic::CreateShader(const char* tex, const char* sh)
 
 void CUIStatic::InitTextureEx(LPCSTR tex_name, LPCSTR sh_name)
 {
-	// p4: menu statics never got shaders — trace init
-	static int s_p4_initex = 0;
-	if (s_p4_initex < 5)
-		Msg("* p4: CUIStatic::InitTextureEx #%d '%s' sh='%s'", s_p4_initex++,
-			tex_name ? tex_name : "?", sh_name ? sh_name : "?");
 	LPCSTR res_shname = UIRender->UpdateShaderName(tex_name, sh_name);
 	CUITextureMaster::InitTexture(tex_name, &m_UIStaticItem, res_shname);
 

@@ -2019,7 +2019,12 @@ void CCC_RegisterCommands()
 	psActorFlags.set(AF_LOOKOUT_TOGGLE, FALSE);
 	psActorFlags.set(AF_FREELOOK_TOGGLE, FALSE);
 	psActorFlags.set(AF_SIMPLE_PDA, TRUE);
-	psActorFlags.set(AF_3D_PDA, TRUE);
+	// p4: monolith defaults to the 3D held-in-hand PDA, which draws into the
+	// rtPDA target for the device model — not composited by the staged GL
+	// renderer (3D device path pending, t2-anomaly-extensions). The classic
+	// 2D PDA window paints directly and is fully functional; g_3d_pda still
+	// toggles at runtime.
+	psActorFlags.set(AF_3D_PDA, FALSE);
 
 	CMD3(CCC_Mask, "g_crouch_toggle", &psActorFlags, AF_CROUCH_TOGGLE);
 	CMD3(CCC_Mask, "g_walk_toggle", &psActorFlags, AF_WALK_TOGGLE);

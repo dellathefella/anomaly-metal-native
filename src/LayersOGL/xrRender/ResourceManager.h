@@ -40,7 +40,7 @@ public:
     using map_HS = xr_map<const char*, SHS*, str_pred>;
     using map_DS = xr_map<const char*, SDS*, str_pred>;
     using map_CS = xr_map<const char*, SCS*, str_pred>;
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     using map_PP = xr_map<const char*, SPP*, str_pred>;
 #endif
     using map_PS = xr_map<const char*, SPS*, str_pred>;
@@ -60,7 +60,7 @@ private:
     map_DS m_ds;
     map_HS m_hs;
     map_CS m_cs;
-#if defined(USE_OGL)
+#if defined(USE_OGL) || defined(USE_METAL)
     map_PP m_pp;
 #endif
 

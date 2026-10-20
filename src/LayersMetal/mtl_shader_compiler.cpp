@@ -104,7 +104,7 @@ namespace xray::metal
 	}
 
 	// SPIR-V -> MSL via SPIRV-Cross, in-process.
-	static bool SpirvToMsl(const std::vector<uint32_t>& spirv, std::string& msl, std::string& error)
+	static bool SpirvToMslImpl(const std::vector<uint32_t>& spirv, std::string& msl, std::string& error)
 	{
 		try
 		{
@@ -243,7 +243,7 @@ namespace xray::metal
 			return res;
 		}
 
-		if (!SpirvToMsl(spirv, res.msl, res.error))
+		if (!SpirvToMslImpl(spirv, res.msl, res.error))
 			return res;
 
 		if (!cacheFile.empty())
@@ -253,6 +253,29 @@ namespace xray::metal
 		}
 		res.ok = true;
 		return res;
+	}
+
+	bool MetalShaderCompiler::SpirvToMsl(const std::vector<uint32_t>& spirv, std::string& msl, std::string& error)
+	{
+		return SpirvToMslImpl(spirv, msl, error);
+	}
+
+	bool MetalShaderCompiler::CompileWithSpirv(const std::string& hlsl, const std::string& entry, ShaderStage stage,
+	                                           const std::vector<std::string>& defines, ShaderCompileResult& res,
+	                                           std::vector<uint32_t>& spirvOut)
+	{
+		res = ShaderCompileResult{};
+		if (!m_impl->dxc.Ready())
+		{
+			res.error = "CompileWithSpirv requires in-process DXC";
+			return false;
+		}
+		if (!m_impl->dxc.CompileToSpirv(hlsl, entry, stage, defines, spirvOut, res.messages, res.error))
+			return false;
+		if (!SpirvToMslImpl(spirvOut, res.msl, res.error))
+			return false;
+		res.ok = true;
+		return true;
 	}
 
 } // namespace xray::metal

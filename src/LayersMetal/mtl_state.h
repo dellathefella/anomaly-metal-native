@@ -15,7 +15,8 @@ namespace xray::metal
 		uint32_t index;  // [[attribute(N)]] index — SPIRV-Cross emits HLSL
 		                 // semantics in declaration order, keep it aligned.
 		uint32_t offset; // bytes within the vertex stream (buffer slot 0)
-		uint32_t format; // MTLVertexFormat raw value (Float3=23, Float2=21...)
+		uint32_t format; // MTLVertexFormat raw value (Float=28, Float2=29,
+		                 // Float3=30, Float4=31, Half=53, UChar4Normalized=9)
 	};
 
 	// DX9 blend state; src/dst/op fields carry RAW D3DBLEND/D3DBLENDOP values

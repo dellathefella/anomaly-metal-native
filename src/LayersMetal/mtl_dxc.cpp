@@ -121,6 +121,8 @@ namespace xray::metal::detail
 			L"-E", wentry.c_str(),
 			L"-T", target,
 			L"-spirv",
+			L"-Zpr", // row-major matrices: the engine memcpy's Fmatrix rows
+			        // straight into the cbuffer image (DX9 fxc default)
 			L"-O1",
 		};
 		for (const std::wstring& w : wdefs)

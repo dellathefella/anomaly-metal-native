@@ -93,7 +93,8 @@ namespace xray::metal
 			}
 			pd.vertexDescriptor = vd;
 		}
-		pd.colorAttachments[0].pixelFormat = (MTLPixelFormat)desc.colorFormat;
+		if (desc.colorFormat >= 0)
+			pd.colorAttachments[0].pixelFormat = (MTLPixelFormat)desc.colorFormat;
 		if (!desc.colorFormats.empty())
 		{
 			pd.colorAttachments[0].pixelFormat = (MTLPixelFormat)desc.colorFormats[0];

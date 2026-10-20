@@ -65,13 +65,27 @@ struct MtlShaderPair
     std::string name;
 };
 
-// Compile a translated HLSL stage source through the MetalShaderCompiler.
-// Implemented in mtlShaderCompile.mm. target: 'v'/'p'. entry: HLSL entry
-// ("main"/"main_ps_1_1"...). defines: newline-joined #define block (may be "").
-// Returns false + error on failure. The MtlStageRefl payload (function +
-// reflection) is allocated and owned by the shader-compile registry.
-bool MetalCompileStage(MtlStageRefl& out, char target, const char* name, const char* source,
-    const char* entry, const std::string& defines, std::string& error);
+// Lazy global DXC backend init (libdxcompiler.dylib candidates + CLI
+// fallback). Called by the first MetalCompileStage; also callable from the
+// PC layer for early diagnostics. Returns false when no backend exists.
+bool MtlShaderCompilerInit();
+
+// Compile a translated DX9->SM6 HLSL stage: DXC -> SPIR-V -> reflection ->
+// SPIRV-Cross -> MSL -> id<MTLFunction> (on MtlSharedDevice()). Entry
+// semantics for VS inputs are recovered from translatedHlsl by source scan.
+// outMsl (optional) receives the MSL text for the renderer's disk cache.
+// The MtlStageRefl payload (function + reflection) is arena-owned.
+bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, const char* name,
+    const char* translatedHlsl, const char* entry, std::string& error);
+
+// Recreate a stage from cached MSL text (device compile; reflection comes
+// from MtlDeserializeReflection on the caller's cache blob).
+bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* msl, const char* entry,
+    std::string& error);
+
+// Reflection <-> opaque blob (paired with the MSL text in cache files).
+std::string MtlSerializeReflection(const MtlStageRefl& refl);
+bool MtlDeserializeReflection(const std::string& blob, MtlStageRefl& refl, std::string& error);
 
 // Heap-allocate a shader pair record (SPP::pp payload).
 MtlShaderPair* MtlMakeShaderPair(const char* name);

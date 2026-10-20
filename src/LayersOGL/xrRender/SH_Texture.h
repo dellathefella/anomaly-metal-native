@@ -7,6 +7,17 @@ class ENGINE_API CTheoraSurface;
 
 namespace xray::render::RENDER_NAMESPACE
 {
+#if defined(USE_METAL)
+// Texture dimension tag (mirrors GL's GLenum desc; mtlTexture.cpp's
+// texture_load returns it, CTexture::desc stores it, apply paths switch on it).
+enum mtl_tex_dim : u32
+{
+    mtd2D = 0,
+    mtd3D = 1,
+    mtdCube = 2,
+    mtd2DArray = 3
+};
+#endif
 class ECORE_API CTexture : public xr_resource_named
 {
 public:
@@ -231,6 +242,9 @@ private:
     u32 m_width{};
     u32 m_height{};
     void* desc_cache{};
+    // Texture "target" tag (dimension) — mirrors GL's GLenum desc; values
+    // from the namespace-scope mtl_tex_dim above.
+    u32 desc{ mtd2D };
 #else
 #   error No graphics API selected or enabled!
 #endif

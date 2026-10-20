@@ -285,6 +285,18 @@ namespace xray::metal
 		return true;
 	}
 
+	void* MetalDevice::BufferContents(void* buffer)
+	{
+		id<MTLBuffer> buf = (__bridge id<MTLBuffer>)buffer;
+		return buf ? [buf contents] : nullptr;
+	}
+
+	size_t MetalDevice::BufferSize(void* buffer)
+	{
+		id<MTLBuffer> buf = (__bridge id<MTLBuffer>)buffer;
+		return buf ? (size_t)[buf length] : 0;
+	}
+
 	void* MetalDevice::NewBuffer(size_t bytes)
 	{
 		if (!m_impl->device || bytes == 0)
@@ -514,6 +526,29 @@ namespace xray::metal
 		return (__bridge void*)s;
 	}
 
+	bool MetalDevice::WriteTextureBlocks(void* texture, uint32_t slice, uint32_t mip, const void* data,
+	                                     uint32_t w, uint32_t h, uint32_t blockBytes, std::string& error)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex || !data)
+		{
+			error = "null texture/data";
+			return false;
+		}
+		const NSUInteger rowBytes = ((NSUInteger)(w + 3) / 4) * blockBytes;
+		// 3D volumes pick the z-slice via region.origin.z (slice: ignored);
+		// cube faces / array slices via the slice: argument (origin.z must be 0).
+		const bool is3D = tex.textureType == MTLTextureType3D;
+		const MTLRegion region = MTLRegionMake3D(0, 0, is3D ? (NSInteger)slice : 0, (NSInteger)w, (NSInteger)h, 1);
+		[tex replaceRegion:region
+			  mipmapLevel:mip
+					slice:is3D ? 0 : slice
+				withBytes:data
+			  bytesPerRow:rowBytes
+			bytesPerImage:rowBytes * ((NSUInteger)(h + 3) / 4)];
+		return true;
+	}
+
 	bool MetalDevice::WriteTextureRegion(void* texture, uint32_t slice, uint32_t mip, const void* pixels,
 	                                     uint32_t w, uint32_t h, uint32_t bytesPerPixel, std::string& error)
 	{
@@ -529,12 +564,13 @@ namespace xray::metal
 			[tex replaceRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:0 withBytes:pixels bytesPerRow:rowBytes];
 			return true;
 		}
-		// General path: one (slice, mip) image. For volumes, origin.z picks the
-		// z-slice; for arrays/cube faces, the slice: argument picks the slice.
-		const MTLRegion region = MTLRegionMake3D(0, 0, (NSInteger)slice, (NSInteger)w, (NSInteger)h, 1);
+		// 3D volumes pick the z-slice via region.origin.z (slice: ignored);
+		// cube faces / array slices via the slice: argument (origin.z must be 0).
+		const bool is3D = tex.textureType == MTLTextureType3D;
+		const MTLRegion region = MTLRegionMake3D(0, 0, is3D ? (NSInteger)slice : 0, (NSInteger)w, (NSInteger)h, 1);
 		[tex replaceRegion:region
 			  mipmapLevel:mip
-					slice:slice
+					slice:is3D ? 0 : slice
 				withBytes:pixels
 			  bytesPerRow:rowBytes
 			bytesPerImage:(tex.textureType == MTLTextureType3D ? rowBytes * h : 0)];
@@ -555,9 +591,44 @@ namespace xray::metal
 			error = "texture is framebufferOnly — not readable";
 			return false;
 		}
-		[tex getBytes:dst bytesPerRow:bytesPerRow
-		   fromRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:mip];
-		(void)slice; // slice textures: use TextureSliceView first
+		// Self-contained synchronous readback: a DEDICATED command buffer
+		// blits the slice into a shared buffer and waits — getBytes on the
+		// live texture would race uncommitted frame work (the frame CB is not
+		// committed when the present-time screenshot runs).
+		id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)Queue();
+		if (!queue)
+		{
+			error = "no command queue";
+			return false;
+		}
+		const NSUInteger srcBpr = (NSUInteger)w * TextureBpp(texture);
+		const NSUInteger sliceBytes = srcBpr * h;
+		void* stagingHandle = NewBuffer(sliceBytes ? sliceBytes : 1);
+		id<MTLBuffer> staging = (__bridge id<MTLBuffer>)stagingHandle;
+		if (!staging)
+		{
+			error = "staging alloc failed";
+			return false;
+		}
+		id<MTLCommandBuffer> cb = [queue commandBuffer];
+		id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+		[blit copyFromTexture:tex
+		          sourceSlice:(NSUInteger)slice
+		          sourceLevel:(NSUInteger)mip
+		         sourceOrigin:MTLOriginMake(0, 0, 0)
+		           sourceSize:MTLSizeMake((NSUInteger)w, (NSUInteger)h, 1)
+		             toBuffer:staging
+		       destinationOffset:0
+		  destinationBytesPerRow:(NSUInteger)srcBpr
+		destinationBytesPerImage:(NSUInteger)sliceBytes];
+		[blit endEncoding];
+		[cb commit];
+		[cb waitUntilCompleted];
+		const uint8_t* src = (const uint8_t*)[staging contents];
+		const NSUInteger copyBpr = bytesPerRow < (uint32_t)srcBpr ? bytesPerRow : (uint32_t)srcBpr;
+		for (NSUInteger r = 0; r < (NSUInteger)h; ++r)
+			std::memcpy((uint8_t*)dst + (size_t)r * bytesPerRow, src + (size_t)r * srcBpr, copyBpr);
+		ReleaseResource(stagingHandle);
 		return true;
 	}
 
@@ -583,6 +654,12 @@ namespace xray::metal
 		case MTLPixelFormatRGBA32Float: return 16;
 		default: return 4; // renderer uploads decode to 8-bit RGBA
 		}
+	}
+
+	int MetalDevice::TextureFormat(void* texture)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		return tex ? (int)tex.pixelFormat : 0;
 	}
 
 	void MetalDevice::GenerateMipmaps(void* commandBuffer, void* texture)

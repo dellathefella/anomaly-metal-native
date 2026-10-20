@@ -28,6 +28,12 @@ extern float ps_r__tf_Mipbias;
 #define MTL_D3DTEXF_LINEAR 2
 #define MTL_D3DTEXF_ANISOTROPIC 3
 
+// tss.h XRDX11SAMPLERSTATETYPE (engine header not includable here):
+// ANISOTROPICFILTER=256, COMPARISONFILTER=257, COMPARISONFUNC=258, MINLOD=259
+#define MTL_XRDX11SAMP_COMPARISONFILTER 257u
+#define MTL_XRDX11SAMP_COMPARISONFUNC 258u
+#define MTL_XRDX11SAMP_MINLOD 259u
+
 namespace xray::render::RENDER_NAMESPACE
 {
 mtlState::mtlState()
@@ -228,13 +234,13 @@ void mtlState::UpdateSamplerState(uint32_t stage, uint32_t name, uint32_t value)
     case D3DSAMP_MAXANISOTROPY:
         S.MaxAnisotropy = value;
         break;
-    case XRDX11SAMP_COMPARISONFILTER: // 257
+    case MTL_XRDX11SAMP_COMPARISONFILTER: // 257
         S.CompareEnable = value ? 1u : 0u;
         break;
-    case XRDX11SAMP_COMPARISONFUNC: // 258
+    case MTL_XRDX11SAMP_COMPARISONFUNC: // 258
         S.CompareFunc = value; // D3D_COMPARISON_* == D3DCMPFUNC values
         break;
-    case XRDX11SAMP_MINLOD: // 259
+    case MTL_XRDX11SAMP_MINLOD: // 259
         S.MinLOD = value;
         break;
     default:

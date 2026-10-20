@@ -53,6 +53,17 @@ namespace xray::metal
 		ShaderCompileResult Compile(const std::string& hlsl, const std::string& entry, ShaderStage stage,
 		                            bool applyCompatShim = true, const std::vector<std::string>& defines = {});
 
+		// Renderer path: compile WITHOUT the on-disk MSL cache (the renderer
+		// keeps its own cache with serialized reflection alongside) and hand
+		// back the SPIR-V so the caller can reflect it. Requires in-process DXC.
+		bool CompileWithSpirv(const std::string& hlsl, const std::string& entry, ShaderStage stage,
+		                      const std::vector<std::string>& defines, ShaderCompileResult& res,
+		                      std::vector<uint32_t>& spirvOut);
+
+		// SPIR-V -> MSL (in-process SPIRV-Cross). Exposed for the renderer path
+		// which already holds the SPIR-V from CompileWithSpirv.
+		static bool SpirvToMsl(const std::vector<uint32_t>& spirv, std::string& msl, std::string& error);
+
 		// DX9-era HLSL -> SM6 source rewrite (Anomaly-era token set is small and
 		// textual). Pure function; exposed for tests and tooling.
 		static std::string ApplyCompatShim(const std::string& src);

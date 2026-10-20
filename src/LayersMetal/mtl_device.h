@@ -77,6 +77,10 @@ namespace xray::metal
 		// teardown; backend classes (CTexture/CBuffer equivalents) call
 		// ReleaseResource() in their destructors. ---
 		void* NewBuffer(size_t bytes); // id<MTLBuffer>, shared storage (CPU+GPU)
+		// CPU pointer to a shared-storage buffer's contents (nullptr for
+		// non-buffer handles).
+		void* BufferContents(void* buffer);
+		size_t BufferSize(void* buffer); // allocated length in bytes
 		// pixelFormat: MTLPixelFormat raw value (RGBA8Unorm=70, BGRA8Unorm=80,
 		// Depth32Float=252...). mips=0 -> full mip chain.
 		void* NewTexture2D(uint32_t w, uint32_t h, uint32_t mips, int pixelFormat,
@@ -114,10 +118,17 @@ namespace xray::metal
 		// Generalized upload: pixels at (slice, mip), bytesPerPixel row pitch.
 		bool WriteTextureRegion(void* texture, uint32_t slice, uint32_t mip, const void* pixels,
 		                        uint32_t w, uint32_t h, uint32_t bytesPerPixel, std::string& error);
+		// Compressed (BCn) upload: raw block data for one (slice, mip) image.
+		// blockBytes = 8 (BC1/BC4) or 16 (BC2/3/5/6/7). Metal requires the
+		// region to be block-aligned OR flush with the texture edge — DDS mips
+		// satisfy that naturally.
+		bool WriteTextureBlocks(void* texture, uint32_t slice, uint32_t mip, const void* data,
+		                        uint32_t w, uint32_t h, uint32_t blockBytes, std::string& error);
 		// Generalized CPU readback (needs ShaderRead usage).
 		bool ReadbackSlice(void* texture, void* dst, uint32_t bytesPerRow, uint32_t w, uint32_t h,
 		                   uint32_t slice, uint32_t mip, std::string& error);
 		uint32_t TextureBpp(void* texture); // bytes per pixel of the texture format
+		int TextureFormat(void* texture); // MTLPixelFormat raw value (0 on null)
 		// Mipmap chain generation via a blit encoder on the given command
 		// buffer (texture needs ShaderRead; generates from mip0 downward).
 		void GenerateMipmaps(void* commandBuffer, void* texture);

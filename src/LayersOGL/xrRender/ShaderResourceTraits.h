@@ -770,7 +770,9 @@ T* CResourceManager::CreateShader(cpcstr name, pcstr filename /*= nullptr*/, u32
 #   else
         flags |= D3DXSHADER_PACKMATRIX_ROWMAJOR | (xrDebug::DebuggerIsPresent() ? D3DXSHADER_DEBUG : 0);
 #   endif
-#elif !defined(USE_OGL)
+#elif !defined(USE_OGL) && !defined(USE_METAL)
+// Metal: DXC gets its flags inside MetalCompileStage (-O1 + -Zpr baked in the
+// dxc session); the shared flags parameter stays unused.
 #   ifdef NDEBUG
         flags |= D3DCOMPILE_PACK_MATRIX_ROW_MAJOR | D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #   else

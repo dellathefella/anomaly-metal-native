@@ -19,6 +19,20 @@ typedef enum D3D_CLEAR_FLAG {
     D3D_CLEAR_STENCIL = 0x2L
 } D3D_CLEAR_FLAG;
 
+// Sampler comparison functions (adopt_compiler/_comp_less + blender recorder
+// surface). Values are the DX9 D3DCMPFUNC wire codes because the Metal
+// sampler recorder maps them through MtlMapCompare (mtl_dx9_map.h).
+typedef enum D3D_COMPARISON_FUNC {
+    D3D_COMPARISON_NEVER = 1,
+    D3D_COMPARISON_LESS = 2,
+    D3D_COMPARISON_EQUAL = 3,
+    D3D_COMPARISON_LESS_EQUAL = 4,
+    D3D_COMPARISON_GREATER = 5,
+    D3D_COMPARISON_NOT_EQUAL = 6,
+    D3D_COMPARISON_GREATER_EQUAL = 7,
+    D3D_COMPARISON_ALWAYS = 8
+} D3D_COMPARISON_FUNC;
+
 // DX9-style viewport (all float) — Metal viewport is float-based natively.
 struct D3D_VIEWPORT
 {

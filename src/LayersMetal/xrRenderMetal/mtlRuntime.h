@@ -23,6 +23,12 @@
 
 #include "mtlState.h"
 
+namespace xray::metal
+{
+	class MetalDevice;
+	class MetalStateCache;
+} // namespace xray::metal
+
 namespace xray::render::RENDER_NAMESPACE
 {
 // --- frame / pass lifecycle (mtlHW.mm / mtlRuntime.mm) ----------------------
@@ -123,4 +129,15 @@ void* MtlCurrentCommandBuffer(); // id<MTLCommandBuffer> borrowed (frame CB)
 // device classes register here for teardown release.
 void* MtlArenaRetain(void* obj); // stores obj, returns it
 void MtlArenaRelease(void* obj);
+
+// --- runtime attach + present helpers (mtlHW.mm) --------------------------------
+// Wire the substrate facades into the pass manager (CreateDevice/Reset).
+void MtlRuntimeAttach(xray::metal::MetalDevice& device, xray::metal::MetalStateCache& pipelines);
+// Current pass identity's color0 (borrowed id<MTLTexture>) or null.
+void* MtlCurrentPassColor0();
+// Final flip: render src into the drawable (scaled/converting full-screen pass).
+void MtlBlitToDrawable(void* srcTex, void* dstTex, uint32_t srcW, uint32_t srcH, uint32_t dstW, uint32_t dstH);
+// Last presented drawable texture (RenderToTarget source; borrowed, may be null).
+void MtlSetLastDrawable(void* tex);
+void* MtlLastDrawable();
 } // namespace xray::render::RENDER_NAMESPACE

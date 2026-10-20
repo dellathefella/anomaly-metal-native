@@ -47,12 +47,7 @@ typedef struct
 
 class mtlState
 {
-private:
-    D3DCULL rasterizerCullMode;
-    D3D_DEPTH_STENCIL_STATE m_pDepthStencilState;
-    D3D_BLEND_STATE m_pBlendState;
-    float m_uiMipLODBias;
-
+public:
     // Recorded sampler states per stage (DX9 TSS sim), consumed by the pass
     // manager to pick MTLSamplerStates at draw time. Raw DX9 enum values are
     // kept; mapping to Metal happens in mtlRuntime.mm (mtl_dx9_map.h).
@@ -70,6 +65,13 @@ private:
         uint32_t MinLOD; // XRDX11SAMP_MINLOD
         bool valid;
     };
+
+private:
+    D3DCULL rasterizerCullMode;
+    D3D_DEPTH_STENCIL_STATE m_pDepthStencilState;
+    D3D_BLEND_STATE m_pBlendState;
+    float m_uiMipLODBias;
+
     // CTexture::mtMaxCombinedShaderTextures (16 ps + 4 vs + 16 gs) — inlined
     // here to keep this header engine-free (see dual-safety note above).
     static constexpr uint32_t kMaxStages = 36;

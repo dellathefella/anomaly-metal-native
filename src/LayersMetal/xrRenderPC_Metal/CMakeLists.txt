@@ -170,12 +170,18 @@ add_library(xrRender_METAL SHARED
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender_R2/r3_rendertarget_phase_occq.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender_R2/r3_rendertarget_phase_scene.cpp
     ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender_R2/render_phase_sun.cpp
+    # Device blenders (script-level; identical across backends — reused from
+    # the staged tree like the shared logic layers)
+    ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/blenders/glMinMaxSMBlender.cpp
+    ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/blenders/glMSAABlender.cpp
+    ${XRAY_SOURCE_DIR}/src/LayersOGL/xrRender/blenders/glRainBlender.cpp
     # Metal substrate (device/swapchain/shader compiler/translation/state)
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_device.mm"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_state.mm"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_shader_compiler.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_dxc.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_dx9_translate.cpp"
+    "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_spirv_reflect.cpp"
 )
 
 target_include_directories(xrRender_METAL
@@ -239,6 +245,7 @@ set_source_files_properties(
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_shader_compiler.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_dxc.cpp"
     "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_dx9_translate.cpp"
+    "${XRAY_SOURCE_DIR}/src/LayersMetal/mtl_spirv_reflect.cpp"
     PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE)
 
 # In-process DXC + on-disk MSL cache config (mirrors the LayersMetal tools)

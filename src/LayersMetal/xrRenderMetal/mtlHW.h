@@ -69,7 +69,10 @@ public:
     SDL_Window* m_window{};
 
     // Substrate (plain-C++ facades; ObjC objects stay inside their .mm TUs).
-    xray::metal::MetalDevice Device;
+    // NOTE: named MtlDev, NOT Device — the engine global Device
+    // (IRender_device) must stay reachable inside CHW methods (GL rule:
+    // glHW.h names its context member m_context for the same reason).
+    xray::metal::MetalDevice MtlDev;
     xray::metal::MetalStateCache Pipelines;
 
     // Frame capture state (mtlRuntime.mm). CommandBuffer: id<MTLCommandBuffer>,

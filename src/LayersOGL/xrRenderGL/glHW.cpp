@@ -8,6 +8,12 @@
 #include "xrEngine/XR_IOConsole.h"
 #include "Include/xrAPI/xrAPI.h" // p4: vid_mode_token (settings dialog enumerates it)
 
+// p4: xrEngine's globals live at C++ global scope (unmangled on Mach-O). An
+// extern declared inside the render_gl namespace binds to
+// xray::render::render_gl::vid_quality_token -> dyld "symbol not found in
+// flat namespace" abort at launch. Declare at global scope.
+extern xr_token* vid_quality_token; // defined in xrEngine/xr_ioc_cmd.cpp
+
 namespace xray::render::RENDER_NAMESPACE
 {
 // p4: monolith DX11 filled vid_mode_token from DXGI mode enumeration
@@ -84,7 +90,6 @@ static void fill_vid_mode_list_sdl(SDL_Window* win)
 // The GL renderer implements the R2 feature set, so advertise exactly that:
 // r1/r3/r4-only rows (DX11 tessellation, MSAA list, fixed-function gamma)
 // then hide themselves, and the renderer picker offers one entry.
-extern xr_token* vid_quality_token; // defined in xrEngine/xr_ioc_cmd.cpp
 static void fill_vid_quality_list()
 {
     if (vid_quality_token != nullptr)

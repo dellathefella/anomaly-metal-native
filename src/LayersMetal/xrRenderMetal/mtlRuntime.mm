@@ -68,11 +68,67 @@ struct MtlAppendCanary
 	id<MTLRenderPipelineState> sPso = nil; // launch138: S-draw — pair VS + white
 	id<MTLRenderPipelineState> s2Pso = nil; // launch144: S2 — w-abs-patched VS +
 	                                        // green PS (clipper hypothesis)
+	id<MTLRenderPipelineState> s4Pso = nil; // launch145: S4 — clip-coords readout VS
+	id<MTLRenderPipelineState> s5Pso = nil; // launch145: S5 — z=0.5w fix only
+	id<MTLRenderPipelineState> s6Pso = nil; // launch145: S6 — w=-w flip only
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
 static MtlAppendCanary s_appI; // legacy single slot
 static std::vector<MtlAppendCanary> s_appQ; // launch129: up to 8 captures per window
+// launch145: engine-VS MSL patcher for the S4/S5/S6 probes. Optionally adds an
+// output struct field (after the gl_Position declaration) and a statement
+// before every 'return out;'. Caches nil results per (VS-name, key) so a
+// failed patch never recompiles.
+static void mtlLog(const char* fmt, ...);
+static id<MTLFunction> MtlPatchVsFn(id<MTLDevice> dev, const std::string& msl,
+                                    const char* fieldDecl, const char* stmt, const char* tag,
+                                    const std::string& key,
+                                    std::map<std::string, id<MTLFunction>>& cache)
+{
+    auto it = cache.find(key);
+    if (it != cache.end())
+        return it->second;
+    std::string src = msl;
+    if (fieldDecl)
+    {
+        const std::string anchor = "float4 gl_Position [[position]]";
+        size_t a = src.find(anchor);
+        if (a == std::string::npos)
+        {
+            mtlLog("! p5 canaryI: %s patch: no gl_Position field (%s)", tag, key.c_str());
+            cache[key] = nil;
+            return nil;
+        }
+        size_t e = src.find(';', a);
+        src.insert(e + 1, std::string("\n    ") + fieldDecl + ";");
+    }
+    const std::string pat = "return out;";
+    size_t p = 0, n = 0;
+    while ((p = src.find(pat, p)) != std::string::npos)
+    {
+        src.replace(p, pat.size(), std::string(stmt) + "\n    return out;");
+        p += strlen(stmt) + pat.size() + 6;
+        n++;
+    }
+    if (!n)
+    {
+        mtlLog("! p5 canaryI: %s patch: no 'return out;' (%s)", tag, key.c_str());
+        cache[key] = nil;
+        return nil;
+    }
+    NSError* err = nil;
+    id<MTLLibrary> lib =
+        [dev newLibraryWithSource:[NSString stringWithUTF8String:src.c_str()]
+                          options:nil
+                            error:&err];
+    id<MTLFunction> fn = lib ? [lib newFunctionWithName:@"main0"] : nil;
+    if (!fn)
+        mtlLog("! p5 canaryI: %s compile failed: %s", tag,
+            err ? [[err localizedDescription] UTF8String] : "?");
+    cache[key] = fn;
+    return fn;
+}
 static uint64_t g_dbgTopoEnter[8] = {};
 
 // Device-side logging: engine Log() is a header template (no C symbol); the
@@ -362,6 +418,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// window). Declared out here so the readback (after
 				// commit+wait) can see it.
 				static id<MTLTexture> s_sTex = nil;
+				static id<MTLTexture> s_s3Tex = nil, s_s4Tex = nil; // launch145
 				if ((g5 == 5 || g5 == 6) && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -432,6 +489,23 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						tdS.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 						s_sTex = [(__bridge id<MTLDevice>)dev->Device()
 						              newTextureWithDescriptor:tdS];
+					}
+					// launch145: Extra scratch (textures declared next to
+					// s_sTex so the readbacks see them) — s3 keeps the S4
+					// clip-coord histogram uncontaminated; s4 holds S5 (cyan)
+					// + S6 (red).
+					if (!s_s3Tex)
+					{
+						MTLTextureDescriptor* td3 = [MTLTextureDescriptor
+						    texture2DDescriptorWithPixelFormat:(MTLPixelFormat)80
+						                                 width:1024
+						                                height:1024
+						                             mipmapped:NO];
+						td3.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+						s_s3Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
+						s_s4Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
 					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
@@ -817,6 +891,94 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						[se endEncoding];
 					}
+					// launch145: S4 pass (clip-coord readout) on its own scratch.
+					if (s_s3Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp4 = [MTLRenderPassDescriptor new];
+						sp4.colorAttachments[0].texture = s_s3Tex;
+						sp4.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp4.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp4.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e4 =
+						    [cb renderCommandEncoderWithDescriptor:sp4];
+						[e4 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e4 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s4Pso || !ap.vb || !ap.ib)
+								continue;
+							[e4 setRenderPipelineState:ap.s4Pso];
+							if (ap.cb)
+								[e4 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e4 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e4 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e4 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e4 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e4 endEncoding];
+					}
+					// launch145: S5 (cyan, z=0.5w only) + S6 (red, w=-w only) —
+					// which one lands names the killer clip plane.
+					if (s_s4Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp5 = [MTLRenderPassDescriptor new];
+						sp5.colorAttachments[0].texture = s_s4Tex;
+						sp5.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp5.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp5.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e5 =
+						    [cb renderCommandEncoderWithDescriptor:sp5];
+						[e5 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e5 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.vb || !ap.ib)
+								continue;
+							if (ap.cb)
+								[e5 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e5 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e5 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e5 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							if (ap.s5Pso)
+							{
+								[e5 setRenderPipelineState:ap.s5Pso];
+								[e5 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+								               indexCount:ap.idxCount
+								                indexType:MTLIndexTypeUInt16
+								                  indexBuffer:ap.ib
+								            indexBufferOffset:ap.ibOff
+								                  instanceCount:1
+								                     baseVertex:ap.baseV
+								                   baseInstance:0];
+							}
+							if (ap.s6Pso)
+							{
+								[e5 setRenderPipelineState:ap.s6Pso];
+								[e5 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+								               indexCount:ap.idxCount
+								                indexType:MTLIndexTypeUInt16
+								                  indexBuffer:ap.ib
+								            indexBufferOffset:ap.ibOff
+								                  instanceCount:1
+								                     baseVertex:ap.baseV
+								                   baseInstance:0];
+							}
+						}
+						[e5 endEncoding];
+					}
 					s_appQ.clear();
 				}
 				[cb commit];
@@ -910,6 +1072,60 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						Log("- p5 canaryI: Sdraw hits=%zu bbox=(%d,%d..%d,%d) S2draw hits=%zu "
 						    "bbox=(%d,%d..%d,%d)",
 						    hits, x0, y0, x1, y1, hits2, u0, v0, u1, v1);
+					}
+				}
+				// launch145: S4 clip-coord histogram (own scratch): pixel =
+				// (B=0.5 marker, G=z/w mapped, R=w<0?0.25:0.5). BGRA8 bytes:
+				// p0=B p1=G p2=R.
+				if (s_s3Tex)
+				{
+					std::vector<uint8_t> sx3(size_t(1024) * 1024 * 4);
+					std::string err3;
+					if (!dev->ReadbackSlice((__bridge void*)s_s3Tex, sx3.data(), 1024 * 4,
+					                        1024, 1024, 0, 0, err3))
+						Log("- p5 canaryI: S4 readback failed: %s", err3.c_str());
+					else
+					{
+						size_t wnLo = 0, wnMid = 0, wnHi = 0, wpLo = 0, wpMid = 0, wpHi = 0;
+						for (size_t k = 0; k + 2 < sx3.size(); k += 4)
+						{
+							const uint8_t* p = sx3.data() + k;
+							if (p[0] < 100 || p[0] > 180)
+								continue; // not a clipps pixel (B=0.5 marker)
+							bool wneg = p[2] < 100;
+							size_t* slot = wneg ? (p[1] < 64 ? &wnLo
+							                      : p[1] > 191 ? &wnHi
+							                                   : &wnMid)
+							                    : (p[1] < 64 ? &wpLo
+							                      : p[1] > 191 ? &wpHi
+							                                   : &wpMid);
+							(*slot)++;
+						}
+						Log("- p5 canaryI: S4clip wNeg[z/w lo,mid,hi]=%zu,%zu,%zu "
+						    "wPos[z/w lo,mid,hi]=%zu,%zu,%zu",
+						    wnLo, wnMid, wnHi, wpLo, wpMid, wpHi);
+					}
+				}
+				// launch145: S5 (cyan) / S6 (red) landing booleans.
+				if (s_s4Tex)
+				{
+					std::vector<uint8_t> sx4(size_t(1024) * 1024 * 4);
+					std::string err4;
+					if (!dev->ReadbackSlice((__bridge void*)s_s4Tex, sx4.data(), 1024 * 4,
+					                        1024, 1024, 0, 0, err4))
+						Log("- p5 canaryI: S56 readback failed: %s", err4.c_str());
+					else
+					{
+						size_t c5 = 0, c6 = 0;
+						for (size_t k = 0; k + 2 < sx4.size(); k += 4)
+						{
+							const uint8_t* p = sx4.data() + k;
+							if (p[1] > 200 && p[0] > 200 && p[2] < 60)
+								c5++; // cyan: S5 (z=0.5w) landed
+							else if (p[2] > 200 && p[1] < 60 && p[0] < 60)
+								c6++; // red: S6 (w=-w) landed
+						}
+						Log("- p5 canaryI: S5zfix hits=%zu S6wflip hits=%zu", c5, c6);
 					}
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
@@ -3396,6 +3612,123 @@ namespace
 										Log("! p5 canaryI: S2 PSO failed: %s",
 										    errW3.c_str());
 								}
+							}
+						}
+						// launch145: S4/S5/S6 — launch144 verdict (S=0, S2 full
+						// screen 135k hits) proved the CLIPPER kills every
+						// engine-VS fragment while x/y/w stay sane (geometry
+						// projected correctly once z/w forced inside). S4
+						// forwards raw clip coords through a locn30 interpolant
+						// so a PS reports sign(w) + z/w; S5 patches ONLY
+						// z=0.5w; S6 ONLY w=-w. Which of S5/S6 lands names the
+						// killer clip plane exactly.
+						{
+							id<MTLDevice> devP = (__bridge id<MTLDevice>)pm.dev->Device();
+							static std::map<std::string, id<MTLFunction>> s_p4, s_p5, s_p6;
+							id<MTLFunction> f4 = MtlPatchVsFn(
+							    devP, vsR->msl, "float4 clipdbg [[user(locn30)]]",
+							    "out.clipdbg = out.gl_Position", "S4", vsR->name, s_p4);
+							id<MTLFunction> f5 = MtlPatchVsFn(
+							    devP, vsR->msl, nullptr,
+							    "out.gl_Position.z = out.gl_Position.w * 0.5", "S5",
+							    vsR->name, s_p5);
+							id<MTLFunction> f6 =
+							    MtlPatchVsFn(devP, vsR->msl, nullptr,
+							                 "out.gl_Position.w = -out.gl_Position.w", "S6",
+							                 vsR->name, s_p6);
+							static id<MTLFunction> s_clipFn, s_cyanFn, s_redFn;
+							static bool s_psTried = false;
+							if (!s_psTried)
+							{
+								s_psTried = true;
+								NSError* e1 = nil;
+								id<MTLLibrary> l1 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "struct PIN { float4 pos "
+								                       "[[position]]; float4 clip "
+								                       "[[user(locn30)]]; };\n"
+								                       "fragment float4 clipps(PIN in "
+								                       "[[stage_in]]) {\n"
+								                       "  float w = in.clip.w;\n"
+								                       "  float zw = in.clip.z / "
+								                       "((fabs(w) > 1e-6) ? w : 1e-6);\n"
+								                       "  return float4(w < 0.0 ? 0.25 : "
+								                       "0.5, clamp(zw * 0.5 + 0.5, 0.0, "
+								                       "1.0), 0.5, 1.0);\n"
+								                       "}\n"
+								                         options:nil
+								                           error:&e1];
+								if (l1)
+									s_clipFn = [l1 newFunctionWithName:@"clipps"];
+								else
+									Log("! p5 canaryI: clipps lib failed: %s",
+									    [[e1 localizedDescription] UTF8String]);
+								NSError* e2 = nil;
+								id<MTLLibrary> l2 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 cyps() { return "
+								                       "float4(0.0, 1.0, 1.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e2];
+								if (l2)
+									s_cyanFn = [l2 newFunctionWithName:@"cyps"];
+								else
+									Log("! p5 canaryI: cyps lib failed: %s",
+									    [[e2 localizedDescription] UTF8String]);
+								NSError* e3 = nil;
+								id<MTLLibrary> l3 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 rdsps() { return "
+								                       "float4(1.0, 0.0, 0.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e3];
+								if (l3)
+									s_redFn = [l3 newFunctionWithName:@"rdsps"];
+								else
+									Log("! p5 canaryI: rdsps lib failed: %s",
+									    [[e3 localizedDescription] UTF8String]);
+							}
+							if (f4 && s_clipFn)
+							{
+								PipelineDesc pd4 = pdI;
+								pd4.vs = (__bridge void*)f4;
+								pd4.ps = (__bridge void*)s_clipFn;
+								pd4.colorFormats.clear();
+								pd4.colorFormats.push_back(80);
+								std::string err4;
+								ap.s4Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd4, err4);
+								if (!ap.s4Pso)
+									Log("! p5 canaryI: S4 PSO failed: %s", err4.c_str());
+							}
+							if (f5 && s_cyanFn)
+							{
+								PipelineDesc pd5 = pdI;
+								pd5.vs = (__bridge void*)f5;
+								pd5.ps = (__bridge void*)s_cyanFn;
+								pd5.colorFormats.clear();
+								pd5.colorFormats.push_back(80);
+								std::string err5;
+								ap.s5Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd5, err5);
+								if (!ap.s5Pso)
+									Log("! p5 canaryI: S5 PSO failed: %s", err5.c_str());
+							}
+							if (f6 && s_redFn)
+							{
+								PipelineDesc pd6 = pdI;
+								pd6.vs = (__bridge void*)f6;
+								pd6.ps = (__bridge void*)s_redFn;
+								pd6.colorFormats.clear();
+								pd6.colorFormats.push_back(80);
+								std::string err6;
+								ap.s6Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd6, err6);
+								if (!ap.s6Pso)
+									Log("! p5 canaryI: S6 PSO failed: %s", err6.c_str());
 							}
 						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;

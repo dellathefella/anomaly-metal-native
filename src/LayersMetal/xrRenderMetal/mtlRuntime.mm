@@ -340,7 +340,17 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		{
 			void* pg = pendingPostGeom;
 			pendingPostGeom = nullptr;
-			if (++g_pgGate % 240 == 5) // launch131: 1 readback window/240 (was 7 —
+			// launch139: window covers TWO consecutive position pass-ends
+			// (5 and 6). launch138 verdict: the frame runs the position pass
+			// twice (main model + rain) and the main/rain PARITY flips with
+			// weather state — launch137's single-parity window (gate 5) hit
+			// the main pass, launch138's hit the rain pass for 40 windows
+			// straight (skip ps=rain_apply_*), so canaryI captured nothing
+			// and the append block never ran (L=0 regression was an
+			// instrument artifact, not an engine change). One of gates
+			// 5/6 is always the main pass; deffer draws only happen there.
+			const int g5 = ++g_pgGate % 240;
+			if (g5 == 5 || g5 == 6) // launch131: 1 readback window/240 (was 7 —
 			{
 				// launch128/129: canaryI pass-end appends — after ALL engine
 				// draws of this pass, so nothing can overwrite them before the
@@ -350,7 +360,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// window). Declared out here so the readback (after
 				// commit+wait) can see it.
 				static id<MTLTexture> s_sTex = nil;
-				if (g_pgGate % 240 == 5 && !s_appQ.empty())
+				if ((g5 == 5 || g5 == 6) && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
 					MTLRenderPassDescriptor* arpd = [MTLRenderPassDescriptor new];
@@ -2729,7 +2739,8 @@ namespace
 			const bool defferI = psR->name.find("deffer") != std::string::npos &&
 			                     psR->msl.find("in_var_TEXCOORD1") != std::string::npos &&
 			                     vsR->msl.find("m_WVP") != std::string::npos;
-			if (!defferI && (g_pgGate + 1) % 240 == 5 && rtNcI && strstr(rtNcI, "position"))
+			if (!defferI && ((g_pgGate + 1) % 240 == 5 || (g_pgGate + 1) % 240 == 6) && rtNcI &&
+			    strstr(rtNcI, "position"))
 			{
 				static int s_skipI = 0;
 				if (s_skipI++ < 40)
@@ -2744,7 +2755,8 @@ namespace
 			// compiled passthrough fn per PS (launch128 recompiled per capture:
 			// ~420MB/capture pipeline-cache growth => 45GB RSS, user-reported).
 			if (defferI && rtNcI && strstr(rtNcI, "position") && indexed && ds.vb && ds.ib &&
-			    (g_pgGate + 1) % 240 == 5 && (int)s_appQ.size() < 8)
+			    ((g_pgGate + 1) % 240 == 5 || (g_pgGate + 1) % 240 == 6) &&
+			    (int)s_appQ.size() < 8)
 			{
 				s_lastI = g_dbgDrawOK;
 				// launch111 FIX: build the passthru PS from the LIVE pair's

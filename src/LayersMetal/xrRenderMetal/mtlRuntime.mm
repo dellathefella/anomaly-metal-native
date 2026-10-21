@@ -434,6 +434,11 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
 					static bool s_vTried = false;
+					// launch140: W/X decomposition PSOs (see draw block below).
+					static id<MTLLibrary> s_wLib = nil;
+					static id<MTLRenderPipelineState> s_wPso = nil, s_xPso = nil;
+					static id<MTLBuffer> s_xib = nil;
+					static bool s_wTried = false;
 					for (const auto& ap : s_appQ)
 					{
 						if (!ap.pso)
@@ -456,9 +461,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							                 // declaration in a vertex function');
 							                 // the engine's VSes always use stage_in.
 							                 "struct vbc_in { float4 p [[attribute(0)]]; };\n"
+							                 // launch141: clamp (same scale fix as W/X —
+							                 // unclamped 0.002 sent world-space chunks
+							                 // off-screen, invalidating V=0).
 							                 "vertex float4 vbc_vs(vbc_in in [[stage_in]]) {\n"
-							                 "  return float4(in.p.x * 0.002, in.p.y * 0.002, 0.5, "
-							                 "1.0);\n"
+							                 "  float2 q = float2(clamp(in.p.x * 0.0003, -0.9, "
+							                 "0.9), clamp(in.p.y * 0.0003, -0.9, 0.9));\n"
+							                 "  return float4(q, 0.5, 1.0);\n"
 							                 "}\n"
 							                 "fragment float4 vbc_ps() { return float4(0.75, 0.25, "
 							                 "0.5, 1.0); }\n";
@@ -504,6 +513,145 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
 							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						// launch140: W/X decomposition of V=0. launch139
+						// verdict: draws NOT touching the pair VB land on every
+						// pixel (fsq L=316008), every draw that reads the
+						// captured VB/IB lands zero (V, S, pair append) => the
+						// poison is in the buffer supply to the GPU.
+						// W-draw: raw VB bytes via device pointer (no vertex
+						// descriptor, non-indexed, first N vertices, R=0.25 =>
+						// byte1==52 = W flag) — tests whether the VB bytes are
+						// GPU-readable at all.
+						// X-draw: full vertex-descriptor path with a CPU-built
+						// known-good index buffer (R=0.125 => byte1==50 = X
+						// flag) — tests the descriptor+indexed path
+						// independently of the captured IB.
+						// W>0,X=0 => captured IB is the poison; W=0 => VB bytes
+						// are garbage on the GPU (engine/CPU view lies).
+						if (!s_wTried)
+						{
+							s_wTried = true;
+							id<MTLDevice> devW2 = (__bridge id<MTLDevice>)dev->Device();
+							NSError* eW2 = nil;
+							s_wLib = [devW2
+							    newLibraryWithSource:@"#include <metal_stdlib>\n"
+							                       "using namespace metal;\n"
+							                       // launch141 FIX: launch140 W=X=0 was
+							                       // scale-ambiguous — world-space chunk
+							                       // verts (±2048m) at 0.002 project
+							                       // OFF-screen, object-space verts
+							                       // (±1m) become sub-pixel dots that
+							                       // slip the 64-byte sample grid. Now:
+							                       // clamp into ±0.9 NDC so ANY finite
+							                       // position lands; NaN still discards;
+							                       // all-zero verts (fresh pool buffer)
+							                       // spread to a visible corner triangle.
+							                       "vertex float4 wbc_vs(uint vid [[vertex_id]], "
+							                       "const device packed_float3* vb "
+							                       "[[buffer(1)]]) {\n"
+							                       "  float3 p = float3(vb[vid * 8]);\n"
+							                       "  bool z = (p.x == 0.0 && p.y == 0.0 && "
+							                       "p.z == 0.0);\n"
+							                       "  float2 q = z ? float2(-0.8, 0.8) + 0.05 * "
+							                       "float2(cos(vid), sin(vid))\n"
+							                       "             : float2(clamp(p.x * 0.0003, "
+							                       "-0.9, 0.9), clamp(p.y * 0.0003, -0.9, "
+							                       "0.9));\n"
+							                       "  return float4(q, 0.5, 1.0);\n"
+							                       "}\n"
+							                       "fragment float4 wbc_ps() { return float4(0.25, "
+							                       "0.25, 0.5, 1.0); }\n"
+							                       "struct xbc_in { float4 p [[attribute(0)]]; "
+							                       "};\n"
+							                       "vertex float4 xbc_vs(xbc_in in [[stage_in]]) {\n"
+							                       "  float2 q = float2(clamp(in.p.x * 0.0003, "
+							                       "-0.9, 0.9), clamp(in.p.y * 0.0003, -0.9, "
+							                       "0.9));\n"
+							                       "  return float4(q, 0.5, 1.0);\n"
+							                       "}\n"
+							                       "fragment float4 xbc_ps() { return float4(0.125, "
+							                       "0.25, 0.5, 1.0); }\n"
+							    options:nil
+							      error:&eW2];
+							if (!s_wLib)
+								Log("! p5 canaryI: wbc lib failed: %s",
+								    [[eW2 localizedDescription] UTF8String]);
+							else
+							{
+								PipelineDesc pdW;
+								pdW.vs = (__bridge void*)[s_wLib newFunctionWithName:@"wbc_vs"];
+								pdW.ps = (__bridge void*)[s_wLib newFunctionWithName:@"wbc_ps"];
+								pdW.stride = 0; // device-ref VS — no descriptor
+								pdW.colorFormats.push_back((int)atex.pixelFormat);
+								std::string errW;
+								s_wPso = (__bridge id<MTLRenderPipelineState>)
+								             cache->Pipeline(dev->Device(), pdW, errW);
+								if (!s_wPso)
+									Log("! p5 canaryI: wbc PSO failed: %s", errW.c_str());
+								PipelineDesc pdX;
+								pdX.vs = (__bridge void*)[s_wLib newFunctionWithName:@"xbc_vs"];
+								pdX.ps = (__bridge void*)[s_wLib newFunctionWithName:@"xbc_ps"];
+								pdX.stride = 32;
+								pdX.vbSlot = 1;
+								VertexAttr aX;
+								aX.index = 0;
+								aX.offset = 0;
+								aX.format = (uint32_t)MTLVertexFormatFloat3;
+								pdX.attrs.push_back(aX);
+								pdX.colorFormats.push_back((int)atex.pixelFormat);
+								std::string errX;
+								s_xPso = (__bridge id<MTLRenderPipelineState>)
+								             cache->Pipeline(dev->Device(), pdX, errX);
+								if (!s_xPso)
+									Log("! p5 canaryI: xbc PSO failed: %s", errX.c_str());
+								uint16_t idx[384];
+								for (int i = 0; i < 384; i++)
+									idx[i] = (uint16_t)i;
+								s_xib = [devW2 newBufferWithBytes:idx
+								                          length:sizeof(idx)
+								                         options:MTLResourceStorageModeShared];
+							}
+						}
+						const NSUInteger maxV =
+						    ap.vb ? ap.vb.length / (ap.stride ? (NSUInteger)ap.stride : 32) : 0;
+						NSUInteger vStart = (NSUInteger)(ap.baseV > 0 ? (NSUInteger)ap.baseV : 0);
+						if (vStart + 3 > maxV)
+							vStart = 0;
+						// launch141: per-entry echo of what the CPU sees in the
+						// SAME bytes the W/X draws hand the GPU — pairs the W
+						// flag against ground truth (W>0 + sane p0 => GPU reads
+						// what the CPU wrote; W>0 + p0=(0,0,0) => GPU reads a
+						// zeroed buffer => upload/identity split-brain).
+						{
+							const uint8_t* vbase =
+								ap.vb ? (const uint8_t*)[ap.vb contents] : nullptr;
+							float p0[3] = { -999, -999, -999 };
+							if (vbase && vStart * (ap.stride ? ap.stride : 32) + 12 <=
+							                [ap.vb length])
+								memcpy(p0, vbase + vStart * (ap.stride ? ap.stride : 32), 12);
+							Log("- p5 canaryI: Wgeom len=%lu stride=%u maxV=%lu vS=%lu "
+							    "p0=(%.2f %.2f %.2f)",
+							    (unsigned long)(ap.vb ? [ap.vb length] : 0), ap.stride,
+							    (unsigned long)maxV, (unsigned long)vStart, p0[0], p0[1], p0[2]);
+						}
+						if (s_wPso && ap.vb && maxV >= 3)
+						{
+							[ae setRenderPipelineState:s_wPso];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae drawPrimitives:MTLPrimitiveTypeTriangle
+							          vertexStart:vStart
+							          vertexCount:((maxV - vStart) < 512 ? (maxV - vStart) : 512)];
+						}
+						if (s_xPso && s_xib && ap.vb && maxV >= 3)
+						{
+							const NSUInteger ic = ((maxV < 384 ? maxV : 384) / 3) * 3;
+							[ae setRenderPipelineState:s_xPso];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ic indexType:MTLIndexTypeUInt16
+							                 indexBuffer:s_xib indexBufferOffset:0
+							               instanceCount:1 baseVertex:0 baseInstance:0];
 						}
 						[ae setRenderPipelineState:ap.pso];
 						if (ap.cb) // launch130: captured CB snapshot
@@ -575,7 +723,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					Log("- p5 postgeom: readback failed: %s", err.c_str());
 				else
 				{
-					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0, nV = 0;
+					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0, nV = 0, nW = 0, nX = 0;
 					for (size_t k = 0; k + 6 <= px.size(); k += 64)
 					{
 						if (px[k] | px[k + 1] | px[k + 2])
@@ -584,16 +732,20 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							nL++; // R=0.5 -> passthru fragment LANDED
 						if (px[k + 1] == 62)
 							nV++; // R=0.75 -> V-draw (trivial VS on pair VB) landed
+						if (px[k + 1] == 52)
+							nW++; // R=0.25 -> W-draw (device-ref raw VB) landed
+						if (px[k + 1] == 50)
+							nX++; // R=0.125 -> X-draw (descriptor path, good IB) landed
 						if (px[k + 3] == 60)
 							nT0++; // G=1.0 -> TEXCOORD0 interpolant alive
 						if (px[k + 5] == 60)
 							nT1++; // B=1.0 -> TEXCOORD1 interpolant alive
 					}
 					const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
-					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu T0=%zu T1=%zu mid=(%u,%u,%u,%u) "
-					    "tick=%d",
-					    nz, nL, nV, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
-					    g_pgGate % 240);
+					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu W=%zu X=%zu T0=%zu T1=%zu "
+					    "mid=(%u,%u,%u,%u) tick=%d",
+					    nz, nL, nV, nW, nX, nT0, nT1, px[mid], px[mid + 1], px[mid + 2],
+					    px[mid + 3], g_pgGate % 240);
 				}
 				// launch138: S-draw readback — hit count + bbox on the 1024²
 				// scratch: where the pair draws projected with a clean,

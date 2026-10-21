@@ -75,6 +75,8 @@ struct MtlAppendCanary
 	                                        // forced (histogram of true z/w)
 	id<MTLRenderPipelineState> s8Pso = nil; // launch147: S8 — remap z'=0.5z+0.5w
 	id<MTLRenderPipelineState> s9Pso = nil; // launch147: S9 — remap z'=0.5z+w
+	id<MTLRenderPipelineState> s11Pso = nil; // launch149: S11 — z'=z-0.5w
+	id<MTLRenderPipelineState> s12Pso = nil; // launch149: S12 — z'=clamp(z,εw,(1-ε)w)
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
@@ -427,6 +429,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				static id<MTLTexture> s_sTex = nil;
 				static id<MTLTexture> s_s3Tex = nil, s_s4Tex = nil; // launch145
 				static id<MTLTexture> s_s5Tex = nil, s_s6Tex = nil; // launch147
+				static id<MTLTexture> s_s7Tex = nil, s_s8Tex = nil; // launch149
 				if ((g5 == 5 || g5 == 6) && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -517,6 +520,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						s_s5Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
 						s_s6Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
+						s_s7Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
+						s_s8Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
 					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
@@ -1062,6 +1069,74 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						[e9 endEncoding];
 					}
+					// launch149: S11 (lime, z'=z-0.5w) + S12 (orange,
+					// z'=clamp(z,1e-4w,0.9999w)) — separate scratches.
+					if (s_s7Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp11 = [MTLRenderPassDescriptor new];
+						sp11.colorAttachments[0].texture = s_s7Tex;
+						sp11.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp11.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp11.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e11 =
+						    [cb renderCommandEncoderWithDescriptor:sp11];
+						[e11 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e11 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s11Pso || !ap.vb || !ap.ib)
+								continue;
+							[e11 setRenderPipelineState:ap.s11Pso];
+							if (ap.cb)
+								[e11 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e11 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e11 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e11 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e11 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e11 endEncoding];
+					}
+					if (s_s8Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp12 = [MTLRenderPassDescriptor new];
+						sp12.colorAttachments[0].texture = s_s8Tex;
+						sp12.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp12.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp12.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e12 =
+						    [cb renderCommandEncoderWithDescriptor:sp12];
+						[e12 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e12 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s12Pso || !ap.vb || !ap.ib)
+								continue;
+							[e12 setRenderPipelineState:ap.s12Pso];
+							if (ap.cb)
+								[e12 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e12 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e12 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e12 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e12 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e12 endEncoding];
+					}
 					s_appQ.clear();
 				}
 				[cb commit];
@@ -1169,24 +1244,34 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						Log("- p5 canaryI: S4 readback failed: %s", err3.c_str());
 					else
 					{
-						size_t wnLo = 0, wnMid = 0, wnHi = 0, wpLo = 0, wpMid = 0, wpHi = 0;
+						// launch149 S10 fine buckets: G = clamp(2(z/w - 1)+0.5)*255.
+						// G==0 => z/w<=0.75; G==255 => z/w>=1.25; G~127 => z/w~1.
+						size_t wneg = 0, satLo = 0, below = 0, hug = 0, above = 0,
+						       satHi = 0;
 						for (size_t k = 0; k + 2 < sx3.size(); k += 4)
 						{
 							const uint8_t* p = sx3.data() + k;
 							if (p[0] < 100 || p[0] > 180)
 								continue; // not a clipps pixel (B=0.5 marker)
-							bool wneg = p[2] < 100;
-							size_t* slot = wneg ? (p[1] < 64 ? &wnLo
-							                      : p[1] > 191 ? &wnHi
-							                                   : &wnMid)
-							                    : (p[1] < 64 ? &wpLo
-							                      : p[1] > 191 ? &wpHi
-							                                   : &wpMid);
-							(*slot)++;
+							if (p[2] < 100)
+							{
+								wneg++;
+								continue;
+							}
+							if (p[1] == 0)
+								satLo++;
+							else if (p[1] == 255)
+								satHi++;
+							else if (p[1] < 124)
+								below++;
+							else if (p[1] <= 130)
+								hug++;
+							else
+								above++;
 						}
-						Log("- p5 canaryI: S4clip wNeg[z/w lo,mid,hi]=%zu,%zu,%zu "
-						    "wPos[z/w lo,mid,hi]=%zu,%zu,%zu",
-						    wnLo, wnMid, wnHi, wpLo, wpMid, wpHi);
+						Log("- p5 canaryI: S10fine wNeg=%zu z/w[satLo,below,hug1,above,"
+						    "satHi]=%zu,%zu,%zu,%zu,%zu",
+						    wneg, satLo, below, hug, above, satHi);
 					}
 				}
 				// launch145: S5 (cyan) / S6 (red) landing booleans.
@@ -1229,6 +1314,26 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							if (sx9[k + 1] > 200 && sx9[k + 2] > 200 && sx9[k] < 60)
 								c9++; // BGRA yellow: G>200,R>200,B<60
 					Log("- p5 canaryI: S8zremap hits=%zu S9zbias hits=%zu", c8, c9);
+				}
+				// launch149: S11 (lime) / S12 (orange) landing counts.
+				{
+					size_t c11 = 0, c12 = 0;
+					std::string errC;
+					std::vector<uint8_t> sx11(size_t(1024) * 1024 * 4);
+					if (s_s7Tex && dev->ReadbackSlice((__bridge void*)s_s7Tex, sx11.data(),
+					                                  1024 * 4, 1024, 1024, 0, 0, errC))
+						for (size_t k = 0; k + 2 < sx11.size(); k += 4)
+							if (sx11[k] < 60 && sx11[k + 1] > 200 && sx11[k + 2] > 100 &&
+							    sx11[k + 2] < 180)
+								c11++; // lime: B~0 G~255 R~127
+					std::vector<uint8_t> sx12(size_t(1024) * 1024 * 4);
+					if (s_s8Tex && dev->ReadbackSlice((__bridge void*)s_s8Tex, sx12.data(),
+					                                  1024 * 4, 1024, 1024, 0, 0, errC))
+						for (size_t k = 0; k + 2 < sx12.size(); k += 4)
+							if (sx12[k] < 60 && sx12[k + 1] > 100 && sx12[k + 1] < 180 &&
+							    sx12[k + 2] > 200)
+								c12++; // orange: B~0 G~127 R~255
+					Log("- p5 canaryI: S11halfshift hits=%zu S12clamp hits=%zu", c11, c12);
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -3755,7 +3860,22 @@ namespace
 							    "out.gl_Position.z = out.gl_Position.z * 0.5 + "
 							    "out.gl_Position.w",
 							    "S9", vsR->name, s_p9);
+							// launch149: S11 z'=z-0.5w (lands iff z/w in [0.5,1.5]);
+							// S12 z'=clamp(z,1e-4w,0.9999w) — order-preserving
+							// guaranteed-landing candidate production fix.
+							static std::map<std::string, id<MTLFunction>> s_p11, s_p12;
+							id<MTLFunction> f11 = MtlPatchVsFn(
+							    devP, vsR->msl, nullptr,
+							    "out.gl_Position.z = out.gl_Position.z - "
+							    "out.gl_Position.w * 0.5",
+							    "S11", vsR->name, s_p11);
+							id<MTLFunction> f12 = MtlPatchVsFn(
+							    devP, vsR->msl, nullptr,
+							    "out.gl_Position.z = clamp(out.gl_Position.z, "
+							    "out.gl_Position.w * 0.0001, out.gl_Position.w * 0.9999)",
+							    "S12", vsR->name, s_p12);
 							static id<MTLFunction> s_clipFn, s_cyanFn, s_redFn, s_mgnFn, s_ylwFn;
+							static id<MTLFunction> s_limeFn, s_orngFn;
 							static bool s_psTried = false;
 							if (!s_psTried)
 							{
@@ -3773,8 +3893,8 @@ namespace
 								                       "  float zw = in.clip.z / "
 								                       "((fabs(w) > 1e-6) ? w : 1e-6);\n"
 								                       "  return float4(w < 0.0 ? 0.25 : "
-								                       "0.5, clamp(zw * 0.5 + 0.5, 0.0, "
-								                       "1.0), 0.5, 1.0);\n"
+								                       "0.5, clamp((zw - 1.0) * 2.0 + "
+								                       "0.5, 0.0, 1.0), 0.5, 1.0);\n"
 								                       "}\n"
 								                         options:nil
 								                           error:&e1];
@@ -3836,6 +3956,33 @@ namespace
 								else
 									Log("! p5 canaryI: ylwps lib failed: %s",
 									    [[e5 localizedDescription] UTF8String]);
+								// launch149: S11 lime (0.5,1,0), S12 orange (1,0.5,0).
+								NSError* e6 = nil;
+								id<MTLLibrary> l6 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 lmsps() { return "
+								                       "float4(0.5, 1.0, 0.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e6];
+								if (l6)
+									s_limeFn = [l6 newFunctionWithName:@"lmsps"];
+								else
+									Log("! p5 canaryI: lmsps lib failed: %s",
+									    [[e6 localizedDescription] UTF8String]);
+								NSError* e7 = nil;
+								id<MTLLibrary> l7 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 orgps() { return "
+								                       "float4(1.0, 0.5, 0.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e7];
+								if (l7)
+									s_orngFn = [l7 newFunctionWithName:@"orgps"];
+								else
+									Log("! p5 canaryI: orgps lib failed: %s",
+									    [[e7 localizedDescription] UTF8String]);
 							}
 							if (f7 && s_clipFn)
 							{
@@ -3875,6 +4022,32 @@ namespace
 								               pm.cache->Pipeline(pm.dev->Device(), pd9, err9);
 								if (!ap.s9Pso)
 									Log("! p5 canaryI: S9 PSO failed: %s", err9.c_str());
+							}
+							if (f11 && s_limeFn)
+							{
+								PipelineDesc pd11 = pdI;
+								pd11.vs = (__bridge void*)f11;
+								pd11.ps = (__bridge void*)s_limeFn;
+								pd11.colorFormats.clear();
+								pd11.colorFormats.push_back(80);
+								std::string err11;
+								ap.s11Pso = (__bridge id<MTLRenderPipelineState>)
+								                pm.cache->Pipeline(pm.dev->Device(), pd11, err11);
+								if (!ap.s11Pso)
+									Log("! p5 canaryI: S11 PSO failed: %s", err11.c_str());
+							}
+							if (f12 && s_orngFn)
+							{
+								PipelineDesc pd12 = pdI;
+								pd12.vs = (__bridge void*)f12;
+								pd12.ps = (__bridge void*)s_orngFn;
+								pd12.colorFormats.clear();
+								pd12.colorFormats.push_back(80);
+								std::string err12;
+								ap.s12Pso = (__bridge id<MTLRenderPipelineState>)
+								                pm.cache->Pipeline(pm.dev->Device(), pd12, err12);
+								if (!ap.s12Pso)
+									Log("! p5 canaryI: S12 PSO failed: %s", err12.c_str());
 							}
 							if (f5 && s_cyanFn)
 							{

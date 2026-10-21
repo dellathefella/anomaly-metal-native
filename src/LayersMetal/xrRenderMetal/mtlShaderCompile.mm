@@ -47,6 +47,50 @@ namespace
 	std::mutex g_libsLock;
 	std::vector<id<MTLLibrary>> g_libraries;
 
+	// launch146: env-gated clip-convention fix injected into every compiled
+	// VS (launch144/145 verdict: engine VS geometry is correct but dies at
+	// Metal's clip test 0<=z<=w). XR_METAL_CLIPFIX=z => depth remap
+	// z' = 0.5z + 0.5w; XR_METAL_CLIPFIX=w => w sign flip. Target check:
+	// only VSes declare 'gl_Position [[position]]' (PSes carry
+	// 'gl_FragCoord [[position]]'), and DXC MSL returns via 'return out;'.
+	static NSString* MtlClipFixSource(NSString* src)
+	{
+		static int mode = -1;
+		if (mode == -1)
+		{
+			const char* e = getenv("XR_METAL_CLIPFIX");
+			mode = 0;
+			if (e && !strcmp(e, "z"))
+				mode = 1;
+			else if (e && !strcmp(e, "w"))
+				mode = 2;
+		}
+		if (!mode)
+			return src;
+		if ([src rangeOfString:@"gl_Position [[position]]"].location == NSNotFound)
+			return src; // not a vertex shader
+		NSMutableString* mu = [src mutableCopy];
+		static NSString* patS = @"return out;";
+		int n = 0;
+		NSUInteger from = 0;
+		NSRange r;
+		while ((r = [mu rangeOfString:patS options:0
+		                        range:NSMakeRange(from, mu.length - from)]).location !=
+		       NSNotFound)
+		{
+			NSString* ins = mode == 1 ? @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
+			                            @"out.gl_Position.w * 0.5;\n    return out;"
+			                          : @"out.gl_Position.w = -out.gl_Position.w;\n    "
+			                            @"return out;";
+			[mu replaceCharactersInRange:r withString:ins];
+			from = r.location + ins.length;
+			n++;
+		}
+		if (n)
+			fprintf(stderr, "- xrMetal CLIPFIX=%s injected x%d\n", mode == 1 ? "z" : "w", n);
+		return mu;
+	}
+
 	id<MTLFunction> CreateFunction(NSString* mslSource, const char* entryName, const char* label,
 	                               std::string& error)
 	{
@@ -56,6 +100,7 @@ namespace
 			error = "no Metal device";
 			return nil;
 		}
+		mslSource = MtlClipFixSource(mslSource);
 		NSError* err = nil;
 		id<MTLLibrary> lib = [dev newLibraryWithSource:mslSource options:nil error:&err];
 		if (!lib)

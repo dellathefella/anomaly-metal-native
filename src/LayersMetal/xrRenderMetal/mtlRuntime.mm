@@ -107,8 +107,11 @@ static id<MTLFunction> MtlPatchVsFn(id<MTLDevice> dev, const std::string& msl,
     size_t p = 0, n = 0;
     while ((p = src.find(pat, p)) != std::string::npos)
     {
-        src.replace(p, pat.size(), std::string(stmt) + "\n    return out;");
-        p += strlen(stmt) + pat.size() + 6;
+        // launch145 bugfix: stmt was injected WITHOUT a terminating ';' =>
+        // every S4/S5/S6 compile died 'expected ; after expression'.
+        std::string ins = std::string(stmt) + ";\n    return out;";
+        src.replace(p, pat.size(), ins);
+        p += ins.size();
         n++;
     }
     if (!n)

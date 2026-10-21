@@ -57,6 +57,8 @@ struct MtlAppendCanary
 {
 	id<MTLRenderPipelineState> pso = nil;
 	id<MTLBuffer> ring = nil, vb = nil, ib = nil;
+	id<MTLBuffer> cb = nil; // launch130: CB bytes snapshotted at capture (the
+	                        // ring slot is overwritten by every later draw)
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
 	bool valid = false;
@@ -350,13 +352,19 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					MTLScissorRect asr = { 0, 0, atex.width, atex.height };
 					[ae setViewport:avp];
 					[ae setScissorRect:asr];
+					[ae setCullMode:MTLCullModeNone]; // launch130: fresh
+					                                          // encoder defaults to
+					                                          // CullBack — DX9 CW-front
+					                                          // geometry vanishes
 					int drawn = 0;
 					for (const auto& ap : s_appQ)
 					{
 						if (!ap.pso)
 							continue;
 						[ae setRenderPipelineState:ap.pso];
-						if (ap.ring)
+						if (ap.cb) // launch130: captured CB snapshot
+							[ae setVertexBuffer:ap.cb offset:0 atIndex:0];
+						else if (ap.ring)
 							[ae setVertexBuffer:ap.ring offset:ap.ringOff atIndex:0];
 						[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
 						[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
@@ -2654,6 +2662,19 @@ namespace
 						ap.pso = psoI;
 						ap.ring = pm.ring;
 						ap.ringOff = (NSUInteger)slotOff;
+						// launch130: snapshot the CB bytes — the ring slot is
+						// overwritten by every later draw, so by pass-end it is
+						// another pair's constants (=> wrong m_WVP, off-screen).
+						if (pm.ring)
+						{
+							id<MTLDevice> mdevCB = (__bridge id<MTLDevice>)pm.dev->Device();
+							const NSUInteger cbLen = 8192;
+							ap.cb = [mdevCB newBufferWithLength:cbLen
+							                            options:MTLResourceStorageModeShared];
+							if (ap.cb)
+								memcpy(ap.cb.contents,
+								       (const uint8_t*)pm.ring.contents + slotOff, cbLen);
+						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;
 						ap.ib = (__bridge id<MTLBuffer>)ds.ib;
 						ap.ibOff = (NSUInteger)startI * 2;

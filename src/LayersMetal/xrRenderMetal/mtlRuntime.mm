@@ -66,6 +66,8 @@ struct MtlAppendCanary
 	NSInteger baseV = 0;
 	uint32_t stride = 0; // launch134: for the V-draw discriminator PSO
 	id<MTLRenderPipelineState> sPso = nil; // launch138: S-draw — pair VS + white
+	id<MTLRenderPipelineState> s2Pso = nil; // launch144: S2 — w-abs-patched VS +
+	                                        // green PS (clipper hypothesis)
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
@@ -437,6 +439,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					// launch140: W/X decomposition PSOs (see draw block below).
 					static id<MTLLibrary> s_wLib = nil;
 					static id<MTLRenderPipelineState> s_wPso = nil, s_xPso = nil;
+					static id<MTLRenderPipelineState> s_zPso = nil, s_uPso = nil;
 					static id<MTLBuffer> s_xib = nil;
 					static bool s_wTried = false;
 					for (const auto& ap : s_appQ)
@@ -445,7 +448,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							continue;
 						// launch134: V-draw — trivial VS reading the pair VB's
 						// position attribute (Float3@0, stream slot 1) scaled
-						// into view + constant PS (R=0.75 => byte1==62 = V
+						// into view + constant PS (R=0.75 => byte1==58 = V
 						// flag). V>0 => VB+bindings healthy on the GPU => the
 						// pair VS/descriptor is the poison; V=0 => the VB
 						// binding path itself is dead.
@@ -527,7 +530,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						// byte1==52 = W flag) — tests whether the VB bytes are
 						// GPU-readable at all.
 						// X-draw: full vertex-descriptor path with a CPU-built
-						// known-good index buffer (R=0.125 => byte1==50 = X
+						// known-good index buffer (R=0.125 => byte1==48 = X
 						// flag) — tests the descriptor+indexed path
 						// independently of the captured IB.
 						// W>0,X=0 => captured IB is the poison; W=0 => VB bytes
@@ -579,6 +582,18 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							                       "}\n"
 							                       "fragment float4 xbc_ps() { return float4(0.125, "
 							                       "0.25, 0.5, 1.0); }\n"
+							                       // launch144: Z = captured IB at
+							                       // offset 0 (R=0.1875 -> byte1
+							                       // 50); U = captured IB at the
+							                       // captured offset but baseVertex
+							                       // 0 (R=0.375 -> byte1 54). With
+							                       // V (all captured) and X (all
+							                       // synthetic) these four split
+							                       // IB-bytes / ibOff / baseV.
+							                       "fragment float4 zbc_ps() { return float4(0.1875, "
+							                       "0.25, 0.5, 1.0); }\n"
+							                       "fragment float4 ubc_ps() { return float4(0.375, "
+							                       "0.25, 0.5, 1.0); }\n"
 							    options:nil
 							      error:&eW2];
 							if (!s_wLib)
@@ -618,6 +633,22 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 								s_xib = [devW2 newBufferWithBytes:idx
 								                          length:sizeof(idx)
 								                         options:MTLResourceStorageModeShared];
+								PipelineDesc pdZ = pdX; // launch144: same fetch,
+								pdZ.ps = (__bridge void*)
+								    [s_wLib newFunctionWithName:@"zbc_ps"]; // Z/U draws
+								std::string errZ;
+								s_zPso = (__bridge id<MTLRenderPipelineState>)
+								             cache->Pipeline(dev->Device(), pdZ, errZ);
+								if (!s_zPso)
+									Log("! p5 canaryI: zbc PSO failed: %s", errZ.c_str());
+								PipelineDesc pdU = pdX;
+								pdU.ps = (__bridge void*)
+								    [s_wLib newFunctionWithName:@"ubc_ps"];
+								std::string errU;
+								s_uPso = (__bridge id<MTLRenderPipelineState>)
+								             cache->Pipeline(dev->Device(), pdU, errU);
+								if (!s_uPso)
+									Log("! p5 canaryI: ubc PSO failed: %s", errU.c_str());
 							}
 						}
 						const NSUInteger maxV =
@@ -658,6 +689,62 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 							               indexCount:ic indexType:MTLIndexTypeUInt16
 							                 indexBuffer:s_xib indexBufferOffset:0
+							               instanceCount:1 baseVertex:0 baseInstance:0];
+						}
+						// launch144: launch143 verdict — W=181 X=1533 V=0 with
+						// corrected scan bytes: descriptor fetch fine, the
+						// CAPTURED IB supply is the poison (Sdraw=0 corroborates).
+						// Ibgeom echo: what the CPU sees in the captured IB (the
+						// live posclip said sane bytes at draw time — is it still
+						// sane at pass-end?) + full range checks. Z/U draws split
+						// the three remaining suspects (buffer bytes / ibOff /
+						// baseVertex) on the GPU side.
+						if (ap.ib)
+						{
+							const uint8_t* ibase = (const uint8_t*)[ap.ib contents];
+							const NSUInteger ibLen = [ap.ib length];
+							const uint16_t* i16 =
+								ibase && ap.ibOff + 1 < ibLen
+								    ? (const uint16_t*)(ibase + ap.ibOff)
+								    : nullptr;
+							uint32_t mx = 0;
+							if (i16)
+								for (NSUInteger k = 0; k < ap.idxCount; k++)
+									if (i16[k] > mx)
+										mx = i16[k];
+							Log("- p5 canaryI: Ibgeom ib=%p len=%lu ibOff=%lu idx=%lu baseV=%ld "
+							    "inR=%d i0=[%u %u %u %u] maxIdx=%u vbVerts=%lu baseV+max=%u",
+						    (__bridge void*)ap.ib, (unsigned long)ibLen, (unsigned long)ap.ibOff,
+							    (unsigned long)ap.idxCount, (long)ap.baseV,
+							    (int)(ap.ibOff + (NSUInteger)ap.idxCount * 2 <= ibLen),
+							    i16 ? i16[0] : 9999u, i16 ? i16[1] : 9999u, i16 ? i16[2] : 9999u,
+							    i16 ? i16[3] : 9999u, mx, (unsigned long)maxV,
+							    (unsigned)(ap.baseV + (NSInteger)mx));
+						}
+						else
+							Log("- p5 canaryI: Ibgeom ib=nil");
+						if (s_zPso && ap.vb && ap.ib)
+						{
+							const NSUInteger zc = (([ap.ib length] / 2 < 384
+							                              ? [ap.ib length] / 2
+							                              : 384) /
+							                         3) *
+							                      3;
+							[ae setRenderPipelineState:s_zPso];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:zc indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:0
+							               instanceCount:1 baseVertex:0 baseInstance:0];
+						}
+						if (s_uPso && ap.vb && ap.ib &&
+						    ap.ibOff + (NSUInteger)ap.idxCount * 2 <= [ap.ib length])
+						{
+							[ae setRenderPipelineState:s_uPso];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 							               instanceCount:1 baseVertex:0 baseInstance:0];
 						}
 						[ae setRenderPipelineState:ap.pso];
@@ -715,6 +802,18 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
 							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+							if (ap.s2Pso) // launch144: w-patched VS, green
+							{
+								[se setRenderPipelineState:ap.s2Pso];
+								[se drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+								               indexCount:ap.idxCount
+								                indexType:MTLIndexTypeUInt16
+								                  indexBuffer:ap.ib
+								            indexBufferOffset:ap.ibOff
+								                  instanceCount:1
+								                     baseVertex:ap.baseV
+								                   baseInstance:0];
+							}
 						}
 						[se endEncoding];
 					}
@@ -730,33 +829,38 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					Log("- p5 postgeom: readback failed: %s", err.c_str());
 				else
 				{
-					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0, nV = 0, nW = 0, nX = 0;
+					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0, nV = 0, nW = 0, nX = 0, nZ = 0,
+					       nU = 0;
 					for (size_t k = 0; k + 6 <= px.size(); k += 64)
 					{
 						if (px[k] | px[k + 1] | px[k + 2])
 							nz++;
 						if (px[k + 1] == 56)
 							nL++; // R=0.5 -> passthru fragment LANDED
-						// launch143: half hi-byte FIX — 0.75f->0x3600 (hi=54,
-						// not 62) and 0.125f->0x3000 (hi=48, not 50): the V/X
-						// flags had WRONG scan constants since introduction, so
-						// V=0/X=0 were scanner artifacts (W=52/L=56/T=60 were
-						// all correct). Re-scan with the true bytes.
-						if (px[k + 1] == 54)
+						// launch144: half hi-bytes VERIFIED with a conversion
+						// program (/tmp/halfchk.c): 1.0->60, 0.75->58 (the
+						// launch143 'fix' said 54 = 0.375, still wrong: V=0 was
+						// artifact #2, cf. mid=(0,58,..) tick=6), 0.5->56,
+						// 0.375->54 (U), 0.25->52, 0.1875->50 (Z), 0.125->48.
+						if (px[k + 1] == 58)
 							nV++; // R=0.75 -> V-draw (trivial VS on pair VB) landed
 						if (px[k + 1] == 52)
 							nW++; // R=0.25 -> W-draw (device-ref raw VB) landed
 						if (px[k + 1] == 48)
 							nX++; // R=0.125 -> X-draw (descriptor path, good IB) landed
+						if (px[k + 1] == 50)
+							nZ++; // R=0.1875 -> Z-draw (captured IB, off 0, baseV 0)
+						if (px[k + 1] == 54)
+							nU++; // R=0.375 -> U-draw (captured IB+offset, baseV 0)
 						if (px[k + 3] == 60)
 							nT0++; // G=1.0 -> TEXCOORD0 interpolant alive
 						if (px[k + 5] == 60)
 							nT1++; // B=1.0 -> TEXCOORD1 interpolant alive
 					}
 					const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
-					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu W=%zu X=%zu T0=%zu T1=%zu "
-					    "mid=(%u,%u,%u,%u) tick=%d",
-					    nz, nL, nV, nW, nX, nT0, nT1, px[mid], px[mid + 1], px[mid + 2],
+					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu W=%zu X=%zu Z=%zu U=%zu "
+					    "T0=%zu T1=%zu mid=(%u,%u,%u,%u) tick=%d",
+					    nz, nL, nV, nW, nX, nZ, nU, nT0, nT1, px[mid], px[mid + 1], px[mid + 2],
 					    px[mid + 3], g_pgGate % 240);
 				}
 				// launch138: S-draw readback — hit count + bbox on the 1024²
@@ -771,14 +875,15 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						Log("- p5 canaryI: Sdraw readback failed: %s", errS2.c_str());
 					else
 					{
-						size_t hits = 0;
+						size_t hits = 0, hits2 = 0;
 						int x0 = 2000, y0 = 2000, x1 = -1, y1 = -1;
+						int u0 = 2000, v0 = 2000, u1 = -1, v1 = -1;
 						for (uint32_t yy = 0; yy < 1024; yy++)
 							for (uint32_t xx = 0; xx < 1024; xx++)
 							{
 								const uint8_t* p = sx.data() + (size_t(yy) * 1024 + xx) * 4;
-								if (p[0] | p[1] | p[2])
-								{
+								if (p[0])
+								{ // white (S-draw) — R set
 									hits++;
 									if ((int)xx < x0)
 										x0 = (int)xx;
@@ -789,9 +894,22 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 									if ((int)yy > y1)
 										y1 = (int)yy;
 								}
+								else if (p[1])
+								{ // green (S2-draw, launch144) — G set, R clear
+									hits2++;
+									if ((int)xx < u0)
+										u0 = (int)xx;
+									if ((int)xx > u1)
+										u1 = (int)xx;
+									if ((int)yy < v0)
+										v0 = (int)yy;
+									if ((int)yy > v1)
+										v1 = (int)yy;
+								}
 							}
-						Log("- p5 canaryI: Sdraw hits=%zu bbox=(%d,%d..%d,%d)", hits, x0, y0, x1,
-						    y1);
+						Log("- p5 canaryI: Sdraw hits=%zu bbox=(%d,%d..%d,%d) S2draw hits=%zu "
+						    "bbox=(%d,%d..%d,%d)",
+						    hits, x0, y0, x1, y1, hits2, u0, v0, u1, v1);
 					}
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
@@ -3185,6 +3303,99 @@ namespace
 								else
 									Log("! p5 canaryI: Sdraw PSO failed (%s): %s",
 									    vsR->name.c_str(), errS.c_str());
+							}
+						}
+						// launch144: S2-draw — CLIPPER hypothesis. launch127
+						// posclip computed a clip position z≈w≈-170: NEGATIVE w
+						// => Metal clips every primitive (the trivial probe VSes
+						// all emitted w=+1, which is why they landed while every
+						// engine-VS draw stayed zero). Patch the live VS MSL:
+						// force w=|w| and z=0.5w before every 'return out;'.
+						// S2 (green) landing while S (white) is zero == the
+						// clipper is the killer.
+						{
+							static std::map<std::string, id<MTLFunction>> s_wabsFn;
+							id<MTLFunction> fnW2 = nil;
+							const auto itW = s_wabsFn.find(vsR->name);
+							if (itW != s_wabsFn.end())
+								fnW2 = itW->second;
+							else
+							{
+								std::string srcW = vsR->msl;
+								const std::string patW = "return out;";
+								const std::string repW =
+								    "out.gl_Position.w = fabs(out.gl_Position.w) + "
+								    "0.0001;\n    out.gl_Position.z = "
+								    "out.gl_Position.w * 0.5;\n    return out;";
+								size_t pW = 0, nWp = 0;
+								while ((pW = srcW.find(patW, pW)) != std::string::npos)
+								{
+									srcW.replace(pW, patW.size(), repW);
+									pW += repW.size();
+									nWp++;
+								}
+								if (nWp)
+								{
+									id<MTLDevice> devW3 =
+									    (__bridge id<MTLDevice>)pm.dev->Device();
+									NSError* eW3 = nil;
+									id<MTLLibrary> libW3 =
+									    [devW3 newLibraryWithSource:
+									           [NSString stringWithUTF8String:srcW.c_str()]
+									                       options:nil
+									                         error:&eW3];
+									fnW2 = libW3 ? [libW3 newFunctionWithName:@"main0"] : nil;
+									if (!fnW2)
+										Log("! p5 canaryI: S2 vs compile failed: %s",
+										    eW3 ? [[eW3 localizedDescription] UTF8String]
+										            : "?");
+								}
+								else
+									Log("! p5 canaryI: S2 patch: no 'return out;' in %s",
+									    vsR->name.c_str());
+								s_wabsFn[vsR->name] = fnW2;
+							}
+							if (fnW2)
+							{
+								static id<MTLFunction> s_greenFn = nil;
+								static bool s_gTried = false;
+								if (!s_gTried)
+								{
+									s_gTried = true;
+									id<MTLDevice> devG =
+									    (__bridge id<MTLDevice>)pm.dev->Device();
+									NSError* eG = nil;
+									id<MTLLibrary> libG =
+									    [devG newLibraryWithSource:
+									           @"#include <metal_stdlib>\n"
+									           "using namespace metal;\n"
+									           "fragment float4 gps() { return "
+									           "float4(0.0, 1.0, 0.0, 1.0); }\n"
+									                                     options:nil
+									                                       error:&eG];
+									if (libG)
+										s_greenFn = [libG newFunctionWithName:@"gps"];
+									else
+										Log("! p5 canaryI: gps lib failed: %s",
+										    [[eG localizedDescription] UTF8String]);
+								}
+								if (s_greenFn)
+								{
+									PipelineDesc pdW3 = pdI;
+									pdW3.vs = (__bridge void*)fnW2;
+									pdW3.ps = (__bridge void*)s_greenFn;
+									pdW3.colorFormats.clear();
+									pdW3.colorFormats.push_back(80);
+									std::string errW3;
+									id<MTLRenderPipelineState> sp2 =
+									    (__bridge id<MTLRenderPipelineState>)pm.cache->Pipeline(
+									        pm.dev->Device(), pdW3, errW3);
+									if (sp2)
+										ap.s2Pso = sp2;
+									else
+										Log("! p5 canaryI: S2 PSO failed: %s",
+										    errW3.c_str());
+								}
 							}
 						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;

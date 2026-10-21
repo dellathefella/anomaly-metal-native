@@ -251,6 +251,9 @@ int main(int argc, char** argv)
 			}
 			else
 			{
+				if (getenv("XR_BATCH_DUMP"))
+					printf("===== %s (%s) =====\n%s\n", fs::path(f).filename().string().c_str(),
+					       usedEntry.c_str(), comp.msl.c_str());
 				// On-device MSL validation: SPIRV-Cross keeps the entry
 				// name (MSL-reserved 'main' is renamed to main0).
 				@autoreleasepool

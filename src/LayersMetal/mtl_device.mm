@@ -14,6 +14,7 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cmath>
@@ -497,17 +498,47 @@ namespace xray::metal
 		sd.mipFilter = desc.mipFilter == 1 ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
 		if (aniso)
 		{
-			sd.maxAnisotropy = (NSUInteger)desc.maxAnisotropy;
-			// lodAccuracy via KVC below
+			// DX9 state caches can carry out-of-range anisotropy; Metal
+			// rejects >16 with an ObjC exception (terminate without catch).
+			int a = desc.maxAnisotropy;
+			if (a > 16)
+				a = 16;
+			sd.maxAnisotropy = (NSUInteger)a;
 		}
 		// minLod/maxLod/lodAccuracy/lodBias are not (portably) declared by the
 		// CLT SDK's MTLSamplerDescriptor although the runtime implements them
 		// since Metal 1 — set via KVC (bypasses SDK declaration/availability gaps).
-		[sd setValue:@(desc.lodBias) forKey:@"lodBias"];
-		[sd setValue:@(desc.minLod) forKey:@"minLod"];
-		[sd setValue:@(desc.maxLod) forKey:@"maxLod"];
-		if (aniso)
-			[sd setValue:@(0.0f) forKey:@"lodAccuracy"];
+		// SDK/runtime naming across macOS versions: pre-Metal4 declared
+		// lodMinClamp/lodMaxClamp + mipLODBias (later lodBias, gated
+		// macos(26.0) here while our deployment target is older). KVC with a
+		// fallback chain covers both runtimes without availability issues;
+		// unknown keys throw NSUnknownKeyException (uncaught = terminate)
+		// so every attempt is exception-guarded.
+		auto finiteClamp = [](float v, float lo, float hi, float fallback) {
+			return std::isfinite(v) ? std::min(std::max(v, lo), hi) : fallback;
+		};
+		const float lodBias = finiteClamp(desc.lodBias, -16.f, 16.f, 0.f);
+		float minLod = finiteClamp(desc.minLod, 0.f, 1000.f, 0.f);
+		float maxLod = finiteClamp(desc.maxLod, 0.f, 1000.f, 1000.f);
+		if (maxLod < minLod)
+			maxLod = minLod;
+		auto kvc = [](id o, NSString* k, float v) {
+			@try
+			{
+				[o setValue:@(v) forKey:k];
+				return true;
+			}
+			@catch (NSException*)
+			{
+				return false;
+			}
+		};
+		if (!kvc(sd, @"lodMinClamp", minLod))
+			kvc(sd, @"lodMinClamp", minLod);
+		if (!kvc(sd, @"lodMaxClamp", maxLod))
+			kvc(sd, @"lodMaxClamp", maxLod);
+		if (!kvc(sd, @"lodBias", lodBias))
+			kvc(sd, @"mipLODBias", lodBias);
 		switch (desc.borderColor)
 		{
 		case 1: sd.borderColor = MTLSamplerBorderColorOpaqueWhite; break;
@@ -518,9 +549,25 @@ namespace xray::metal
 		{
 			// compareFunction alone enables depth-compare sampling on macOS
 			// (MTLSamplerCompareMode is not in this SDK).
-			sd.compareFunction = (MTLCompareFunction)desc.compareFunc;
+			if (desc.compareFunc <= (int)MTLCompareFunctionNever)
+				sd.compareFunction = (MTLCompareFunction)desc.compareFunc;
+			else
+				fprintf(stderr, "! xrRenderMetal: SamplerFull bad compareFunc %d ignored\n",
+				        desc.compareFunc);
 		}
-		id<MTLSamplerState> s = [m_impl->device newSamplerStateWithDescriptor:sd];
+		id<MTLSamplerState> s = nil;
+		@try
+		{
+			s = [m_impl->device newSamplerStateWithDescriptor:sd];
+		}
+		@catch (NSException* e)
+		{
+			fprintf(stderr,
+			        "! xrRenderMetal: sampler creation failed: %s (%s) aniso=%d bias=%g lod=[%g,%g]\n",
+			        e.name.UTF8String, e.reason.UTF8String, desc.maxAnisotropy, (double)lodBias,
+			        (double)minLod, (double)maxLod);
+			s = nil;
+		}
 		if (s)
 			m_impl->samplersFull[key] = s;
 		return (__bridge void*)s;
@@ -612,6 +659,12 @@ namespace xray::metal
 		}
 		id<MTLCommandBuffer> cb = [queue commandBuffer];
 		id<MTLBlitCommandEncoder> blit = [cb blitCommandEncoder];
+		// Depth planes REQUIRE MTLBlitOptionDepthFloat on copy-to-buffer
+		// (tolerated-but-undefined with None in release; hard assertion under
+		// MTL_DEBUG_LAYER — launch108 crash).
+		MTLBlitOption blitOpt = MTLBlitOptionNone;
+		if (tex.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
+			blitOpt = MTLBlitOptionDepthFromDepthStencil;
 		[blit copyFromTexture:tex
 		          sourceSlice:(NSUInteger)slice
 		          sourceLevel:(NSUInteger)mip
@@ -620,7 +673,8 @@ namespace xray::metal
 		             toBuffer:staging
 		       destinationOffset:0
 		  destinationBytesPerRow:(NSUInteger)srcBpr
-		destinationBytesPerImage:(NSUInteger)sliceBytes];
+		destinationBytesPerImage:(NSUInteger)sliceBytes
+		                options:blitOpt];
 		[blit endEncoding];
 		[cb commit];
 		[cb waitUntilCompleted];
@@ -660,6 +714,15 @@ namespace xray::metal
 	{
 		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
 		return tex ? (int)tex.pixelFormat : 0;
+	}
+
+	void MetalDevice::TextureDims(void* texture, uint32_t* w, uint32_t* h)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (w)
+			*w = tex ? (uint32_t)tex.width : 0;
+		if (h)
+			*h = tex ? (uint32_t)tex.height : 0;
 	}
 
 	void MetalDevice::GenerateMipmaps(void* commandBuffer, void* texture)

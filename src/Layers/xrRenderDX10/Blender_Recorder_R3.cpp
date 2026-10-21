@@ -54,7 +54,9 @@ void CBlender_Compile::r_dx10Texture(LPCSTR ResourceName, LPCSTR texture)
 	//VERIFY(C);
 	if (!C) return;
 
-	R_ASSERT(C->type == RC_dx10texture);
+	// GL/Metal parity: sampler constants are registered as RC_sampler (DX9
+	// shares the texture/sampler index); DX11 uses RC_dx10texture.
+	R_ASSERT(C->type == RC_dx10texture || C->type == RC_sampler);
 	u32 stage = C->samp.index;
 
 	passTextures.push_back(mk_pair(stage, ref_texture(DEV->_CreateTexture(TexName))));

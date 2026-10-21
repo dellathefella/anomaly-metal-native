@@ -300,7 +300,16 @@ void CInput::KeyUpdate()
 			KBState[dik] = pressed ? TRUE : FALSE;
 
 		if (pressed)
+		{
+			static int s_p5_keylog = 0;
+			if (s_p5_keylog < 12)
+			{
+				++s_p5_keylog;
+				Msg("* p5 key-> %s dik=%d cbStack=%zu",
+				    typeid(*cbStack.back()).name(), dik, cbStack.size());
+			}
 			cbStack.back()->IR_OnKeyboardPress(dik);
+		}
 		else
 		{
 			cbStack.back()->IR_OnKeyboardRelease(dik);

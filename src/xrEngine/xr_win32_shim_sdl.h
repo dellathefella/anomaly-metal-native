@@ -423,6 +423,10 @@ inline MSG xr_translate_sdl(const SDL_Event& e, bool& ok)
     switch (e.type)
     {
     case SDL_QUIT:
+        {
+            extern void xrLogQuitSource(const char*);
+            xrLogQuitSource("SDL_QUIT event");
+        }
         m.message = WM_QUIT;
         ok = true;
         break;
@@ -622,7 +626,13 @@ inline void DispatchMessageA(const MSG* m)
 }
 #define DispatchMessage DispatchMessageA
 
-inline void PostQuitMessage(int) { xr_quit_posted() = true; }
+inline void PostQuitMessage(int)
+{
+    // p5 launch116 diag: silent-exit hunt — who asked to quit?
+    extern void xrLogQuitSource(const char*);
+    xrLogQuitSource("PostQuitMessage");
+    xr_quit_posted() = true;
+}
 
 // ---------------------------------------------------------------------------
 // Window queries / ops

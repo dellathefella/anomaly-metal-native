@@ -28,6 +28,12 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _ps, bool bFog, BOOL bZtest, BO
 #if defined(USE_OGL)
     dest.pp = RImplementation.Resources->_CreatePP(_vs, _ps, "null", "null", "null");
     if (GLAD_GL_ARB_separate_shader_objects || !dest.pp->pp)
+#elif defined(USE_METAL)
+    dest.pp = RImplementation.Resources->_CreatePP(_vs, _ps, "null", "null", "null");
+    // Always (re)create the stage objects so the ctable merges below run for
+    // every compiled pass, even when the PP pair is already linked (mirrors
+    // the GL separate-shader-objects path).
+    if (true)
 #endif
     {
         dest.ps = RImplementation.Resources->_CreatePS(_ps);
@@ -49,6 +55,9 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _ps, bool bFog, BOOL bZtest, BO
 #if defined(USE_OGL)
     RImplementation.Resources->_LinkPP(dest);
     ctable.merge(&dest.pp->constants);
+#elif defined(USE_METAL)
+    if (RImplementation.Resources->_LinkPP(dest))
+        ctable.merge(&dest.pp->constants);
 #endif
 
     // Last Stage - disable

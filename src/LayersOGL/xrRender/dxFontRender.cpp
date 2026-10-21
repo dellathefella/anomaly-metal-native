@@ -70,6 +70,27 @@ void dxFontRender::OnRender(CGameFont& owner)
         R_ASSERT(pShader);
         R_constant* C = RCache.get_c(c_sbase)._get(); // get sampler
         CTexture* T = RCache.get_ActiveTexture(C ? C->samp.index : 0);
+#ifdef USE_METAL
+        if (!T)
+        {
+            STextureList* TL = pShader->E[0] && pShader->E[0]->passes.size()
+                ? pShader->E[0]->passes[0]->T._get() : nullptr;
+            SPP* diagPP = pShader->E[0] && pShader->E[0]->passes.size()
+                ? pShader->E[0]->passes[0]->pp._get() : nullptr;
+            Msg("! Metal font diag: pp='%s' C=%s idx=%d | active0=%s active1=%s | T-list=%s",
+                diagPP ? diagPP->cName.c_str() : "<no-pp>", C ? C->name.c_str() : "<null>",
+                C ? (int)C->samp.index : -1,
+                RCache.get_ActiveTexture(0) ? "set" : "null",
+                RCache.get_ActiveTexture(1) ? "set" : "null",
+                TL ? "list" : "<null>");
+            for (u32 st = 0; TL && st < TL->size(); ++st)
+            {
+                const auto& pr = (*TL)[st];
+                Msg("!  T[%d]: stage=%d tex=%s", st, pr.first,
+                    pr.second._get() ? pr.second->cName.c_str() : "<null>");
+            }
+        }
+#endif
         R_ASSERT(T);
         owner.vTS.set((int)T->get_Width(), (int)T->get_Height());
         owner.fTCHeight = owner.fHeight / float(owner.vTS.y);

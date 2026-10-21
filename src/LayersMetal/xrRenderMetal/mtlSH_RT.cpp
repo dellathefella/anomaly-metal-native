@@ -72,6 +72,7 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount /*= 1*/
     // Metal doesn't differentiate color/depth texture handles at this level.
     pZRT = pRT;
     target = 0; // mtd2D
+    MtlDbgRTName(pRT, Name); // p5 diag
 
     pTexture = RImplementation.Resources->_CreateTexture(Name);
     pTexture->surface_set(pRT);

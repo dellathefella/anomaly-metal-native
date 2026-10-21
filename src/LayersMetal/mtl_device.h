@@ -129,6 +129,7 @@ namespace xray::metal
 		                   uint32_t slice, uint32_t mip, std::string& error);
 		uint32_t TextureBpp(void* texture); // bytes per pixel of the texture format
 		int TextureFormat(void* texture); // MTLPixelFormat raw value (0 on null)
+		void TextureDims(void* texture, uint32_t* w, uint32_t* h); // texel size (0 on null)
 		// Mipmap chain generation via a blit encoder on the given command
 		// buffer (texture needs ShaderRead; generates from mip0 downward).
 		void GenerateMipmaps(void* commandBuffer, void* texture);

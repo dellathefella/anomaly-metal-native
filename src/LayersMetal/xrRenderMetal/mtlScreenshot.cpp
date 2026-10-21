@@ -37,6 +37,44 @@ namespace
             Msg("! Metal screenshot readback failed: %s", err.c_str());
             return false;
         }
+        // p5 diag: is the source texture actually holding pixels?
+        {
+            size_t nonZero = 0;
+            for (size_t i = 0; i < bgra.size(); i += 64)
+                if (bgra[i])
+                    nonZero++;
+            const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
+            Msg("- Metal screenshot diag: src=%p %ux%u nonzeroSamples=%zu mid=(%u,%u,%u,%u)", src, w, h,
+                nonZero, bgra[mid], bgra[mid + 1], bgra[mid + 2], bgra[mid + 3]);
+        }
+        // p5 diag: read back every color RT bound since last frame — which of
+        // them (if any) holds the drawn content?
+        {
+            if (std::vector<void*>* rts = MtlDbgRTs())
+            {
+                for (size_t i = 0; i < rts->size(); ++i)
+                {
+                    void* t = (*rts)[i];
+                    u32 tw = 0, th = 0;
+                    HW.MtlDev.TextureDims(t, &tw, &th);
+                    if (!tw || !th)
+                        continue;
+                    xr_vector<u8> px(size_t(tw) * th * 4);
+                    std::string e2;
+                    if (!HW.MtlDev.ReadbackSlice(t, px.data(), tw * 4, tw, th, 0, 0, e2))
+                    {
+                        Msg("- Metal RT diag[%zu]: %p readback failed: %s", i, t, e2.c_str());
+                        continue;
+                    }
+                    size_t nz = 0;
+                    for (size_t k = 0; k < px.size(); k += 64)
+                        if (px[k])
+                            nz++;
+                    Msg("- Metal RT diag[%zu]: %p %ux%u nonzeroSamples=%zu", i, t, tw, th, nz);
+                }
+            }
+            MtlDbgClearRTs();
+        }
         pixels.resize(size_t(w) * h * 3);
         for (size_t i = 0, count = size_t(w) * h; i < count; ++i)
         {
@@ -85,7 +123,10 @@ void p4_present_screenshot_mtl()
         Msg("* p4 capture probe: max=%u lit=%.1f%%", maxv,
             sampled ? 100.0 * nonzero / sampled : 0.0);
         Image img{ w, h, pixels.data(), ImageDataFormat::RGB8 };
-        if (!img.SaveJPEG(*fs, 100, true))
+        // No scanline invert: ReadbackSlice returns Metal texture order
+        // (row 0 = top). The GL port needed invert=true because glReadPixels
+        // returns bottom-up rows.
+        if (!img.SaveJPEG(*fs, 100, false))
             Log("! Failed to make a screenshot.");
     }
     FS.w_close(fs);

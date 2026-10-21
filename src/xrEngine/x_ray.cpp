@@ -1303,6 +1303,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		Log("p5: QUIT-SOURCE: eQuit event (game quit request)"); // p5 launch116 diag
 		g_SASH.EndBenchmark();
 
 		PostQuitMessage(0);

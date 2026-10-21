@@ -8,11 +8,18 @@
 // GL/Metal renderer modules provide RenderFactoryImpl.
 #include "../../Layers/xrRender/dxRenderFactory.h"
 
+// p5: renderers are dlopen'd at runtime, so taking &RenderFactoryImpl (a DATA
+// symbol) from engine TUs would force an eager flat-namespace binding that
+// dyld aborts on at load. Function references bind lazily (first call, after
+// the renderer module is loaded), so the address crosses through this
+// accessor exported by both renderer modules.
+extern "C" dxRenderFactory* xrGetRenderFactoryImpl();
+
 #define FACTORY_PTR_INSTANCIATE(Class) \
 	template <> \
 	inline void FactoryPtr<I##Class>::CreateObject(void) \
 { \
-	if (!RenderFactory) RenderFactory = &RenderFactoryImpl; \
+	if (!RenderFactory) RenderFactory = xrGetRenderFactoryImpl(); \
 	m_pObject = RenderFactory->Create##Class(); \
 } \
 	template <> \

@@ -41,6 +41,9 @@ struct MtlResourceRefl
 struct MtlStageRefl
 {
     void* function{ nullptr }; // id<MTLFunction>, borrowed (compiler-owned)
+    std::string name;              // p5 diag: shader name ("combine_1.ps")
+    std::string msl;               // MSL text (V2P pair patching; empty on old records)
+    std::string entry;             // entry point name (paired with msl)
     uint32_t cbufferSize{ 0 };      // $Globals image size (0 = no constants)
     std::vector<MtlUniformRefl> uniforms;
     std::vector<MtlResourceRefl> resources;
@@ -63,6 +66,7 @@ struct MtlShaderPair
     MtlStageRefl vs;
     MtlStageRefl ps;
     std::string name;
+    bool depthOnly{ false }; // DX9 null-PS pass (depth-shadows): nil fragment function
 };
 
 // Lazy global DXC backend init (libdxcompiler.dylib candidates + CLI
@@ -82,6 +86,23 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 // from MtlDeserializeReflection on the caller's cache blob).
 bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* msl, const char* entry,
     std::string& error);
+
+// Synthesize a DX9 FFP-emulation vertex stage mirroring the PS input signature
+// (interpolant pass-through + the engine's pixel-space 2D ortho). Returns a
+// session-lifetime reflection record or nullptr (caller falls back).
+MtlStageRefl* MtlBuildFfpVertexStage(const std::vector<MtlStageRefl::InputAttr>& psInputs, std::string& error);
+
+// p5: DX9 matched interpolants by SEMANTIC NAME (TEXCOORDn); DXC assigns Metal
+// locations by per-stage declaration order, so real VS/PS pairs whose TEXCOORD
+// usage diverges fail Metal's strict VS-output <-> PS-input matching (e.g.
+// deffer_detail_w_flat.vs + deffer_base_aref_flat.ps: off-by-one locns + one
+// unwritten input). Patch the pair's MSL: remap each PS input's locn to the VS
+// output carrying the same DX9 semantic, add zero-written float4 VS outputs for
+// semantics the VS never writes, and widen narrow VS outputs to float4 (Metal
+// allows PS inputs narrower than the VS output). Returns false when the pair
+// already matches (or cannot be parsed) — caller keeps the original stages.
+bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageRefl& outVs,
+                       MtlStageRefl& outPs, std::string& error);
 
 // Reflection <-> opaque blob (paired with the MSL text in cache files).
 std::string MtlSerializeReflection(const MtlStageRefl& refl);

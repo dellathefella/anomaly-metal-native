@@ -241,15 +241,23 @@ unsigned long xr_GetFileAttributesA(LPCSTR path)
 
 BOOL xr_SetFileAttributesA(LPCSTR path, unsigned long attr)
 {
+    // FS hands us Windows-style virtual paths ("dir\\file"); POSIX syscalls
+    // need forward slashes or stat/chmod silently fail (cfg_save regression).
+    char fixed[MAX_PATH];
+    strncpy(fixed, path, sizeof(fixed) - 1);
+    fixed[sizeof(fixed) - 1] = 0;
+    for (char* p = fixed; *p; ++p)
+        if (*p == '\\')
+            *p = '/';
     struct stat st;
-    if (stat(path, &st) != 0)
+    if (stat(fixed, &st) != 0)
         return FALSE;
     mode_t mode = st.st_mode;
     if (attr & FILE_ATTRIBUTE_READONLY)
         mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
     else
         mode |= S_IWUSR;
-    return chmod(path, mode) == 0 ? TRUE : FALSE;
+    return chmod(fixed, mode) == 0 ? TRUE : FALSE;
 }
 
 #endif // !XR_PLATFORM_WINDOWS

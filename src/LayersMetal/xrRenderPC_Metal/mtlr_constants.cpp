@@ -120,6 +120,8 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
             L.offset = 0;
             L.size = 0;
             L.stride = 0;
+            Msg("- Metal sampler const: '%s' -> stage %d (in %s)", name, (int)r_index,
+                refl->name.c_str());
         }
         else
         {

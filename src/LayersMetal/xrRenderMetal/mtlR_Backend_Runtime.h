@@ -217,6 +217,8 @@ IC u32 GetIndexCount(D3DPRIMITIVETYPE T, u32 iPrimitiveCount)
         return iPrimitiveCount * 3;
     case D3DPT_TRIANGLESTRIP:
         return iPrimitiveCount + 2;
+    case D3DPT_TRIANGLEFAN:
+        return iPrimitiveCount + 2; // fan vertex count = faces + 2
     default: NODEFAULT;
 #ifdef DEBUG
 		return 0;
@@ -413,6 +415,15 @@ IC void CBackend::set_Constants(R_constant_table* C)
     // process constant-loaders
     for (auto& Cs : C->table)
         if (Cs->handler) Cs->handler->setup(*this, &*Cs);
+
+    // GL-parity sticky-state replay: the staged logic sets xform matrices once
+    // per frame and hemi colors once per level, relying on the backend to
+    // re-apply cached values after a shader switch (glr_constants_cache).
+    // MtlConstBegin zeroed the staging block above and setup() only rebinds
+    // constant pointers, so without this the VS sees zero matrices and every
+    // scene draw rasterizes nothing (marsh black-screen root cause, launch88).
+    xforms.reemit();
+    hemi.reemit();
 }
 
 void CBackend::set_pass_targets(const ref_rt& _1, const ref_rt& _2, const ref_rt& _3, const ref_rt& zb)

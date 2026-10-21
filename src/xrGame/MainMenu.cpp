@@ -11,6 +11,10 @@
 #include <dinput.h>
 #include "ui\UIBtnHint.h"
 #include "UICursor.h"
+#include "GamePersistent.h"
+#include "Level.h"
+#include "ui/UIGameTutorial.h"
+#include <dlfcn.h>
 #include "gamespy/CdkeyDecode/cdkeydecode.h"
 #include "string_table.h"
 #include "../xrCore/os_clipboard.h"
@@ -177,11 +181,19 @@ extern bool IsGameTypeSingle();
 void CMainMenu::Activate(bool bActivate)
 {
 	if (!!m_Flags.test(flActive) == bActivate) return;
-	if (m_Flags.test(flGameSaveScreenshot)) return;
+	if (m_Flags.test(flGameSaveScreenshot))
+	{
+		Msg("* p5: Activate(%d) blocked by flGameSaveScreenshot", (int)bActivate);
+		return;
+	}
 	if ((m_screenshotFrame == Device.dwFrame) ||
 		(m_screenshotFrame == Device.dwFrame - 1) ||
 		(m_screenshotFrame == Device.dwFrame + 1))
+	{
+		Msg("* p5: Activate(%d) blocked by screenshotFrame guard (scr=%u now=%u)", (int)bActivate,
+		    m_screenshotFrame, Device.dwFrame);
 		return;
+	}
 
 	bool b_is_single = IsGameTypeSingle();
 
@@ -227,7 +239,13 @@ void CMainMenu::Activate(bool bActivate)
 			CCameraManager::ResetPP();
 		};
 		Device.seqRender.Add(this, 4); // 1-console 2-cursor 3-tutorial
-		Msg("* p4: CMainMenu activated, seqRender registered");
+		{
+			int n = 0;
+			for (auto& i : Device.seqRender.R)
+				if (i.Object == (void*)g_pGameLevel && i.Prio != REG_PRIORITY_INVALID)
+					n++;
+			Msg("* p4: CMainMenu activated, seqRender registered (level entries now=%d)", n);
+		}
 
 		Console->Execute("stat_memory");
 	}
@@ -263,6 +281,46 @@ void CMainMenu::Activate(bool bActivate)
 			}
 			Device.seqRender.Add(g_pGameLevel);
 		};
+		{
+			std::string dump;
+			for (auto& i : Device.seqRender.R)
+			{
+				if (i.Prio == REG_PRIORITY_INVALID)
+					continue;
+				const char* tn = "?";
+				pureRender* pr = static_cast<pureRender*>(i.Object);
+				if (dynamic_cast<CLevel*>(pr))
+					tn = "CLevel";
+				else if (dynamic_cast<CMainMenu*>(pr))
+					tn = "CMainMenu";
+				else if (dynamic_cast<CUISequencer*>(pr))
+					tn = "CUISequencer";
+				else if (dynamic_cast<CGamePersistent*>(pr))
+					tn = "CGamePersistent";
+				else if (dynamic_cast<CUICursor*>(pr))
+					tn = "CUICursor";
+				if (tn == std::string("?"))
+				{
+					// vtable symbol via dladdr: "VTable for CActor" etc.
+					Dl_info di;
+					if (dladdr(i.Object, &di) && di.dli_sname)
+						tn = di.dli_sname;
+					// Heap objects (subobjects of class instances): the first
+					// slot is the vtable pointer; dladdr it for the class name.
+					const void* vt = *reinterpret_cast<const void* const*>(i.Object);
+					Dl_info di2;
+					if (dladdr(vt, &di2) && di2.dli_sname)
+					{
+						static std::string buf;
+						buf = std::string(tn) + "|vt=" + di2.dli_sname;
+						tn = buf.c_str();
+					}
+				}
+				dump += " " + std::string(tn) + "(" + std::to_string((uintptr_t)i.Object) + "):" +
+				        std::to_string((int)i.Prio);
+			}
+			Msg("* p5: CMainMenu deactivated seqRender:[%s]", dump.c_str());
+		}
 		if (m_Flags.test(flRestoreConsole))
 			Console->Show();
 

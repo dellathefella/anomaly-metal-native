@@ -20,6 +20,10 @@ void CRenderTarget::phase_combine()
 
     //	TODO: DX11: Remove half pixel offset
     bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
+    { // p5 flow probe
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: phase_combine ENTER c=%u menu_pp=%d", c, (int)_menu_pp);
+    }
 
     u32 Offset = 0;
     Fvector2 p0, p1;
@@ -259,6 +263,10 @@ void CRenderTarget::phase_combine()
     }
 
     // for msaa we need a resolved color buffer - Holger
+    { // p5 flow probe
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: pre-bloom done c=%u", c);
+    }
     phase_bloom(); // HDR RT invalidated here
 
     // RImplementation.rmNormal();
@@ -539,6 +547,10 @@ void CRenderTarget::phase_combine()
     dbg_lines.clear();
     dbg_planes.clear();
 #endif
+    { // p5 flow probe
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: phase_combine EXIT c=%u", c);
+    }
 }
 
 void CRenderTarget::phase_wallmarks()

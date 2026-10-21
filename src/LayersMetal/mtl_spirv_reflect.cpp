@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <regex>
 
 namespace xray::metal
@@ -126,11 +128,14 @@ namespace
 			comp.compile();
 			auto res = comp.get_shader_resources();
 
-			// --- cbuffer (binding 0, the $Globals image) --------------------
+			// --- cbuffer (the $Globals image) -------------------------------
+			// DXC assigns $Globals an arbitrary binding (observed 29 — the
+			// DX9 translator's register remapping), while our MSL emission
+			// always places the first uniform buffer at buffer(0) (the stage
+			// constant slot BindDraw fills). Take the FIRST uniform buffer;
+			// DX9-translated shaders carry exactly one.
 			for (const auto& ub : res.uniform_buffers)
 			{
-				if (comp.get_decoration(ub.id, spv::DecorationBinding) != 0)
-					continue;
 				const auto& type = comp.get_type(ub.base_type_id);
 				out.cbufferSize = static_cast<uint32_t>(comp.get_declared_struct_size(type));
 				for (uint32_t mem = 0; mem < type.member_types.size(); mem++)
@@ -175,19 +180,31 @@ namespace
 						u.rows = std::min<uint32_t>(4, u.rows); // plain vector
 					out.uniforms.push_back(std::move(u));
 				}
+				break; // first uniform buffer == the stage $Globals image
 			}
 
 			// --- textures + samplers ----------------------------------------
-			// DXC merges sampler2D into OpTypeSampledImage variables; the split
-			// image/sampler IDs carry the translator's t/s register bindings.
-			for (const auto& cis : comp.get_combined_image_samplers())
+			// MSL emission (SPIRV-Cross, use_native_bindings=false) assigns
+			// PER-CLASS SEQUENTIAL indices — buffer(0..), texture(0..),
+			// sampler(0..) in declaration order. DXC's SPIR-V bindings are
+			// shifted ($Globals observed at 29, t0..t2 at 29..31) and must
+			// never be used as engine stages (they poisoned i_Sampler:
+			// 's_noise -> stage 31' instead of 2). Mirror MSL's own numbering:
+			// rank within each class. The translator emits mirrored
+			// register(tN)/register(sN) pairs, so the image's rank doubles as
+			// its sampler's index and equals the DX9 stage whenever the
+			// declaration order matches the DX9 stage order (always for the
+			// unregistered DX9 tree; self-consistent otherwise).
+			uint32_t texRank = 0;
+			for (const auto& img : res.separate_images)
 			{
 				ReflectionResource r;
-				r.name = comp.get_name(cis.combined_id);
-				r.textureSlot = comp.get_decoration(cis.image_id, spv::DecorationBinding);
-				r.samplerSlot = comp.get_decoration(cis.sampler_id, spv::DecorationBinding);
+				r.name = img.name;
+				r.textureSlot = texRank;
+				r.samplerSlot = texRank; // mirrored register pair
 				r.isSamplerOnly = false;
 				out.resources.push_back(std::move(r));
+				texRank++;
 			}
 			for (const auto& img : res.sampled_images)
 			{
@@ -203,17 +220,19 @@ namespace
 					continue;
 				ReflectionResource r;
 				r.name = img.name;
-				r.textureSlot = comp.get_decoration(img.id, spv::DecorationBinding);
-				r.samplerSlot = UINT32_MAX;
+				r.textureSlot = texRank;
+				r.samplerSlot = texRank;
 				r.isSamplerOnly = false;
 				out.resources.push_back(std::move(r));
+				texRank++;
 			}
+			uint32_t sampRank = 0;
 			for (const auto& smp : res.separate_samplers)
 			{
 				ReflectionResource r;
 				r.name = smp.name;
 				r.textureSlot = UINT32_MAX;
-				r.samplerSlot = comp.get_decoration(smp.id, spv::DecorationBinding);
+				r.samplerSlot = sampRank++;
 				r.isSamplerOnly = true;
 				out.resources.push_back(std::move(r));
 			}

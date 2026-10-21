@@ -737,6 +737,43 @@ T* CResourceManager::CreateShader(cpcstr name, pcstr filename /*= nullptr*/, u32
         // Try to open
         IReader* file = FS.r_open(cname);
 
+#ifdef USE_METAL
+        // p5: Anomaly l_shader scripts request variant names the DX9-lineage
+        // tree never shipped ("_nomsaa" non-MSAA suffixes, minmax/motion-
+        // accumulate tails). Retry with trailing variant tokens stripped —
+        // with MSAA/minmax disabled the base shader is semantically equal —
+        // before falling back to stub_default.
+        if (!file)
+        {
+            static const pcstr s_variant_tails[] = { "_nominmax", "_nomsaa", "_minmax", "_ma" };
+            std::string stem(shName);
+            bool stripped = true;
+            while (stripped && !file)
+            {
+                stripped = false;
+                for (pcstr tail : s_variant_tails)
+                {
+                    const size_t tl = strlen(tail);
+                    if (stem.size() > tl && 0 == xr_strcmp(stem.c_str() + (stem.size() - tl), tail))
+                    {
+                        stem.resize(stem.size() - tl);
+                        stripped = true;
+                        break;
+                    }
+                }
+                if (stripped && !stem.empty())
+                {
+                    strconcat(cname, RImplementation.getShaderPath(), stem.c_str(),
+                        ShaderTypeTraits<T>::GetShaderExt());
+                    FS.update_path(cname, "$game_shaders$", cname);
+                    file = FS.r_open(cname);
+                    if (file)
+                        Msg("- CreateShader: '%s' resolved to variant base '%s'", shName, stem.c_str());
+                }
+            }
+        }
+#endif
+
         // Here we can fallback to "stub_default"
         bool fallback = m_shader_fallback_allowed;
         if (!file && fallback)

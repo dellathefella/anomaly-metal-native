@@ -268,6 +268,12 @@ extern int ps_framelimiter;
 extern u32 g_screenmode;
 
 CTimer FreezeTimer;
+// p5 launch116 diag: silent-exit hunt — named sources for WM_QUIT.
+void xrLogQuitSource(const char* src)
+{
+	Log("p5: QUIT-SOURCE: %s", src);
+	FlushLog();
+}
 void mt_FreezeThread(void *ptr) {
 	float freezetime = 0.f;
 	float repeatcheck = 500.f;

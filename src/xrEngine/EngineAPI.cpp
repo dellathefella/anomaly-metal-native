@@ -139,8 +139,53 @@ extern BOOL DllMainXrRenderR4(HANDLE hModule, DWORD ul_reason_for_call, LPVOID l
 	#define DLL_MAIN_RENDERER DllMainXrRenderR4
 #endif
 
+// p5: runtime renderer module selection. The STATIC_RENDERER_R2 model linked a
+// single renderer dylib into xr_3da at load time; now the chosen renderer is
+// dlopen'd into the flat namespace before the first renderer entry call
+// (DllMainXrRenderR2/SupportsAdvancedRendering bind via dynamic_lookup).
+// Selection: "-renderer metal|gl" on the command line, then $XR_RENDERER,
+// default gl. RTLD_NOW surfaces any unresolved renderer-side symbol at load.
+static void xr_load_renderer_module()
+{
+    static void* s_module = nullptr;
+    static bool s_tried = false;
+    if (s_tried)
+        return;
+    s_tried = true;
+
+    pcstr sel = nullptr;
+    if (Core.Params && Core.Params[0])
+    {
+        if (strstr(Core.Params, "-renderer metal"))
+            sel = "metal";
+        else if (strstr(Core.Params, "-renderer gl"))
+            sel = "gl";
+    }
+    if (!sel)
+        sel = getenv("XR_RENDERER");
+    const bool metal = sel && 0 == xr_stricmp(sel, "metal");
+
+    // RTLD_LAZY (like the win_compat LoadLibrary shim): the renderer dlopen
+    // happens before xrGame is loaded, so its xrGame function refs (e.g.
+    // CObjectSpace::RayPick) can only bind lazily via the stub binder. Data
+    // symbols still bind eagerly — see the ps_r__tf_Mipbias namespace fix.
+    bool loaded_metal = metal;
+    s_module = dlopen(metal ? "xrRender_METAL.dylib" : "xrRender_GL.dylib", RTLD_LAZY | RTLD_GLOBAL);
+    if (!s_module && metal)
+    {
+        Msg("! renderer: xrRender_METAL.dylib failed to load (%s) - falling back to GL", dlerror());
+        s_module = dlopen("xrRender_GL.dylib", RTLD_LAZY | RTLD_GLOBAL);
+        loaded_metal = false;
+    }
+    if (!s_module)
+        Msg("! renderer: no renderer module could be loaded (%s)", dlerror());
+    else
+        Msg("* renderer module: %s", loaded_metal ? "metal" : "gl");
+}
+
 void CEngineAPI::InitializeNotDedicated()
 {
+	xr_load_renderer_module(); // p5: dlopen the selected renderer first
 	LPCSTR r2_name = "xrRender_R2.dll";
 	LPCSTR r3_name = "xrRender_R3.dll";
 	LPCSTR r4_name = "xrRender_R4.dll";
@@ -340,6 +385,9 @@ bool /*_declspec(dllexport)*/ SupportsDX10Rendering();
 
 void CEngineAPI::CreateRendererList()
 {
+#ifndef DEDICATED_SERVER
+	xr_load_renderer_module(); // p5: support queries need the module loaded
+#endif
 #ifdef DEDICATED_SERVER
 
     vid_quality_token = xr_alloc<xr_token>(2);

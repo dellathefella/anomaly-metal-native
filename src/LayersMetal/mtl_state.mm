@@ -67,7 +67,7 @@ namespace xray::metal
 	void* MetalStateCache::Pipeline(void* device, const PipelineDesc& desc, std::string& error)
 	{
 		id<MTLDevice> dev = (__bridge id<MTLDevice>)device;
-		if (!dev || !desc.vs || !desc.ps)
+		if (!dev || !desc.vs || (!desc.ps && !desc.depthOnly))
 		{
 			error = "Pipeline: null device or function";
 			return nullptr;
@@ -80,6 +80,12 @@ namespace xray::metal
 		MTLRenderPipelineDescriptor* pd = [MTLRenderPipelineDescriptor new];
 		pd.vertexFunction = (__bridge id<MTLFunction>)desc.vs;
 		pd.fragmentFunction = (__bridge id<MTLFunction>)desc.ps;
+		// p5: the DX9 rasterizer cull state is not wired into PipelineDesc yet
+		// (t3). Metal's default (Back-cull + CCW front) silently culls the
+		// UI/menu quads whose winding flips under the D3D-convention Y map,
+		// so disable culling until the state plumbing lands. This SDK/runtime
+		// moved cull/winding to encoder state (pipeline-descriptor props are
+		// gone — KVC throws); set them per encoder below (applyEncoderState).
 		if (!desc.attrs.empty())
 		{
 			MTLVertexDescriptor* vd = [MTLVertexDescriptor vertexDescriptor];

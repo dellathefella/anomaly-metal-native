@@ -13,8 +13,11 @@
 #include "mtlState.h"
 #include "mtlRuntime.h"
 
-// xrRender_console.cpp (same dylib, exported).
-extern float ps_r__tf_Mipbias;
+// xrRender_console.cpp (same dylib) defines the cvar INSIDE the renderer
+// namespace (staged-file namespace wrapper) — the extern must match, a global
+// one would emit an eager flat-namespace data binding that dlopen can't fix.
+namespace xray::render::RENDER_NAMESPACE { extern float ps_r__tf_Mipbias; }
+namespace mtlxr = xray::render::RENDER_NAMESPACE;
 
 // d3d9compat.hpp enum values (duplicated here to keep this TU include-light;
 // guarded by static_asserts below against the header in the .cpp-side TU).
@@ -79,10 +82,10 @@ void mtlState::Apply()
     MtlApplyRecordedState(this);
 
     // Global texture-filter bias cvar (GL applied it onto each sampler).
-    if (m_uiMipLODBias != ps_r__tf_Mipbias)
+    if (m_uiMipLODBias != mtlxr::ps_r__tf_Mipbias)
     {
-        MtlSetGlobalMipBias(ps_r__tf_Mipbias);
-        m_uiMipLODBias = ps_r__tf_Mipbias;
+        MtlSetGlobalMipBias(mtlxr::ps_r__tf_Mipbias);
+        m_uiMipLODBias = mtlxr::ps_r__tf_Mipbias;
     }
 }
 

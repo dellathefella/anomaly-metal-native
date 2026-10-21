@@ -51,6 +51,7 @@ namespace xray::metal
 		// blend.enabled is false AND blendAlpha false, blending stays off.
 		std::vector<int> colorFormats; // up to 4 attachments, raw MTLPixelFormat
 		int stencilFormat = 0;         // 0 = none (else same format as depth w/ stencil)
+		bool depthOnly = false;        // nil fragmentFunction (DX9 null-PS passes, e.g. sun shadows)
 		BlendDesc blend;
 	};
 

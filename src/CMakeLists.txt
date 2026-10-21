@@ -23,9 +23,10 @@ option(XRAY_RENDERER_GL "Build the ported OpenXRay GL renderer" OFF)
 if(XRAY_RENDERER_GL)
 	add_subdirectory("LayersOGL/xrRenderPC_GL")
 	# STATIC_RENDERER_R2 model: engine renderer calls are undefined symbols
-	# resolved via dynamic_lookup — loading xrRender_GL as a xr_3da dependency
-	# registers them at launch.
-	target_link_libraries(xr_3da PRIVATE xrRender_GL)
+	# resolved via dynamic_lookup. p5: the renderer dylib is no longer linked
+	# into xr_3da — CEngineAPI dlopens the selected one at runtime
+	# (-renderer metal|gl / $XR_RENDERER), so xr_3da only needs both built.
+	add_dependencies(xr_3da xrRender_GL)
 endif()
 
 # p5: native Metal renderer. Currently the metal_poc foundation (runtime
@@ -34,4 +35,5 @@ endif()
 option(XRAY_RENDERER_METAL "Build the native Metal renderer foundations" OFF)
 if(XRAY_RENDERER_METAL)
 	add_subdirectory("LayersMetal")
+	add_dependencies(xr_3da xrRender_METAL)
 endif()

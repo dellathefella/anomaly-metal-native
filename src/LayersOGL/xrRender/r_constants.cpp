@@ -115,6 +115,15 @@ void R_constant_table::merge(R_constant_table* T)
             dL.location = sL.location;
             dL.program = sL.program;
 #endif // USE_OGL
+#ifdef USE_METAL
+            // Metal addresses constants by byte offset into the per-stage
+            // staging block: a merged table must carry the source's placement,
+            // or offsets stay -1 and constant writes (e.g. the VS xform
+            // matrices) are silently dropped — marsh black-screen root cause.
+            dL.offset = sL.offset;
+            dL.size = sL.size;
+            dL.stride = sL.stride;
+#endif
         }
     }
 

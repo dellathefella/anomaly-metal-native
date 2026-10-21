@@ -190,6 +190,7 @@ namespace
 
     void run_line(const std::string& raw)
     {
+        Msg("* xr_mcp: cmd '%s'", raw.c_str()); // p5 launch116 diag: exit hunt
         if (raw.compare(0, 4, "exec") == 0)
         {
             std::string cmd = trim(raw.substr(4));
@@ -377,10 +378,10 @@ namespace
         {
             char buf[512];
             snprintf(buf, sizeof buf,
-                "OK frame=%u fps=%.1f in_game=%d level=%s script=%d",
+                "OK frame=%u fps=%.1f in_game=%d level=%s script=%d lvlptr=%p",
                 Device.dwFrame, Device.fTimeDelta > 1e-6f ? 1.f / Device.fTimeDelta : 0.f,
                 g_pGameLevel ? 1 : 0, g_pGameLevel ? *(g_pGameLevel->name()) : "-",
-                mcp_ai() ? 1 : 0);
+                mcp_ai() ? 1 : 0, (void*)g_pGameLevel);
             return push_resp(buf);
         }
         if (raw == "quit")
@@ -393,9 +394,40 @@ namespace
     }
 }
 
+// p5 launch118: silent deaths traced to SDL_QUIT — SDL2's UNIX signal catcher
+// converts SIGINT/SIGTERM/SIGQUIT into SDL_QUIT -> graceful shutdown. This
+// overrides SDL's handlers (installed later wins), names the sender via
+// siginfo, and IGNORES the signal so runs survive. write(2) only — async-safe.
+#include <csignal>
+#include <unistd.h>
+static void xr_signal_note(int sig, siginfo_t* info, void*)
+{
+    char buf[160];
+    const int n = snprintf(buf, sizeof buf,
+                           "p5: SIGNAL %d caught from pid=%d uid=%d (ignored)\n", sig,
+                           info ? (int)info->si_pid : -1, info ? (int)info->si_uid : -1);
+    if (n > 0)
+    {
+        const ssize_t w = write(2, buf, (size_t)n);
+        (void)w;
+    }
+}
+static void xr_install_signal_watch()
+{
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = xr_signal_note;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGTERM, &sa, nullptr);
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGQUIT, &sa, nullptr);
+}
+
 void xr_mcp_init()
 {
     Msg("* xr_mcp: init probe (params='%s')", Core.Params ? Core.Params : "(null)");
+    xr_install_signal_watch();
     LPCSTR p = strstr(Core.Params, "-mcp");
     if (!p)
         return;
@@ -412,6 +444,10 @@ void xr_mcp_init()
 
 void xr_mcp_frame()
 {
+    // re-arm while startup settles (SDL installs its own handlers during
+    // subsystem init; last sigaction wins) — p5 launch118 signal watch
+    if (Device.dwFrame < 900)
+        xr_install_signal_watch();
     // pending `hold` release must fire even with no client / empty queue
     if (g_click_countdown > 0)
     {

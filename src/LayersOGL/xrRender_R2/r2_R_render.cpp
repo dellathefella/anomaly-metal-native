@@ -124,6 +124,17 @@ void CRender::Render()
     // (main menu) composites PP-UI through RenderMenu; without this the menu
     // branch below binds the base RT and returns, leaving the frame black.
     bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
+    {
+        static int s_p5r = 0;
+        if ((s_p5r++ % 240) == 0)
+        {
+            IMainMenu* pm2 = g_pGamePersistent ? g_pGamePersistent->m_pMainMenu : 0;
+            Msg("* p5 render: frame=%d paused=%d menu_pp=%d menu=%d lvl=%d first=%d",
+                Device.dwFrame, (int)Device.Paused(), (int)_menu_pp,
+                pm2 ? (int)pm2->CanSkipSceneRendering() : -1, (int)!!g_pGameLevel,
+                (int)m_bFirstFrameAfterReset);
+        }
+    }
     if (_menu_pp)
     {
         static int s_p4_menu_pp = 0;
@@ -377,6 +388,10 @@ void CRender::Render()
     }
 
     r_rain.sync();
+    { // p5 flow probe
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: rain-sync done c=%u", c);
+    }
 
     // Directional light - fucking sun
     {
@@ -387,6 +402,8 @@ void CRender::Render()
         else
             r_sun_old.sync();
         Target->accum_direct_blend(dsgraph.cmd_list);
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: sunblend done c=%u", c);
     }
 
     {
@@ -409,6 +426,8 @@ void CRender::Render()
         dsgraph.cmd_list.set_CullMode(CULL_CCW);
         dsgraph.cmd_list.set_ColorWriteEnable();
         dsgraph.render_emissive();
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: accum done c=%u", c);
     }
 
     // Lighting, non dependant on OCCQ
@@ -421,12 +440,16 @@ void CRender::Render()
     {
         PIX_EVENT(DEFER_LIGHT_OCCQ);
         render_lights(LP_pending);
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: lights done c=%u", c);
     }
 
     // Postprocess
     {
         PIX_EVENT(DEFER_LIGHT_COMBINE);
         Target->phase_combine();
+        static u32 c = 0;
+        if ((++c % 240) == 0) Msg("* p5 flow: combine-call done c=%u", c);
     }
 
     VERIFY(dsgraph.mapDistort.empty());

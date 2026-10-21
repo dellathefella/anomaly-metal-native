@@ -313,15 +313,28 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                 0 == xr_strcmp(metalVer.c_str(), HW.MetalVersionString) &&
                 savedFileCrc == fileCrc && savedBytecodeCrc == payloadCrc)
             {
-                xr_string ms = xr_string();
-                file->r_string(ms);
-                xr_string blob = xr_string();
-                file->r_string(blob);
-                // binary-safe copies (reflection blob may embed NULs)
-                const std::string mslText(ms.c_str(), ms.size());
-                const std::string blobText(blob.c_str(), blob.size());
+                // Binary-safe payload framing (matches the write side:
+                // u32 length + raw bytes; the reflection blob embeds NULs).
+                std::string mslText, blobText;
+                const u32 remaining = file->length() - file->elapsed();
+                if (remaining > 8)
+                {
+                    const u32 mslLen = file->r_u32();
+                    if (mslLen && mslLen + 8 <= remaining)
+                    {
+                        mslText.resize(mslLen);
+                        file->r(mslText.data(), mslLen);
+                        const u32 blobLen = file->r_u32();
+                        if (blobLen && blobLen + 4 <= file->length() - file->elapsed())
+                        {
+                            blobText.resize(blobLen);
+                            file->r(blobText.data(), blobLen);
+                        }
+                    }
+                }
                 std::string error;
-                if (MtlDeserializeReflection(blobText, refl, error) &&
+                if (!mslText.empty() && !blobText.empty() &&
+                    MtlDeserializeReflection(blobText, refl, error) &&
                     MetalCreateStageFromMsl(refl, name, mslText.c_str(), cachedEntry.c_str(), error))
                 {
                     msl = std::move(mslText);
@@ -375,8 +388,27 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                 error = tr.error;
                 continue;
             }
+            // Feed the option matrix to the compiler (GL parity: rgl's
+            // apply_options prepends #define lines). Many entries and code
+            // paths exist only behind #ifdef SKIN_*/USE_R2_STATIC_SUN/..., so
+            // compiling without them picks the wrong variant or finds no
+            // entry at all (deffer_model_bump, shadow_direct_model...).
+            std::string prefixed;
+            for (const auto& d : defines)
+            {
+                const size_t eq = d.find('=');
+                prefixed += "#define ";
+                prefixed.append(d, 0, eq);
+                if (eq != std::string::npos)
+                {
+                    prefixed += " ";
+                    prefixed.append(d, eq + 1, std::string::npos);
+                }
+                prefixed += "\n";
+            }
+            prefixed += tr.hlsl;
             std::string mslOut;
-            if (MetalCompileStage(refl, &mslOut, pTarget[0], name, tr.hlsl.c_str(), pFunctionName, error))
+            if (MetalCompileStage(refl, &mslOut, pTarget[0], name, prefixed.c_str(), pFunctionName, error))
             {
                 msl = std::move(mslOut);
                 compiled = true;
@@ -427,6 +459,7 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     }
 
     // ---- attach to the stage resource -------------------------------------
+    refl.name = std::string(name) + "." + extension; // p5 diag identity
     auto* held = hold_stage_refl(std::move(refl));
     switch (pTarget[0])
     {

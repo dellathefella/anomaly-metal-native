@@ -30,6 +30,11 @@ public:
     void set_W(const Fmatrix& m);
     void set_V(const Fmatrix& m);
     void set_P(const Fmatrix& m);
+    // Re-push cached matrix values through the currently bound c_* constants
+    // (Metal backend calls this after every shader switch: its cbuffer staging
+    // block is zeroed per pass, and the staged logic sets matrices only once
+    // per frame — GL parity with glr_constants_cache's re-upload).
+    void reemit();
     const Fmatrix& get_W() { return m_w; }
     const Fmatrix& get_V() { return m_v; }
     const Fmatrix& get_P() { return m_p; }

@@ -71,10 +71,18 @@ extern void destroy_lua_wpn_params();
 void clean_game_globals()
 {
 	destroy_lua_wpn_params();
-	// destroy ai space
-	xr_delete(g_ai_space);
+	// p6 stability: in this tree CAI_Space OWNS the script engine, so
+	// ~CAI_Space closes the Lua state (CScriptEngine::unload -> lua_close).
+	// CObjectItemScript (inside the object factory) holds luabind::object
+	// members; destroying the factory after ai_space unref'd them against the
+	// closed state -> SIGSEGV in luabind::detail::unref at every exit
+	// (clean_game_globals -> ~CObjectFactory -> ~CObjectItemScript). Lua-
+	// referencing globals must die BEFORE the state (Windows never hit this
+	// because its script engine closed later, at DLL detach).
 	// destroy object factory
 	xr_delete(g_object_factory);
+	// destroy ai space
+	xr_delete(g_ai_space);
 	// destroy monster squad global var
 	xr_delete(g_monster_squad);
 
@@ -109,11 +117,11 @@ void clean_game_globals()
 	//static shader for blood
 	CEntityAlive::UnloadBloodyWallmarks();
 	CEntityAlive::UnloadFireParticles();
-	//очищение памяти таблицы строк
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	CStringTable::Destroy();
-	// Очищение таблицы цветов
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	CUIXmlInit::DeleteColorDefs();
-	// Очищение таблицы идентификаторов рангов и отношений сталкеров
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	InventoryUtilities::ClearCharacterInfoStrings();
 
 	xr_delete(g_sound_collection_storage);

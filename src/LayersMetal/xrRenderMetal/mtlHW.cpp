@@ -256,10 +256,6 @@ void CHW::Present()
 {
     MtlFrameEnd(); // finish the last encoder
 
-    // MCP 'screenshot' captures land here — the frame is complete and the
-    // final PP target is still bound as pass color0.
-    p4_present_screenshot_mtl();
-
     const bool can = MtlDev.CanPresent();
     void* drawable = nullptr;
     std::string error;
@@ -269,6 +265,117 @@ void CHW::Present()
     if (drawable)
     {
         void* src = MtlCurrentPassColor0();
+        static int s_p5_blit_logged = 0;
+        static uint64_t s_lastDraws = 0, s_lastEnter = 0;
+        static uint64_t s_lastEnc = 0, s_lastSws = 0, s_winStartDraws = 0;
+        static int s_winStartNo = 0;
+        const uint64_t draws = MtlDbgDrawStats(0);
+        const uint64_t enter = MtlDbgDrawStats(3);
+        const uint64_t sumTopo = MtlDbgDrawStats(10) + MtlDbgDrawStats(11) +
+                                 MtlDbgDrawStats(12) + MtlDbgDrawStats(13) +
+                                 MtlDbgDrawStats(14) + MtlDbgDrawStats(15);
+        const bool print = s_p5_blit_logged < 8 || (s_p5_blit_logged % 240) == 0;
+        s_p5_blit_logged++;
+        if (print)
+        {
+            Msg("- p5 present#%d: src=%p (%ux%u) OK=%llu(+%llu) enter=%llu(+%llu) sumTopo=%llu "
+                "fanOK=%llu fandrop=%llu noshader=%llu nopso=%llu nocb=%llu noenc=%llu noib=%llu "
+                "topo=[%llu,%llu,%llu,%llu,%llu,%llu]",
+                s_p5_blit_logged, src, Device.dwWidth, Device.dwHeight, draws,
+                draws - s_lastDraws, enter, enter - s_lastEnter, sumTopo, MtlDbgDrawStats(8),
+                MtlDbgDrawStats(7), MtlDbgDrawStats(1), MtlDbgDrawStats(2), MtlDbgDrawStats(4),
+                MtlDbgDrawStats(5), MtlDbgDrawStats(6), MtlDbgDrawStats(10), MtlDbgDrawStats(11),
+                MtlDbgDrawStats(12), MtlDbgDrawStats(13), MtlDbgDrawStats(14),
+                MtlDbgDrawStats(15));
+            // p5 diag: scan content of every color RT bound since last scan —
+            // which render targets actually receive pixels (frozen-RT hunt).
+            if (std::vector<void*>* rts = MtlDbgRTs())
+            {
+                static std::vector<uint64_t> s_prevHash;
+                // p5 DIAG (launch103): geom-pass textures for the bisect probe
+                void* s_bisPos = nullptr;
+                void* s_bisAlb = nullptr;
+                void* s_bisZb = nullptr;
+                for (size_t i = 0; i < rts->size() && i < 24; ++i)
+                {
+                    void* t = (*rts)[i];
+                    u32 tw = 0, th = 0;
+                    MtlDev.TextureDims(t, &tw, &th);
+                    if (!tw || !th)
+                        continue;
+                    std::vector<uint8_t> px(size_t(tw) * th * 4);
+                    std::string e2;
+                    if (!MtlDev.ReadbackSlice(t, px.data(), tw * 4, tw, th, 0, 0, e2))
+                    {
+                        Msg("- p5 rtscan[%zu]: %s %p readback failed: %s", i, MtlDbgRTGetName(t), t,
+                            e2.c_str());
+                        continue;
+                    }
+                    size_t nz = 0;
+                    size_t firstNZ = SIZE_MAX;
+                    uint64_t hash = 1469598103934665603ull;
+                    for (size_t k = 0; k + 4 <= px.size(); k += 64)
+                    {
+                        if (px[k] | px[k + 1] | px[k + 2])
+                        {
+                            nz++;
+                            if (firstNZ == SIZE_MAX)
+                                firstNZ = k;
+                        }
+                        for (int q = 0; q < 4; q++)
+                            hash = (hash ^ px[k + q]) * 1099511628211ull;
+                    }
+                    const uint64_t prev = i < s_prevHash.size() ? s_prevHash[i] : 0;
+                    const size_t mid = (size_t(th / 2) * tw + tw / 2) * 4;
+                    Msg("- p5 rtscan[%zu]: %s %p %ux%u nz=%zu mid=(%u,%u,%u,%u) hash=%016llx %s", i,
+                        MtlDbgRTGetName(t), t, tw, th, nz, px[mid], px[mid + 1], px[mid + 2],
+                        px[mid + 3], hash, prev && prev != hash ? "CHANGED" : (prev ? "same" : "first"));
+                    // p5: raw bytes of first non-zero sample. $user$position is
+                    // RGBA16F (8B/px): halves x,y,z at +0,+2,+4 — near-camera
+                    // coords vs garbage distinguishes cull vs geometry bugs.
+                    if (firstNZ != SIZE_MAX)
+                    {
+                        const char* nm = MtlDbgRTGetName(t);
+                        size_t b = firstNZ;
+                        size_t e = px.size();
+                        Msg("- p5 rtval: %s @%zu bytes=(%02x%02x %02x%02x %02x%02x %02x%02x)",
+                            nm ? nm : "?", b,
+                            b < e ? px[b] : 0, b + 1 < e ? px[b + 1] : 0,
+                            b + 2 < e ? px[b + 2] : 0, b + 3 < e ? px[b + 3] : 0,
+                            b + 4 < e ? px[b + 4] : 0, b + 5 < e ? px[b + 5] : 0,
+                            b + 6 < e ? px[b + 6] : 0, b + 7 < e ? px[b + 7] : 0);
+                    }
+                    // p5 DIAG (launch103): collect geom-pass textures for bisect
+                    if (const char* nmSk = MtlDbgRTGetName(t))
+                    {
+                        if (strstr(nmSk, "position"))
+                            s_bisPos = t;
+                        else if (strstr(nmSk, "albedo"))
+                            s_bisAlb = t;
+                        else if (strstr(nmSk, "base_depth"))
+                            s_bisZb = t;
+                    }
+                    if (s_prevHash.size() <= i)
+                        s_prevHash.resize(i + 1);
+                    s_prevHash[i] = hash;
+                }
+                if (s_bisPos)
+                    MtlDbgBisectProbe(s_bisPos, s_bisAlb, s_bisZb);
+            }
+            MtlDbgDumpPairs();
+            MtlDbgClearRTs();
+            const int winPresents = s_p5_blit_logged - s_winStartNo;
+            Msg("- p5 flow: encoders=%llu(+%llu) rtSwitches=%llu(+%llu) OK/present=%.1f over %d presents",
+                MtlDbgDrawStats(20), MtlDbgDrawStats(20) - s_lastEnc, MtlDbgDrawStats(21),
+                MtlDbgDrawStats(21) - s_lastSws,
+                winPresents > 0 ? double(draws - s_winStartDraws) / winPresents : 0.0, winPresents);
+            s_lastEnc = MtlDbgDrawStats(20);
+            s_lastSws = MtlDbgDrawStats(21);
+            s_winStartDraws = draws;
+            s_winStartNo = s_p5_blit_logged;
+        }
+        s_lastDraws = draws;
+        s_lastEnter = enter;
         if (src)
             MtlBlitToDrawable(src, drawable, Device.dwWidth, Device.dwHeight, MtlDev.Width(),
                               MtlDev.Height());
@@ -287,8 +394,97 @@ void CHW::Present()
             Msg("* p5: metal present skipped (no drawable in flight)");
         else if (!can && s_skip_logged++ < 3)
             Msg("* p5: metal present skipped (window hidden or screen locked)");
+        // p5 DIAG: RT coverage scan must run even while occluded/locked —
+        // readback uses its own command buffer and does not need a drawable.
+        {
+            static int s_skipScan = 0;
+            if ((++s_skipScan % 240) == 1)
+            {
+                if (std::vector<void*>* rts = MtlDbgRTs())
+                {
+                    static std::vector<uint64_t> s_prevHashSk;
+                    // p5 DIAG (launch103): geom-pass textures for the bisect probe
+                    void* s_bisPos = nullptr;
+                    void* s_bisAlb = nullptr;
+                    void* s_bisZb = nullptr;
+                    for (size_t i = 0; i < rts->size() && i < 24; ++i)
+                    {
+                        void* t = (*rts)[i];
+                        u32 tw = 0, th = 0;
+                        MtlDev.TextureDims(t, &tw, &th);
+                        if (!tw || !th)
+                            continue;
+                        std::vector<uint8_t> px(size_t(tw) * th * 4);
+                        std::string e2;
+                        if (!MtlDev.ReadbackSlice(t, px.data(), tw * 4, tw, th, 0, 0, e2))
+                        {
+                            Msg("- p5 rtscan[%zu]: %s %p readback failed: %s", i,
+                                MtlDbgRTGetName(t), t, e2.c_str());
+                            continue;
+                        }
+                        size_t nz = 0;
+                        size_t firstNZ = SIZE_MAX;
+                        uint64_t hash = 1469598103934665603ull;
+                        for (size_t k = 0; k + 4 <= px.size(); k += 64)
+                        {
+                            if (px[k] | px[k + 1] | px[k + 2])
+                            {
+                                nz++;
+                                if (firstNZ == SIZE_MAX)
+                                    firstNZ = k;
+                            }
+                            for (int q = 0; q < 4; q++)
+                                hash = (hash ^ px[k + q]) * 1099511628211ull;
+                        }
+                        const uint64_t prev = i < s_prevHashSk.size() ? s_prevHashSk[i] : 0;
+                        const size_t mid = (size_t(th / 2) * tw + tw / 2) * 4;
+                        Msg("- p5 rtscan[%zu]: %s %p %ux%u nz=%zu mid=(%u,%u,%u,%u) hash=%016llx %s",
+                            i, MtlDbgRTGetName(t), t, tw, th, nz, px[mid], px[mid + 1], px[mid + 2],
+                            px[mid + 3], hash,
+                            prev && prev != hash ? "CHANGED" : (prev ? "same" : "first"));
+                        if (firstNZ != SIZE_MAX)
+                        {
+                            const char* nm = MtlDbgRTGetName(t);
+                            size_t b = firstNZ;
+                            size_t e = px.size();
+                            Msg("- p5 rtval: %s @%zu bytes=(%02x%02x %02x%02x %02x%02x %02x%02x)",
+                                nm ? nm : "?", b,
+                                b < e ? px[b] : 0, b + 1 < e ? px[b + 1] : 0,
+                                b + 2 < e ? px[b + 2] : 0, b + 3 < e ? px[b + 3] : 0,
+                                b + 4 < e ? px[b + 4] : 0, b + 5 < e ? px[b + 5] : 0,
+                                b + 6 < e ? px[b + 6] : 0, b + 7 < e ? px[b + 7] : 0);
+                        }
+                        // p5 DIAG (launch103): staged pass bisect on the position
+                        // Lmap — collect geom-pass textures, run once after scan.
+                        if (const char* nmSk = MtlDbgRTGetName(t))
+                        {
+                            if (strstr(nmSk, "position"))
+                                s_bisPos = t;
+                            else if (strstr(nmSk, "albedo"))
+                                s_bisAlb = t;
+                            else if (strstr(nmSk, "base_depth"))
+                                s_bisZb = t;
+                        }
+                        if (s_prevHashSk.size() <= i)
+                            s_prevHashSk.resize(i + 1);
+                        s_prevHashSk[i] = hash;
+                    }
+                    if (s_bisPos)
+                        MtlDbgBisectProbe(s_bisPos, s_bisAlb, s_bisZb);
+                }
+                MtlDbgDumpPairs();
+                MtlDbgClearRTs();
+            }
+        }
         Sleep(10);
     }
+
+    // MCP 'screenshot' captures drain AFTER commit + GPU wait: the frame's
+    // command buffer is only enqueued by Present() above, and ReadbackSlice
+    // runs on its own command buffer (GL readback implicitly synced; Metal
+    // does not). rt[0] still holds this frame's final PP target.
+    MtlWaitCurrentCB();
+    p4_present_screenshot_mtl();
 
     CurrentBackBuffer = (CurrentBackBuffer + 1) % BackBufferCount;
 }

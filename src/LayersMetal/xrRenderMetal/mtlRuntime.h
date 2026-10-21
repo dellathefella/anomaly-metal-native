@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "mtlState.h"
 
@@ -34,12 +35,25 @@ namespace xray::render::RENDER_NAMESPACE
 // --- frame / pass lifecycle (mtlHW.mm / mtlRuntime.mm) ----------------------
 void MtlFrameBegin(); // new command buffer
 void MtlFrameEnd(); // end encoder; commit (no present)
+void MtlWaitCurrentCB(); // block until the committed frame CB completes (screenshot path)
+// p5 diag: distinct color RTs bound since the last MtlDbgClearRTs().
+std::vector<void*>* MtlDbgRTs();
+void MtlDbgClearRTs();
+void MtlDbgRTName(void* tex, const char* name);
+const char* MtlDbgRTGetName(void* tex);
+// p5 diag: top-15 per-shader-pair cumulative draw histogram to the log.
+void MtlDbgDumpPairs();
+
+// p5 diag: draw-path counters — 0 = successful draws, 1 = skipped (null
+// shader), 2 = skipped (PSO creation failed).
+uint64_t MtlDbgDrawStats(int idx);
 void MtlInvalidatePass(); // end current encoder, forget identity
 
 // --- targets ----------------------------------------------------------------
 // Record target changes; encoder is (re)created lazily at the next draw/clear.
 // rts: up to 4 color attachments (id<MTLTexture>), zb: depth attachment.
 void MtlTargetsChanged(void* const* rts, const void* zb);
+void MtlDbgBisectProbe(void* rt, void* rt2, void* zb);
 
 // Clears. Implemented as dedicated clear passes (end current encoder, pass
 // with LoadActionClear, re-record identity).

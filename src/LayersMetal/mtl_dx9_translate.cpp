@@ -475,6 +475,86 @@ namespace xray::metal
 		}
 		body = std::regex_replace(body, std::regex(R"(:\s*FOG\b)"), ": xrFog");
 
+		if (stage == ShaderStage::Vertex)
+		{
+			// DXC assigns stage-I/O locations sequentially by declaration
+			// order: a POSITION member in the VS output struct consumes
+			// locn0 and shifts every later output relative to the PS input
+			// struct (which never declares POSITION) — PSO linking then
+			// fails with "Fragment input(s) ... mismatching vertex shader
+			// output". The DX9 pre-transformed output position is the
+			// SV_Position builtin: rewrite POSITION semantics inside the
+			// entry function's return struct. Shared in/out structs are
+			// left alone (both sides shift consistently).
+			static const std::regex entryRe(R"((^|\n)\s*([A-Za-z_][A-Za-z0-9_]*)\s+main[A-Za-z0-9_]*\s*\()");
+			static const std::set<std::string> rawTypes{ "float",  "float2", "float3", "float4",
+				                                           "half",   "half2",  "half3",  "half4",
+				                                           "vector", "void",   "bool",   "bool4" };
+			std::set<std::string> retTypes, paramTypes;
+			{
+				auto a = std::sregex_iterator(body.begin(), body.end(), entryRe);
+				for (const auto b = std::sregex_iterator(); a != b; ++a)
+				{
+					const std::string ret = (*a)[2].str();
+					if (!rawTypes.count(ret))
+						retTypes.insert(ret);
+					const size_t open = a->position(0) + a->str().size() - 1; // '('
+					int depth = 0;
+					size_t close = open;
+					for (; close < body.size(); ++close)
+					{
+						if (body[close] == '(')
+							depth++;
+						else if (body[close] == ')' && !--depth)
+							break;
+					}
+					static const std::regex paramRe(R"(([A-Za-z_][A-Za-z0-9_]*)\s+[A-Za-z_][A-Za-z0-9_]*\s*(?=[,)]))");
+					const std::string params = body.substr(open + 1, close - open - 1);
+					auto pa = std::sregex_iterator(params.begin(), params.end(), paramRe);
+					for (const auto pb = std::sregex_iterator(); pa != pb; ++pa)
+						paramTypes.insert((*pa)[1].str());
+				}
+			}
+			for (const std::string& t : retTypes)
+			{
+				if (paramTypes.count(t))
+					continue; // shared in/out struct — leave as-is
+				size_t sp = 0;
+				while ((sp = body.find("struct", sp)) != std::string::npos)
+				{
+					size_t ns = sp + 6;
+					while (ns < body.size() && (body[ns] == ' ' || body[ns] == '\t' || body[ns] == '\n' ||
+					                            body[ns] == '\r'))
+						ns++;
+					size_t ne = ns;
+					while (ne < body.size() && (std::isalnum(static_cast<unsigned char>(body[ne])) ||
+					                            body[ne] == '_'))
+						ne++;
+					if (ne == ns || body.compare(ns, ne - ns, t) != 0)
+					{
+						sp = ne > sp + 6 ? ne : sp + 6;
+						continue;
+					}
+					const size_t brace = body.find('{', ne);
+					if (brace == std::string::npos)
+						break;
+					int depth = 0;
+					size_t end = brace;
+					for (; end < body.size(); ++end)
+					{
+						if (body[end] == '{')
+							depth++;
+						else if (body[end] == '}' && !--depth)
+							break;
+					}
+					std::string blk = body.substr(brace, end - brace + 1);
+					blk = std::regex_replace(blk, std::regex(R"(:\s*POSITION\b)"), ": SV_POSITION");
+					body.replace(brace, end - brace + 1, blk);
+					sp = end + 1;
+				}
+			}
+		}
+
 		std::ostringstream out;
 		out << kPrelude << "\n#line 1 \"" << NormSlashes(sourcePath) << "\"\n" << body;
 		res.hlsl = out.str();

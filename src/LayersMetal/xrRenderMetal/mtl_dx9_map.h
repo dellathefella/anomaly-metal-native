@@ -57,11 +57,11 @@ inline uint32_t MtlMapCompare(int d3dFunc)
     {
     case 1: return 0; // NEVER -> Never
     case 2: return 1; // LESS -> Less
-    case 3: return 2; // EQUAL -> Equal
-    case 4: return 3; // LESSEQUAL -> LessEqual
-    case 5: return 4; // GREATER -> Greater
-    case 6: return 5; // NOTEQUAL -> NotEqual
-    case 7: return 6; // GREATEREQUAL -> GreaterEqual
+    case 3: return 2; // EQUAL -> Equal (MTL Equal=2 — verified vs SDK MTLTypes.h)
+    case 4: return 3; // LESSEQUAL -> LessEqual (MTL LessEqual=3)
+    case 5: return 4; // GREATER -> Greater (MTL Greater=4)
+    case 6: return 5; // NOTEQUAL -> NotEqual (MTL NotEqual=5)
+    case 7: return 6; // GREATEREQUAL -> GreaterEqual (MTL GreaterEqual=6)
     case 8: return 7; // ALWAYS -> Always
     default: return 3; // LessEqual
     }
@@ -75,11 +75,11 @@ inline uint32_t MtlMapStencilOp(int d3dOp)
     case 1: return 0; // KEEP -> Keep
     case 2: return 1; // ZERO -> Zero
     case 3: return 2; // REPLACE -> Replace
-    case 4: return 3; // INCRSAT -> IncrementClamp
-    case 5: return 4; // DECRSAT -> DecrementClamp
+    case 4: return 6; // INCR -> IncrementWrap (MTL 6)
+    case 5: return 7; // DECR -> DecrementWrap (MTL 7)
     case 6: return 5; // INVERT -> Invert
-    case 7: return 6; // INCR -> IncrementWrap
-    case 8: return 7; // DECR -> DecrementWrap
+    case 7: return 3; // INCRSAT -> IncrementClamp (MTL 3)
+    case 8: return 4; // DECRSAT -> DecrementClamp (MTL 4)
     default: return 0;
     }
 }

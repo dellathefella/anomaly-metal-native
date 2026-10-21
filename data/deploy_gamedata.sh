@@ -28,3 +28,15 @@ echo "deployed $(find "$DEST" -type f | wc -l | tr -d ' ') files -> $DEST"
 rsync -a --delete "$HERE/ui-overlay/scripts/" "$GAME/gamedata/scripts/"
 rsync -a --delete "$HERE/ui-overlay/configs/text/" "$GAME/gamedata/configs/text/"
 echo "deployed ui overlay -> $GAME/gamedata/scripts + configs/text"
+
+# p5: the Metal renderer compiles DX9 HLSL at runtime (DXC), so it needs the
+# r2 shader SOURCES as loose files (translator #include resolution requires
+# physical paths; Anomaly ships only compiled shaders.xr). Source tree:
+# searge-coc r2 (the Anomaly shader lineage used for corpus validation).
+SEARGE_R2="$HERE/../../repos/searge-coc/res/gamedata/shaders/r2"
+if [ -d "$SEARGE_R2" ]; then
+    rsync -a --delete "$SEARGE_R2/" "$GAME/gamedata/shaders/r2/"
+    # port-side additions the searge tree lacks (e.g. stub_default.vs partner)
+    rsync -a "$HERE/shader-overlay/r2-extra/" "$GAME/gamedata/shaders/r2/"
+    echo "deployed r2 HLSL tree ($(find "$GAME/gamedata/shaders/r2" -type f | wc -l | tr -d ' ') files) -> $GAME/gamedata/shaders/r2"
+fi

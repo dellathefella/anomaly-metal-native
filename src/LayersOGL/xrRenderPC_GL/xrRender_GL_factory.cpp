@@ -46,6 +46,14 @@ namespace xray::render::render_gl
 // (extern-declared by the monolith dxRenderFactory.h above).
 ::dxRenderFactory RenderFactoryImpl; // p4: :: — leaked using-directive makes the bare name ambiguous
 
+// p5: lazy accessor (see Include/xrRender/FactoryPtr.h): the engine images
+// dlopen this module at runtime, so they must not carry an eager data
+// binding against RenderFactoryImpl.
+extern "C" ::dxRenderFactory* xrGetRenderFactoryImpl()
+{
+	return &::RenderFactoryImpl;
+}
+
 // ---------------------------------------------------------------------------
 // Delegation to the staged GL factory
 // ---------------------------------------------------------------------------

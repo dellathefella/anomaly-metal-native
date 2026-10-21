@@ -207,6 +207,12 @@ void CBlender_Compile::PassSET_Shaders(pcstr _vs, pcstr _ps, pcstr _gs /*= nullp
 #if defined(USE_OGL)
     dest.pp = RImplementation.Resources->_CreatePP(_vs, _ps, _gs, _hs, _ds);
     if (GLAD_GL_ARB_separate_shader_objects || !dest.pp->pp)
+#elif defined(USE_METAL)
+    dest.pp = RImplementation.Resources->_CreatePP(_vs, _ps, _gs, _hs, _ds);
+    // Always (re)create the stage objects: the ctable merge below must run
+    // for every compiled pass, even when the PP pair is already linked
+    // (mirrors the GL separate-shader-objects path).
+    if (true)
 #endif
     {
         dest.ps = RImplementation.Resources->_CreatePS(_ps);
@@ -231,6 +237,9 @@ void CBlender_Compile::PassSET_Shaders(pcstr _vs, pcstr _ps, pcstr _gs /*= nullp
 #if defined(USE_OGL)
     RImplementation.Resources->_LinkPP(dest);
     ctable.merge(&dest.pp->constants);
+#elif defined(USE_METAL)
+    if (RImplementation.Resources->_LinkPP(dest))
+        ctable.merge(&dest.pp->constants);
 #endif
 }
 

@@ -1240,6 +1240,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					// launch154 S13: captured pair with the LIVE pixel shader.
 					if (s_s13Tex[0] && !s_appQ.empty())
 					{
+						int d13 = 0;
 						MTLRenderPassDescriptor* sp13 = [MTLRenderPassDescriptor new];
 						for (int a13 = 0; a13 < 4; a13++)
 						{
@@ -1278,9 +1279,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
 							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+							d13++;
 						}
 						[e13 endEncoding];
+						Log("- p5 S13: drew=%d of %zu", d13, s_appQ.size());
 					}
+					else if (!s_appQ.empty())
+						Log("! p5 S13: pass skipped (scratch nil=%d)", s_s13Tex[0] == nil);
 					s_appQ.clear();
 				}
 				[cb commit];
@@ -4406,6 +4411,9 @@ namespace
 								if (!ap.s13Pso)
 									Log("! p5 canaryI: S13 PSO failed: %s", err13.c_str());
 							}
+							else
+								Log("! p5 canaryI: S13 build skipped psR=%d fn=%d",
+								    psR != nullptr, psR ? psR->function != nullptr : 0);
 							if (f5 && s_cyanFn)
 							{
 								PipelineDesc pd5 = pdI;

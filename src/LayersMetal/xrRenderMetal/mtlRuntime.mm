@@ -461,13 +461,16 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							                 // declaration in a vertex function');
 							                 // the engine's VSes always use stage_in.
 							                 "struct vbc_in { float4 p [[attribute(0)]]; };\n"
-							                 // launch141: clamp (same scale fix as W/X —
-							                 // unclamped 0.002 sent world-space chunks
-							                 // off-screen, invalidating V=0).
-							                 "vertex float4 vbc_vs(vbc_in in [[stage_in]]) {\n"
-							                 "  float2 q = float2(clamp(in.p.x * 0.0003, -0.9, "
-							                 "0.9), clamp(in.p.y * 0.0003, -0.9, 0.9));\n"
-							                 "  return float4(q, 0.5, 1.0);\n"
+							                 // launch142: ring placement (same as W/X) —
+							                 // finite fetch => lands; garbage => clipped.
+							                 "vertex float4 vbc_vs(vbc_in in [[stage_in]], uint "
+							                 "vid [[vertex_id]]) {\n"
+							                 "  if (!isfinite(in.p.x) || !isfinite(in.p.y) || "
+							                 "!isfinite(in.p.z))\n"
+							                 "    return float4(0.0, 0.0, 2.0, 1.0);\n"
+							                 "  float a = float(vid) * 0.17;\n"
+							                 "  return float4(sin(a) * 0.5, cos(a) * 0.5, 0.5, "
+							                 "1.0);\n"
 							                 "}\n"
 							                 "fragment float4 vbc_ps() { return float4(0.75, 0.25, "
 							                 "0.5, 1.0); }\n";
@@ -537,38 +540,42 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							s_wLib = [devW2
 							    newLibraryWithSource:@"#include <metal_stdlib>\n"
 							                       "using namespace metal;\n"
-							                       // launch141 FIX: launch140 W=X=0 was
-							                       // scale-ambiguous — world-space chunk
-							                       // verts (±2048m) at 0.002 project
-							                       // OFF-screen, object-space verts
-							                       // (±1m) become sub-pixel dots that
-							                       // slip the 64-byte sample grid. Now:
-							                       // clamp into ±0.9 NDC so ANY finite
-							                       // position lands; NaN still discards;
-							                       // all-zero verts (fresh pool buffer)
-							                       // spread to a visible corner triangle.
+							                       // launch142: launch141 verdict —
+							                       // 'cos(vid)' (uint) was AMBIGUOUS and
+							                       // killed the whole lib (W/X never ran;
+							                       // Wgeom echo proved CPU-side VB bytes
+							                       // sane: p0=(6.41 -0.35 1.78)). Clamped
+							                       // scale also failed: object-space verts
+							                       // (±10m) collapse to a ~5px center
+							                       // patch that slips the 64-byte grid.
+							                       // Now: ANY finite read -> vertex lands
+							                       // on a big vid-ring (guaranteed
+							                       // sampled); NaN/Inf -> clipped (z=2>1).
+							                       // W/X/V = pure "did finite bytes reach
+							                       // the vertex stage" binaries.
 							                       "vertex float4 wbc_vs(uint vid [[vertex_id]], "
 							                       "const device packed_float3* vb "
 							                       "[[buffer(1)]]) {\n"
 							                       "  float3 p = float3(vb[vid * 8]);\n"
-							                       "  bool z = (p.x == 0.0 && p.y == 0.0 && "
-							                       "p.z == 0.0);\n"
-							                       "  float2 q = z ? float2(-0.8, 0.8) + 0.05 * "
-							                       "float2(cos(vid), sin(vid))\n"
-							                       "             : float2(clamp(p.x * 0.0003, "
-							                       "-0.9, 0.9), clamp(p.y * 0.0003, -0.9, "
-							                       "0.9));\n"
-							                       "  return float4(q, 0.5, 1.0);\n"
+							                       "  if (!isfinite(p.x) || !isfinite(p.y) || "
+							                       "!isfinite(p.z))\n"
+							                       "    return float4(0.0, 0.0, 2.0, 1.0);\n"
+							                       "  float a = float(vid) * 0.17;\n"
+							                       "  return float4(sin(a) * 0.5, cos(a) * 0.5, "
+							                       "0.5, 1.0);\n"
 							                       "}\n"
 							                       "fragment float4 wbc_ps() { return float4(0.25, "
 							                       "0.25, 0.5, 1.0); }\n"
 							                       "struct xbc_in { float4 p [[attribute(0)]]; "
 							                       "};\n"
-							                       "vertex float4 xbc_vs(xbc_in in [[stage_in]]) {\n"
-							                       "  float2 q = float2(clamp(in.p.x * 0.0003, "
-							                       "-0.9, 0.9), clamp(in.p.y * 0.0003, -0.9, "
-							                       "0.9));\n"
-							                       "  return float4(q, 0.5, 1.0);\n"
+							                       "vertex float4 xbc_vs(xbc_in in [[stage_in]], "
+							                       "uint vid [[vertex_id]]) {\n"
+							                       "  if (!isfinite(in.p.x) || !isfinite(in.p.y) "
+							                       "|| !isfinite(in.p.z))\n"
+							                       "    return float4(0.0, 0.0, 2.0, 1.0);\n"
+							                       "  float a = float(vid) * 0.17;\n"
+							                       "  return float4(sin(a) * 0.5, cos(a) * 0.5, "
+							                       "0.5, 1.0);\n"
 							                       "}\n"
 							                       "fragment float4 xbc_ps() { return float4(0.125, "
 							                       "0.25, 0.5, 1.0); }\n"

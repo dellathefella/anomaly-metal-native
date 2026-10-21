@@ -64,6 +64,8 @@ namespace
 				mode = 1;
 			else if (e && !strcmp(e, "w"))
 				mode = 2;
+			else if (e && !strcmp(e, "z2"))
+				mode = 3;
 		}
 		if (!mode)
 			return src;
@@ -78,16 +80,20 @@ namespace
 		                        range:NSMakeRange(from, mu.length - from)]).location !=
 		       NSNotFound)
 		{
-			NSString* ins = mode == 1 ? @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
-			                            @"out.gl_Position.w * 0.5;\n    return out;"
-			                          : @"out.gl_Position.w = -out.gl_Position.w;\n    "
-			                            @"return out;";
+			NSString* ins = mode == 1
+			                    ? @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
+			                      @"out.gl_Position.w * 0.5;\n    return out;"
+			                    : mode == 2 ? @"out.gl_Position.w = -out.gl_Position.w;\n    "
+			                                  @"return out;"
+			                                : @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
+			                                  @"out.gl_Position.w;\n    return out;";
 			[mu replaceCharactersInRange:r withString:ins];
 			from = r.location + ins.length;
 			n++;
 		}
 		if (n)
-			fprintf(stderr, "- xrMetal CLIPFIX=%s injected x%d\n", mode == 1 ? "z" : "w", n);
+			fprintf(stderr, "- xrMetal CLIPFIX=%s injected x%d\n",
+			        mode == 1 ? "z" : (mode == 2 ? "w" : "z2"), n);
 		return mu;
 	}
 

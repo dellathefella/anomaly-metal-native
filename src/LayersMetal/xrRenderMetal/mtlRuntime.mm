@@ -50,6 +50,19 @@ static uint64_t g_dbgDrawEnter = 0, g_dbgDrawNoCb = 0, g_dbgDrawNoEnc = 0, g_dbg
 static uint64_t g_dbgFanDrop = 0, g_dbgFanOK = 0;
 static uint64_t g_dbgEncoders = 0, g_dbgRtSwitches = 0;
 static int g_pgGate = 0; // p5: position-pass-end counter (postgeom + canaryG tick)
+// launch128: canaryI pass-end append state. In-pass canaries get overwritten
+// by the real (zero-writing) draws that follow them in the same pass — the
+// append encodes AFTER every engine draw, right before the readback commit.
+struct MtlAppendCanary
+{
+	id<MTLRenderPipelineState> pso = nil;
+	id<MTLBuffer> ring = nil, vb = nil, ib = nil;
+	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
+	NSInteger baseV = 0;
+	bool valid = false;
+};
+static MtlAppendCanary s_appI; // legacy single slot
+static std::vector<MtlAppendCanary> s_appQ; // launch129: up to 8 captures per window
 static uint64_t g_dbgTopoEnter[8] = {};
 
 // Device-side logging: engine Log() is a header template (no C symbol); the
@@ -319,8 +332,43 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		{
 			void* pg = pendingPostGeom;
 			pendingPostGeom = nullptr;
-			if (++g_pgGate % 240 < 5) // launch110: read canaryG(0)/vscanary(1)/H2(2)/H3(3)/canaryI(4)
+			if (++g_pgGate % 240 < 7) // launch110: read canaryG(0)/vscanary(1)/H2(2)/H3(3)/canaryI(5->6)
 			{
+				// launch128/129: canaryI pass-end appends — after ALL engine
+				// draws of this pass, so nothing can overwrite them before the
+				// readback. launch129: up to 8 captured draws per window (one
+				// small off-screen mesh rasterizes nothing and reads as zero).
+				if (g_pgGate % 240 == 5 && !s_appQ.empty())
+				{
+					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
+					MTLRenderPassDescriptor* arpd = [MTLRenderPassDescriptor new];
+					arpd.colorAttachments[0].texture = atex;
+					arpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
+					arpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+					id<MTLRenderCommandEncoder> ae = [cb renderCommandEncoderWithDescriptor:arpd];
+					MTLViewport avp = { 0, 0, (double)atex.width, (double)atex.height, 0.0, 1.0 };
+					MTLScissorRect asr = { 0, 0, atex.width, atex.height };
+					[ae setViewport:avp];
+					[ae setScissorRect:asr];
+					int drawn = 0;
+					for (const auto& ap : s_appQ)
+					{
+						if (!ap.pso)
+							continue;
+						[ae setRenderPipelineState:ap.pso];
+						if (ap.ring)
+							[ae setVertexBuffer:ap.ring offset:ap.ringOff atIndex:0];
+						[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+						[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+						               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+						                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+						               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						drawn++;
+					}
+					[ae endEncoding];
+					Log("- p5 canaryI: APPENDED pass-end n=%d", drawn);
+					s_appQ.clear();
+				}
 				[cb commit];
 				[cb waitUntilCompleted];
 				id<MTLTexture> tex = (__bridge id<MTLTexture>)pg;
@@ -331,13 +379,23 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					Log("- p5 postgeom: readback failed: %s", err.c_str());
 				else
 				{
-					size_t nz = 0;
-					for (size_t k = 0; k + 4 <= px.size(); k += 64)
+					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0;
+					for (size_t k = 0; k + 6 <= px.size(); k += 64)
+					{
 						if (px[k] | px[k + 1] | px[k + 2])
 							nz++;
+						if (px[k + 1] == 56)
+							nL++; // R=0.5 -> passthru fragment LANDED
+						if (px[k + 3] == 60)
+							nT0++; // G=1.0 -> TEXCOORD0 interpolant alive
+						if (px[k + 5] == 60)
+							nT1++; // B=1.0 -> TEXCOORD1 interpolant alive
+					}
 					const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
-					Log("- p5 postgeom: position nz=%zu mid=(%u,%u,%u,%u) tick=%d", nz, px[mid],
-					    px[mid + 1], px[mid + 2], px[mid + 3], g_pgGate % 240);
+					Log("- p5 postgeom: position nz=%zu L=%zu T0=%zu T1=%zu mid=(%u,%u,%u,%u) "
+					    "tick=%d",
+					    nz, nL, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
+					    g_pgGate % 240);
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -534,9 +592,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 
 	uint32_t MapDeclFormat(uint32_t d3dType)
 	{
+		// launch128: runtime enum probe (/tmp/vfchk.m) — UShort2Normalized=19 (was
+		// wrongly 20=UShort3Normalized: 6-byte read of a 4-byte packed texcoord,
+		// killing every USHORT2N TEXCOORD0 interpolant => zeroed g-buffer).
+		// FLOAT1 is a single float, not Half.
 		switch (d3dType)
 		{
-		case 0: return 53; // FLOAT16 -> Half
+		case 0: return 28; // FLOAT1 -> Float
 		case 1: return 29; // FLOAT2 -> Float2
 		case 2: return 30; // FLOAT3 -> Float3
 		case 3: return 31; // FLOAT4 -> Float4
@@ -547,12 +609,159 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		case 8: return 9;  // UBYTE4N -> UChar4Normalized
 		case 9: return 22; // SHORT2N -> Short2Normalized
 		case 10: return 24; // SHORT4N -> Short4Normalized
-		case 11: return 20; // USHORT2N -> UShort2Normalized
+		case 11: return 19; // USHORT2N -> UShort2Normalized (runtime-verified)
 		case 12: return 21; // USHORT4N -> UShort4Normalized
 		case 15: return 25; // FLOAT16_2 -> Half2
 		case 16: return 27; // FLOAT16_4 -> Half4
 		default: return 30; // Float3 fallback
 		}
+	}
+
+	// launch129 GL-parity fix for raw-integer packed vertex attributes.
+	// D3DDECLTYPE SHORT2/SHORT4/UBYTE4 etc. deliver RAW values to float VS
+	// inputs on GL/D3D9 (normalize=GL_FALSE), but Metal's raw-int vertex
+	// formats deliver raw*0.5 (measured: /tmp/vfprobe.m), and int MSL inputs
+	// additionally TRUNCATE the .5 (odd bone indices die). Compile a VS
+	// variant at PSO-resolve time that multiplies the affected attributes
+	// back by 2: float fields scaled at main0 entry, int fields retyped to
+	// float (fraction survives) and cast at each use site.
+	static bool MtlFmtRawInt(uint32_t fmt)
+	{
+		switch (fmt)
+		{
+		case 3:  // UChar4
+		case 6:  // Char4
+		case 13: // UShort2
+		case 14: // UShort3
+		case 15: // UShort4
+		case 16: // Short2
+		case 17: // Short3
+		case 18: // Short4
+			return true;
+		default: return false;
+		}
+	}
+
+	// Components delivered by each raw-int format. Metal pads wider MSL fields
+	// with D3D9 defaults (z=0, w=1) — the x2 mask must skip padded components.
+	static int MtlFmtComps(uint32_t fmt)
+	{
+		switch (fmt)
+		{
+		case 13: // UShort2
+		case 16: // Short2
+			return 2;
+		case 14: // UShort3
+		case 17: // Short3
+			return 3;
+		default: return 4; // 3/6 UChar4/Char4, 15/18 UShort4/Short4
+		}
+	}
+
+	static id<MTLFunction> MtlRawIntScaledVS(id<MTLDevice> dev, const std::string& mslIn,
+	                                         const std::vector<VertexAttr>& attrs,
+	                                         std::string& errOut)
+	{
+		const size_t s = mslIn.find("struct main0_in");
+		if (s == std::string::npos)
+			return nil;
+		const size_t b = mslIn.find('{', s);
+		const size_t e = b == std::string::npos ? std::string::npos : mslIn.find("};", b);
+		const size_t v0 = mslIn.find("vertex main0_out main0(");
+		if (b == std::string::npos || e == std::string::npos || v0 == std::string::npos)
+			return nil;
+		std::string src = mslIn;
+		std::string inserts;
+		bool changed = false;
+		size_t pos = b + 1;
+		while (pos < e)
+		{
+			size_t nl = src.find('\n', pos);
+			if (nl == std::string::npos || nl > e)
+				nl = e;
+			const std::string line = src.substr(pos, nl - pos);
+			const size_t at = line.find("[[attribute(");
+			pos = nl + 1;
+			if (at == std::string::npos)
+				continue;
+			const int attr = atoi(line.c_str() + at + 12);
+			uint32_t fmt = 0;
+			for (const auto& a : attrs)
+				if (a.index == (uint32_t)attr && MtlFmtRawInt(a.format))
+					fmt = a.format;
+			if (!fmt)
+				continue;
+			// "TYPE NAME [[attribute(K)]];" -> tokens
+			size_t sp1 = line.find_first_not_of(" \t");
+			size_t sp2 = sp1 == std::string::npos ? std::string::npos : line.find(' ', sp1);
+			if (sp1 == std::string::npos || sp2 == std::string::npos || sp2 >= at)
+				continue;
+			const std::string ty = line.substr(sp1, sp2 - sp1);
+			size_t ns = line.find_first_not_of(" \t", sp2);
+			size_t ne = line.find_first_of(" \t[", ns);
+			if (ns == std::string::npos || ne == std::string::npos || ne > at)
+				continue;
+			const std::string nm = line.substr(ns, ne - ns);
+			if (ty.empty() || ty.back() < '1' || ty.back() > '4')
+				continue;
+			const int width = ty.back() - '0';
+			const int comps = MtlFmtComps(fmt);
+			// x2 mask: delivered components scale, D3D9-padded defaults (z=0,
+			// w=1) must NOT scale (else w default 1 -> 2 breaks bone parity).
+			std::string mask = "2.0";
+			if (comps < width && width >= 2)
+			{
+				if (width == 2)
+					mask = "float2(2.0, 1.0)";
+				else if (width == 3)
+					mask = comps == 2 ? "float3(2.0, 2.0, 1.0)" : "float3(2.0, 2.0, 2.0)";
+				else
+					mask = comps == 2 ? "float4(2.0, 2.0, 1.0, 1.0)"
+					                  : "float4(2.0, 2.0, 2.0, 1.0)";
+			}
+			if (ty == "int2" || ty == "int3" || ty == "int4" || ty == "uint2" || ty == "uint3" ||
+			    ty == "uint4")
+			{
+				// retype field to floatN (accepts the raw-int format, keeps the .5),
+				// then cast every use site back to the original integer type.
+				const std::string oldf = ty + " " + nm;
+				const size_t fp = src.find(oldf, b);
+				if (fp == std::string::npos || fp > e)
+					continue;
+				src.replace(fp, oldf.size(), "float" + ty.substr(ty[0] == 'u' ? 4 : 3) + " " + nm);
+				const std::string cast =
+				    (ty[0] == 'u' ? "uint" : "int") + ty.substr(ty[0] == 'u' ? 4 : 3);
+				const std::string use = "in." + nm;
+				const std::string repl = "(" + cast + "(in." + nm + " * " + mask + "))";
+				size_t up = v0; // main0 body only (after the struct)
+				while ((up = src.find(use, up)) != std::string::npos)
+				{
+					src.replace(up, use.size(), repl);
+					up += repl.size(); // skip past: repl still contains "in.nm"
+				}
+				changed = true;
+			}
+			else
+				inserts += "in." + nm + " = in." + nm + " * " + mask + ";\n";
+			changed = true;
+		}
+		if (!changed)
+			return nil;
+		const size_t ob = src.find('{', v0);
+		if (ob == std::string::npos)
+			return nil;
+		if (!inserts.empty())
+			src.insert(ob + 1, "\n" + inserts);
+		NSError* err = nil;
+		id<MTLLibrary> lib = [dev newLibraryWithSource:[NSString stringWithUTF8String:src.c_str()]
+		                                      options:nil
+		                                        error:&err];
+		if (!lib)
+		{
+			errOut = err ? [[err localizedDescription] UTF8String] : "compile failed";
+			return nil;
+		}
+		return [lib newFunctionWithName:@"main0"];
 	}
 
 	// --- sampler descriptors ---------------------------------------------------
@@ -1477,6 +1686,46 @@ namespace
 			}
 		}
 
+		// launch129: GL-parity — raw-int packed attrs (SHORT2/SHORT4/UBYTE4)
+		// deliver raw*0.5 to float VS inputs on Metal but RAW on GL/D3D9
+		// (vfprobe.m + glBufferUtils GL_SHORT/GL_FALSE). Resolve to a compiled
+		// VS variant whose affected inputs are x2-corrected (mask preserves
+		// D3D9 pad defaults). Compiled once per (VS, attr-formats) signature.
+		{
+			static std::map<std::string, id<MTLFunction>> s_rix;
+			bool anyRaw = false;
+			for (const auto& a : pd.attrs)
+				if (MtlFmtRawInt(a.format))
+					anyRaw = true;
+			if (anyRaw && vsRefl.function && !vsRefl.msl.empty())
+			{
+				std::string key = vsRefl.name;
+				for (const auto& a : pd.attrs)
+				{
+					key += ";";
+					key += std::to_string(a.index);
+					key += ":";
+					key += std::to_string(a.format);
+				}
+				const auto itR = s_rix.find(key);
+				if (itR == s_rix.end())
+				{
+					std::string errR;
+					id<MTLFunction> fR =
+					    MtlRawIntScaledVS((__bridge id<MTLDevice>)pm.dev->Device(), vsRefl.msl,
+					                      pd.attrs, errR);
+					s_rix[key] = fR; // cache nil too: never retry a failed patch
+					if (fR)
+						Log("- xrRenderMetal: raw-int x2 VS variant for %s", vsRefl.name.c_str());
+					else if (!errR.empty())
+						Log("! xrRenderMetal: raw-int x2 patch failed %s: %s", vsRefl.name.c_str(),
+						    errR.c_str());
+				}
+				if (s_rix[key])
+					pd.vs = (__bridge void*)s_rix[key];
+			}
+		}
+
 		// Pass attachment formats — RC#5: read the LIVE encoder's rpd
 		// snapshot so the PSO always matches the framebuffer its draws land
 		// in (registry divergence from stale encoders silently discarded
@@ -1835,6 +2084,33 @@ namespace
 						    u.offset, mwvpC[12], mwvpC[13], mwvpC[14], mwvpC[15]);
 						break;
 					}
+				// launch127: probe m_WV staging bytes (suspect zero block in merged
+				// CB) + raw VB decl-attr bytes (suspect VB texcoord mapping).
+				for (const auto& u : vsR->uniforms)
+					if (u.name == "m_WV" && u.offset + 48 <= pm.vsSize)
+					{
+						const float* mwvC =
+							reinterpret_cast<const float*>(pm.staging.data() + u.offset);
+						Log("- p5 posclip#%d: mWVoff=%u mWV=(%.2f %.2f %.2f | %.2f %.2f %.2f | "
+						    "%.2f %.2f %.2f)",
+						    s_posClip, u.offset, mwvC[0], mwvC[1], mwvC[2], mwvC[4], mwvC[5],
+						    mwvC[6], mwvC[8], mwvC[9], mwvC[10]);
+						break;
+					}
+				{
+					const uint8_t* vb0 = (const uint8_t*)[vbB contents];
+					for (uint32_t de = 0; de < pm.declCount && de < 5; de++)
+					{
+						const uint8_t* a = vb0 + pm.declElems[de].Offset +
+						                   (NSUInteger)baseV * ds.vbStride;
+						const float* af = reinterpret_cast<const float*>(a);
+						Log("- p5 posclip#%d: decl[%u] type=%u off=%u b=[%u %u %u %u %u %u %u "
+						    "%u] f=(%.3f %.3f %.3f)",
+						    s_posClip, de, (unsigned)pm.declElems[de].Type,
+						    (unsigned)pm.declElems[de].Offset, a[0], a[1], a[2], a[3], a[4], a[5],
+						    a[6], a[7], af[0], af[1], af[2]);
+					}
+				}
 				if (mwvpC)
 				{
 					const uint8_t* vbase = (const uint8_t*)[vbB contents];
@@ -2212,28 +2488,51 @@ namespace
 		{
 			static uint64_t s_lastI = 0;
 			const char* rtNcI = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+			// launch128: one-shot c6 (skinned) decl dump — the vertex-format fix
+			// needs the real TEXCOORD0/bone decl types behind the int4 MSL input.
+			static bool s_dumpBump = false;
+			if (!s_dumpBump && pair && strstr(pair->name.c_str(), "bump-hq|deffer_base_bump-hq"))
+			{
+				s_dumpBump = true;
+				for (uint32_t d = 0; d < pm.declCount && d < 6; d++)
+					Log("- p5 decl6: decl[%d] type=%d usage=%d idx=%d off=%d (pair=%s)", (int)d,
+					    (int)pm.declElems[d].Type, (int)pm.declElems[d].Usage,
+					    (int)pm.declElems[d].UsageIndex, (int)pm.declElems[d].Offset,
+					    pair->name.c_str());
+			}
 			// launch125: capture a REAL DEFER pair only (launch124 captured a rain
 			// shader whose PS has no TEXCOORD1 => passthru fell back to magenta yet
 			// readback was zero — rain geometry may not cover; verdict unreliable).
 			const bool defferI = psR->name.find("deffer") != std::string::npos &&
 			                     psR->msl.find("in_var_TEXCOORD1") != std::string::npos &&
 			                     vsR->msl.find("m_WVP") != std::string::npos;
-			if (!defferI)
+			if (!defferI && (g_pgGate + 1) % 240 == 5 && rtNcI && strstr(rtNcI, "position"))
 			{
 				static int s_skipI = 0;
 				if (s_skipI++ < 40)
-					Log("- p5 canaryI: skip ps=%s vsMslLen=%d psMslLen=%d tick=%d",
-					    psR->name.c_str(), (int)vsR->msl.size(), (int)psR->msl.size(),
-					    (int)(g_pgGate % 240));
+					Log("- p5 canaryI: skip ps=%s vsMslLen=%d psMslLen=%d", psR->name.c_str(),
+					    (int)vsR->msl.size(), (int)psR->msl.size());
 			}
+			// launch127: window 5 (ODD parity = MAIN model position pass;
+			// windows 0/2/4 are the rain position pass — launch124/125 captured
+			// rain because tick-4 was rain-pass parity. vscanary w=1 proved odd=main.)
+			// launch129: capture up to 8 deffer draws per window (a single small
+			// off-screen mesh rasterizes nothing => false zero), and REUSE the
+			// compiled passthrough fn per PS (launch128 recompiled per capture:
+			// ~420MB/capture pipeline-cache growth => 45GB RSS, user-reported).
 			if (defferI && rtNcI && strstr(rtNcI, "position") && indexed && ds.vb && ds.ib &&
-			    (g_pgGate + 1) % 240 == 4 && g_dbgDrawOK - s_lastI > 50000ull)
+			    (g_pgGate + 1) % 240 == 5 && (int)s_appQ.size() < 8)
 			{
 				s_lastI = g_dbgDrawOK;
 				// launch111 FIX: build the passthru PS from the LIVE pair's
 				// ALIGNED main0_in struct (hardcoded struct mismatched the live
 				// VS: "Fragment input(s) user(locn1..3) mismatching").
 				id<MTLFunction> fnI = nil;
+				static std::map<std::string, id<MTLFunction>> s_pthFn; // leak fix (launch129)
+				const auto itF = s_pthFn.find(psR->name);
+				if (itF != s_pthFn.end())
+					fnI = itF->second;
+				else
 				{
 					const std::string psSrcI = psR->msl;
 					const size_t sI = psSrcI.find("struct main0_in");
@@ -2256,9 +2555,12 @@ namespace
 							// (0,60,0,60)=both live, (0,60,0,0)=VB-only (m_WV dead),
 							// (0,0,0,60)=VB texcoords dead, (0,0,0,0)=all dead.
 							fldType = "tc0|tc1";
+							// launch129 layout: R=0.5 ALWAYS (landing proof),
+							// G=1 if any TEXCOORD0 != 0, B=1 if any TEXCOORD1 != 0.
 							retExpr =
-								"float4(any(in.in_var_TEXCOORD0 != float2(0.0)) ? 1.0 : 0.0, "
-								"any(in.in_var_TEXCOORD1 != float4(0.0)) ? 1.0 : 0.0, 0.0, 1.0)";
+								"float4(0.5, "
+								"any(in.in_var_TEXCOORD0.xy != float2(0.0)) ? 1.0 : 0.0, "
+								"any(in.in_var_TEXCOORD1 != float4(0.0)) ? 1.0 : 0.0, 1.0)";
 						}
 						else if (fI != std::string::npos)
 						{
@@ -2289,6 +2591,7 @@ namespace
 						                                                options:nil
 						                                                  error:&errI];
 						fnI = libI ? [libI newFunctionWithName:@"xrip_ps"] : nil;
+						s_pthFn[psR->name] = fnI; // cache nil too: never recompile
 						if (!fnI)
 							Log("! p5 canaryI: passthru compile failed (%s): %s", fldType.c_str(),
 							    errI ? [[errI localizedDescription] UTF8String] : "?");
@@ -2324,7 +2627,9 @@ namespace
 					}
 					if (pm.rt[0])
 						pdI.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
-					MtlPdDepthFromEncoder(pm, pdI); // RC#5: match live rpd
+					// launch128: NO depth format -> the pass-end append encoder
+					// attaches only the position RT; the in-pass draw ignores the
+					// (present but PSO-unbound) depth attachment.
 					pdI.blend.enabled = false;
 					pdI.blend.writeMask = 0xF;
 					std::string errI;
@@ -2342,7 +2647,20 @@ namespace
 						                  instanceCount:1
 						                     baseVertex:(NSInteger)baseV
 						                   baseInstance:0];
-						Log("- p5 canaryI: realVS+passthruPS encoded attrs=%d", (int)pdI.attrs.size());
+						Log("- p5 canaryI: realVS+passthruPS encoded attrs=%d idx=%d",
+						    (int)pdI.attrs.size(), (int)primCount);
+						// launch129: queue for PASS-END re-encode (un-overwritten).
+						MtlAppendCanary ap;
+						ap.pso = psoI;
+						ap.ring = pm.ring;
+						ap.ringOff = (NSUInteger)slotOff;
+						ap.vb = (__bridge id<MTLBuffer>)ds.vb;
+						ap.ib = (__bridge id<MTLBuffer>)ds.ib;
+						ap.ibOff = (NSUInteger)startI * 2;
+						ap.idxCount = primCount;
+						ap.baseV = baseV;
+						ap.valid = true;
+						s_appQ.push_back(ap);
 					}
 					else
 						Log("! p5 canaryI: PSO failed: %s", errI.c_str());

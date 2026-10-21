@@ -1365,6 +1365,23 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		if (zb)
 		{
 			id<MTLTexture> tex = (__bridge id<MTLTexture>)zb;
+			// p5 DIAG (launch152): every depth texture attached to a pass, once.
+			{
+				static std::vector<void*> s_zbSeen;
+				bool seenZ = false;
+				for (void* p : s_zbSeen)
+					if (p == zb)
+					{
+						seenZ = true;
+						break;
+					}
+				if (!seenZ && s_zbSeen.size() < 24)
+				{
+					Log("- p5 DIAG passZB: zb=%p fmt=%ld %lux%lu", zb, (long)tex.pixelFormat,
+					    (unsigned long)tex.width, (unsigned long)tex.height);
+					s_zbSeen.push_back(zb);
+				}
+			}
 			MTLRenderPassDepthAttachmentDescriptor* att = rpd.depthAttachment;
 			att.texture = tex;
 			att.loadAction = MTLLoadActionLoad;
@@ -2144,6 +2161,15 @@ void MtlClearDepth(void* zb, float depth, int stencil)
 	MtlPassManager& pm = PM();
 	if (!pm.cb || !zb)
 		return;
+	// p5 DIAG (launch152): depth-surface clear values reaching Metal.
+	{
+		static int s_zbClearDiag = 0;
+		if (s_zbClearDiag < 16)
+		{
+			Log("- p5 DIAG zbclear: zb=%p d=%.4f st=%d", zb, depth, stencil);
+			s_zbClearDiag++;
+		}
+	}
 	pm.endEncoder();
 	MTLRenderPassDescriptor* rpd = [MTLRenderPassDescriptor new];
 	id<MTLTexture> tex = (__bridge id<MTLTexture>)zb;

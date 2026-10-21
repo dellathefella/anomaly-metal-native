@@ -286,6 +286,9 @@ endif()
 # Same cross-module model as the engine dylibs — xrGame-owned symbols resolve
 # at launch via two-level lookup fallback.
 target_link_options(xrRender_METAL PRIVATE "-undefined" "dynamic_lookup")
+# MetalFX spatial scaler for present-time upscaling (t4; macOS 14+, guarded at
+# runtime with __builtin_available).
+target_link_options(xrRender_METAL PRIVATE "-framework" "MetalFX")
 
 set_target_properties(xrRender_METAL PROPERTIES OUTPUT_NAME "xrRender_METAL" PREFIX "")
 

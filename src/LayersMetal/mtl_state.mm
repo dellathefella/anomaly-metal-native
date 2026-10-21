@@ -200,10 +200,27 @@ namespace xray::metal
 		auto it = m_impl->depthStates.find(key);
 		if (it != m_impl->depthStates.end())
 			return (__bridge void*)it->second;
+		// p5 DIAG (launch152): which depth-stencil states the live draws bind.
+		{
+			static int s_dssDiag = 0;
+			if (s_dssDiag < 16)
+			{
+				fprintf(stderr, "- p5 DIAG DSSdiag: zE=%d zF=%d zW=%d sE=%d sF=%d rm=%X wm=%X\n",
+				        desc.depthEnable ? 1 : 0, desc.depthFunc, desc.depthWrite ? 1 : 0,
+				        desc.stencilEnable ? 1 : 0, desc.func, desc.readMask, desc.writeMask);
+				s_dssDiag++;
+			}
+		}
 		MTLDepthStencilDescriptor* dsd = [MTLDepthStencilDescriptor new];
 		dsd.depthCompareFunction = (MTLCompareFunction)MtlMapCompare(desc.depthFunc);
 		if (!desc.depthEnable)
 			dsd.depthCompareFunction = MTLCompareFunctionAlways;
+		// p5 DIAG (launch152): depth-test bypass experiment.
+		{
+			static const char* s_noDepth = getenv("XR_METAL_NODEPTH");
+			if (s_noDepth && s_noDepth[0] == '1')
+				dsd.depthCompareFunction = MTLCompareFunctionAlways;
+		}
 		dsd.depthWriteEnabled = desc.depthWrite ? YES : NO;
 		if (desc.stencilEnable)
 		{

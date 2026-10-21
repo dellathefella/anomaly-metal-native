@@ -64,6 +64,7 @@ struct MtlAppendCanary
 	                                     // bindings => garbage VS => no frags)
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
+	uint32_t stride = 0; // launch134: for the V-draw discriminator PSO
 	bool valid = false;
 };
 static MtlAppendCanary s_appI; // legacy single slot
@@ -403,10 +404,111 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						[ae drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 					}
 					int drawn = 0;
+					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
+					static id<MTLLibrary> s_vLib = nil;
+					static bool s_vTried = false;
+					static std::set<void*> s_vdDumped; // launch134: per-PSO vd dump
 					for (const auto& ap : s_appQ)
 					{
 						if (!ap.pso)
 							continue;
+						// launch134: read back the RESOLVED vertex descriptor —
+						// the CPU clip sim read raw decl offsets; the GPU reads
+						// whatever this descriptor says. A mismatch between the
+						// two = GPU reads garbage positions while CPU says
+						// "INSIDE" — exactly the observed contradiction.
+						if (s_vdDumped.insert((__bridge void*)ap.pso).second)
+						{
+							// The current SDK header dropped -vertexDescriptor
+							// from MTLRenderPipelineState; the runtime object
+							// still answers it — reach it via KVC.
+							id vdObj = nil;
+							@try
+							{
+								vdObj = [(id)ap.pso valueForKey:@"vertexDescriptor"];
+							}
+							@catch (NSException* exVd)
+							{
+							}
+							MTLVertexDescriptor* vd =
+							    [vdObj isKindOfClass:[MTLVertexDescriptor class]]
+							        ? (MTLVertexDescriptor*)vdObj
+							        : nil;
+							if (!vd)
+								Log("- p5 canaryI: psoVd unavailable (kvc=%d)", vdObj != nil);
+							else
+								for (NSUInteger ai = 0; ai < 8; ai++)
+								{
+									MTLVertexAttributeDescriptor* va = vd.attributes[ai];
+									if (va.format == MTLVertexFormatInvalid)
+										continue;
+									Log("- p5 canaryI: psoVd a%zu buf=%zu off=%zu fmt=%zu "
+									    "stride=%zu",
+									    ai, va.bufferIndex, va.offset, (NSUInteger)va.format,
+									    vd.layouts[va.bufferIndex].stride);
+								}
+						}
+						// launch134: V-draw — trivial VS reading the pair VB's
+						// position attribute (Float3@0, stream slot 1) scaled
+						// into view + constant PS (R=0.75 => byte1==62 = V
+						// flag). V>0 => VB+bindings healthy on the GPU => the
+						// pair VS/descriptor is the poison; V=0 => the VB
+						// binding path itself is dead.
+						if (!s_vTried && !s_vLib)
+						{
+							s_vTried = true;
+							id<MTLDevice> devV = (__bridge id<MTLDevice>)dev->Device();
+							NSString* srcV = @"#include <metal_stdlib>\n"
+							                 "using namespace metal;\n"
+							                 "vertex float4 vbc_vs(const device packed_float3& p "
+							                 "[[buffer(0)]]) {\n"
+							                 "  return float4(p.x * 0.002, p.y * 0.002, 0.5, 1.0);\n"
+							                 "}\n"
+							                 "fragment float4 vbc_ps() { return float4(0.75, 0.25, "
+							                 "0.5, 1.0); }\n";
+							NSError* eV = nil;
+							s_vLib = [devV newLibraryWithSource:srcV options:nil error:&eV];
+							if (!s_vLib)
+								Log("! p5 canaryI: vbc lib failed: %s",
+								    [[eV localizedDescription] UTF8String]);
+						}
+						id<MTLRenderPipelineState> vp = nil;
+						if (s_vLib)
+						{
+							auto vit = s_vPso.find(ap.stride ? ap.stride : 32);
+							if (vit != s_vPso.end())
+								vp = vit->second;
+							else
+							{
+								PipelineDesc pdV;
+								pdV.vs = (__bridge void*)[s_vLib newFunctionWithName:@"vbc_vs"];
+								pdV.ps = (__bridge void*)[s_vLib newFunctionWithName:@"vbc_ps"];
+								pdV.stride = ap.stride ? ap.stride : 32;
+								pdV.vbSlot = 1;
+								VertexAttr aV;
+								aV.index = 0;
+								aV.offset = 0;
+								aV.format = (uint32_t)MTLVertexFormatFloat3;
+								pdV.attrs.push_back(aV);
+								pdV.colorFormats.push_back((int)atex.pixelFormat);
+								std::string errV;
+								vp = (__bridge id<MTLRenderPipelineState>)
+								         cache->Pipeline(dev->Device(), pdV, errV);
+								if (!vp)
+									Log("! p5 canaryI: vbc PSO failed (stride=%u): %s", pdV.stride,
+									    errV.c_str());
+								s_vPso[ap.stride ? ap.stride : 32] = vp; // nil cached on purpose
+							}
+						}
+						if (vp && ap.vb && ap.ib)
+						{
+							[ae setRenderPipelineState:vp];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
 						[ae setRenderPipelineState:ap.pso];
 						if (ap.cb) // launch130: captured CB snapshot
 							[ae setVertexBuffer:ap.cb offset:0 atIndex:0];
@@ -440,22 +542,24 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					Log("- p5 postgeom: readback failed: %s", err.c_str());
 				else
 				{
-					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0;
+					size_t nz = 0, nL = 0, nT0 = 0, nT1 = 0, nV = 0;
 					for (size_t k = 0; k + 6 <= px.size(); k += 64)
 					{
 						if (px[k] | px[k + 1] | px[k + 2])
 							nz++;
 						if (px[k + 1] == 56)
 							nL++; // R=0.5 -> passthru fragment LANDED
+						if (px[k + 1] == 62)
+							nV++; // R=0.75 -> V-draw (trivial VS on pair VB) landed
 						if (px[k + 3] == 60)
 							nT0++; // G=1.0 -> TEXCOORD0 interpolant alive
 						if (px[k + 5] == 60)
 							nT1++; // B=1.0 -> TEXCOORD1 interpolant alive
 					}
 					const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
-					Log("- p5 postgeom: position nz=%zu L=%zu T0=%zu T1=%zu mid=(%u,%u,%u,%u) "
+					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu T0=%zu T1=%zu mid=(%u,%u,%u,%u) "
 					    "tick=%d",
-					    nz, nL, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
+					    nz, nL, nV, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
 					    g_pgGate % 240);
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
@@ -2801,6 +2905,7 @@ namespace
 						ap.ibOff = (NSUInteger)startI * 2;
 						ap.idxCount = primCount;
 						ap.baseV = baseV;
+						ap.stride = ds.vbStride; // launch134: V-draw
 						ap.valid = true;
 						s_appQ.push_back(ap);
 					}

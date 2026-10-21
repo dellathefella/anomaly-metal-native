@@ -69,6 +69,17 @@ namespace xray::metal
 		// launch133: recently committed CBs, oldest first. Bounded backlog =
 		// GL-parity swap blocking (see Present).
 		std::deque<id<MTLCommandBuffer>> inflightCBs;
+		// launch134: GPU buffer pool. vmmap verdict (launch133): IOAccelerator
+		// (graphics) 19.8G→26.2G in 45s while the arena stayed flat — freed
+		// shared buffers never returned their driver-side backing once
+		// MB-scale staging buffers churned ~10/s. Recycle them explicitly
+		// (the GL driver did this implicitly for VBOs). Released buffers sit
+		// in bufRetire until every CB that could have encoded them retired
+		// (bounded by the inflightCBs cap), then join the size-bucketed pool.
+		std::multimap<size_t, id<MTLBuffer>> bufPool;
+		std::deque<std::pair<id<MTLBuffer>, uint64_t>> bufRetire;
+		size_t pooledBytes = 0;
+		uint64_t presentGen = 0;
 		std::map<std::pair<int, int>, id<MTLSamplerState>> samplers;
 		std::map<std::array<uint32_t, 8>, id<MTLSamplerState>> samplersFull;
 		std::map<std::pair<void*, uint32_t>, id<MTLTexture>> sliceViews;
@@ -289,13 +300,15 @@ namespace xray::metal
 				else if ([o respondsToSelector:@selector(length)])
 					bufMB += [(id<MTLBuffer>)o length];
 			}
-			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu liveBufMB=%llu liveTexMB~=%llu\n",
+			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu liveBufMB=%llu liveTexMB~=%llu pooledMB=%llu retireQ=%llu\n",
 			        (unsigned long long)s_presentN,
 			        (unsigned long long)(MtlCurRSSBytes() >> 20),
 			        (unsigned long long)g_mtlTexCreated.load(),
 			        (unsigned long long)g_mtlBufCreated.load(),
 			        (unsigned long long)g_mtlResReleased.load(),
-			        bufMB >> 20, texMB >> 20);
+			        bufMB >> 20, texMB >> 20,
+			        (unsigned long long)(m_impl->pooledBytes >> 20),
+			        (unsigned long long)m_impl->bufRetire.size());
 		}
 		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
 		if (cb && m_impl->drawable)
@@ -327,6 +340,28 @@ namespace xray::metal
 			{
 				[m_impl->inflightCBs.front() waitUntilCompleted];
 				m_impl->inflightCBs.pop_front();
+			}
+			// launch134: retire released buffers — reusable only after every
+			// CB that could have encoded them retired (the wait above bounds
+			// the backlog to cap presents, so gen+cap+1 is a safe lag).
+			++m_impl->presentGen;
+			while (!m_impl->bufRetire.empty() &&
+			       m_impl->bufRetire.front().second + cap + 1 <= m_impl->presentGen)
+			{
+				id<MTLBuffer> b = m_impl->bufRetire.front().first;
+				m_impl->bufRetire.pop_front();
+				const size_t len = [b length];
+				if (len <= (size_t(64) << 20)) // >=64MB one-offs: really free
+				{
+					m_impl->bufPool.emplace(len, b);
+					m_impl->pooledBytes += len;
+					while (m_impl->pooledBytes > (size_t(1536) << 20) && !m_impl->bufPool.empty())
+					{
+						auto last = std::prev(m_impl->bufPool.end());
+						m_impl->pooledBytes -= [last->second length];
+						m_impl->bufPool.erase(last);
+					}
+				}
 			}
 		}
 		m_impl->drawable = nil;
@@ -364,6 +399,23 @@ namespace xray::metal
 	{
 		if (!m_impl->device || bytes == 0)
 			return nullptr;
+		// launch134: pool-first (see Impl::bufPool) — the driver retained the
+		// GPU backing of released buffers (vmmap: IOAccelerator +6.4GB/45s),
+		// so recycle instead of churning MB-scale allocations. Reuse is safe:
+		// entries only become poolable after their last encoder retired.
+		if (!m_impl->bufPool.empty())
+		{
+			auto pit = m_impl->bufPool.lower_bound(bytes);
+			if (pit != m_impl->bufPool.end())
+			{
+				id<MTLBuffer> reuse = pit->second;
+				m_impl->bufPool.erase(pit);
+				m_impl->pooledBytes -= [reuse length];
+				m_impl->arena.push_back(reuse);
+				g_mtlBufCreated++;
+				return (__bridge void*)reuse;
+			}
+		}
 		id<MTLBuffer> buf = [m_impl->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
 		if (buf)
 		{
@@ -406,10 +458,16 @@ namespace xray::metal
 		if (!obj)
 			return;
 		id<NSObject> target = (__bridge id<NSObject>)obj;
+		// launch134: MTLBuffers (respond to -length; textures don't) go to the
+		// pool retire queue instead of being dropped — deferred recycling
+		// until the GPU is done with them (see Present).
+		const bool isBuffer = [target respondsToSelector:@selector(length)];
 		for (auto it = m_impl->arena.begin(); it != m_impl->arena.end(); ++it)
 		{
 			if (*it == target)
 			{
+				if (isBuffer)
+					m_impl->bufRetire.emplace_back((id<MTLBuffer>)*it, m_impl->presentGen);
 				m_impl->arena.erase(it);
 				g_mtlResReleased++; // leakbeat
 				return;

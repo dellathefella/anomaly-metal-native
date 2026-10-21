@@ -78,6 +78,7 @@ struct MtlAppendCanary
 	id<MTLRenderPipelineState> s9Pso = nil; // launch147: S9 — remap z'=0.5z+w
 	id<MTLRenderPipelineState> s11Pso = nil; // launch149: S11 — z'=z-0.5w
 	id<MTLRenderPipelineState> s12Pso = nil; // launch149: S12 — z'=clamp(z,εw,(1-ε)w)
+	id<MTLRenderPipelineState> s13Pso = nil; // launch154: S13 — live VS + LIVE PS
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
@@ -436,6 +437,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				static id<MTLTexture> s_s3Tex = nil, s_s4Tex = nil; // launch145
 				static id<MTLTexture> s_s5Tex = nil, s_s6Tex = nil; // launch147
 				static id<MTLTexture> s_s7Tex = nil, s_s8Tex = nil; // launch149
+				static id<MTLTexture> s_s13Tex[4] = {}; // launch154: S13 live-PS MRT
 				if ((g5 == 5 || g5 == 6) && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -531,6 +533,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						               newTextureWithDescriptor:td3];
 						s_s8Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
+						if (!s_s13Tex[0]) // launch154 S13 MRT scratch
+							for (int i13 = 0; i13 < 4; i13++)
+								s_s13Tex[i13] = [(__bridge id<MTLDevice>)dev->Device()
+								                    newTextureWithDescriptor:td3];
 					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
@@ -1143,6 +1149,52 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						[e12 endEncoding];
 					}
+					// launch154 S13: captured pair with the LIVE pixel shader.
+					if (s_s13Tex[0] && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp13 = [MTLRenderPassDescriptor new];
+						for (int a13 = 0; a13 < 4; a13++)
+						{
+							sp13.colorAttachments[a13].texture = s_s13Tex[a13];
+							sp13.colorAttachments[a13].loadAction = MTLLoadActionClear;
+							sp13.colorAttachments[a13].storeAction = MTLStoreActionStore;
+							sp13.colorAttachments[a13].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						}
+						id<MTLRenderCommandEncoder> e13 =
+						    [cb renderCommandEncoderWithDescriptor:sp13];
+						[e13 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e13 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s13Pso || !ap.vb || !ap.ib)
+								continue;
+							[e13 setRenderPipelineState:ap.s13Pso];
+							if (ap.cb)
+							{
+								[e13 setVertexBuffer:ap.cb offset:0 atIndex:0];
+								[e13 setFragmentBuffer:ap.cb offset:0 atIndex:0];
+							}
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+								{
+									[e13 setVertexTexture:ap.vtex[vi] atIndex:vi];
+									[e13 setFragmentTexture:ap.vtex[vi] atIndex:vi];
+								}
+								if (ap.vsamp[vi])
+								{
+									[e13 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+									[e13 setFragmentSamplerState:ap.vsamp[vi] atIndex:vi];
+								}
+							}
+							[e13 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e13 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e13 endEncoding];
+					}
 					s_appQ.clear();
 				}
 				[cb commit];
@@ -1340,6 +1392,20 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							    sx12[k + 2] > 200)
 								c12++; // orange: B~0 G~127 R~255
 					Log("- p5 canaryI: S11halfshift hits=%zu S12clamp hits=%zu", c11, c12);
+				}
+				// launch154: S13 live-PS landing count (any nonzero write lands).
+				{
+					size_t c13 = 0;
+					std::string errC;
+					std::vector<uint8_t> sx13(size_t(1024) * 1024 * 4);
+					if (s_s13Tex[0] && dev->ReadbackSlice((__bridge void*)s_s13Tex[0],
+					                                      sx13.data(), 1024 * 4, 1024, 1024,
+					                                      0, 0, errC))
+						for (size_t k = 0; k + 3 < sx13.size(); k += 4)
+							if (sx13[k] > 8 || sx13[k + 1] > 8 || sx13[k + 2] > 8 ||
+							 sx13[k + 3] > 8)
+								c13++;
+					Log("- p5 canaryI: S13liveps hits=%zu", c13);
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -2357,7 +2423,7 @@ void MtlBlitToDrawable(void* srcTex, void* dstTex, uint32_t srcW, uint32_t srcH,
 			                                src.pixelFormat == MTLPixelFormatRGB9E5Float ||
 			                                src.pixelFormat == MTLPixelFormatBGRA10_XR
 			                            ? MTLFXSpatialScalerColorProcessingModeLinear
-			                            : MTLFXSpatialScalerColorProcessingModePerceptualLinear;
+			                            : MTLFXSpatialScalerColorProcessingModePerceptual;
 			id<MTLFXSpatialScaler> sc = [d newSpatialScalerWithDevice:(__bridge id<MTLDevice>)pm.dev->Device()];
 			Log("- xrRenderMetal: MetalFX spatial scaler %ux%u->%ux%u fmt %d->%d: %s", srcW, srcH,
 			    dstW, dstH, (int)src.pixelFormat, (int)dst.pixelFormat, sc ? "ready" : "nil");
@@ -4121,6 +4187,23 @@ namespace
 								                pm.cache->Pipeline(pm.dev->Device(), pd12, err12);
 								if (!ap.s12Pso)
 									Log("! p5 canaryI: S12 PSO failed: %s", err12.c_str());
+							}
+							// launch154 S13: live VS + LIVE PS (the one component
+							// every probe so far replaced with a trivial PS). If the
+							// live PS discards/zeroes real geometry fragments, S13
+							// dies while S12 lands.
+							if (psR && psR->function)
+							{
+								PipelineDesc pd13 = pdI;
+								pd13.ps = psR->function;
+								pd13.colorFormats.clear();
+								for (int i13 = 0; i13 < 4; i13++)
+									pd13.colorFormats.push_back(80);
+								std::string err13;
+								ap.s13Pso = (__bridge id<MTLRenderPipelineState>)
+								                pm.cache->Pipeline(pm.dev->Device(), pd13, err13);
+								if (!ap.s13Pso)
+									Log("! p5 canaryI: S13 PSO failed: %s", err13.c_str());
 							}
 							if (f5 && s_cyanFn)
 							{

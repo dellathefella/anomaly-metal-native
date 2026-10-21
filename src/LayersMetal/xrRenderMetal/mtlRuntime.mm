@@ -206,6 +206,34 @@ static void mtlLog(const char* fmt, ...)
 	                    condition:condition
 	                      description:description];
 }
+// NSAssertWithUserInfo — the selector the Metal debug layer actually uses
+// (launch158: raw assert + raise persisted until this override).
+- (void)handleAssertionInFile:(NSString*)fileName
+                     selector:(NSString*)selector
+                         line:(NSInteger)line
+                     userInfo:(id)userInfo
+                    condition:(NSString*)condition
+                  description:(NSString*)description
+{
+	(void)selector;
+	(void)userInfo;
+	[self handleAssertionInThread:[NSThread currentThread]
+	                         file:fileName
+	                         line:line
+	                    condition:condition
+	                      description:description];
+}
+- (void)handleFatalAssertionInFile:(NSString*)fileName
+                          selector:(NSString*)selector
+                              line:(NSInteger)line
+                          userInfo:(id)userInfo
+                         condition:(NSString*)condition
+                       description:(NSString*)description
+{
+	(void)userInfo;
+	[self handleAssertionInFile:fileName selector:selector line:line
+	                    condition:condition description:description];
+}
 - (void)handleAssertionInThread:(NSThread*)thread
                            file:(NSString*)fileName
                            line:(NSInteger)line
@@ -527,7 +555,12 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							pdF.vs = (__bridge void*)[libF newFunctionWithName:@"fsq_vs"];
 							pdF.ps = (__bridge void*)[libF newFunctionWithName:@"fsq_ps"];
 							pdF.stride = 0; // vertex-id-only VS
-							pdF.colorFormats.push_back((int)atex.pixelFormat);
+							pdF.colorFormats.clear(); // match live encoder fully
+							for (int aiF = 0; aiF < attColorCount; aiF++)
+								pdF.colorFormats.push_back(attColorFmt[aiF]);
+							pdF.depthFormat = attDepthFmt;
+							if (attDepthFmt == 260)
+								pdF.stencilFormat = attDepthFmt;
 							std::string errF;
 							s_fsqPso = (__bridge id<MTLRenderPipelineState>)
 							               cache->Pipeline(dev->Device(), pdF, errF);
@@ -3775,9 +3808,15 @@ namespace
 					}
 					if (pm.rt[0])
 						pdI.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
-					// launch128: NO depth format -> the pass-end append encoder
-					// attaches only the position RT; the in-pass draw ignores the
-					// (present but PSO-unbound) depth attachment.
+					if (pm.rt[1])
+						pdI.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[1]));
+					// launch158: match the live rpd's depth/stencil formats.
+					// Release tolerates the mismatch (draw just lands), but
+					// MTL_DEBUG_LAYER hard-asserts at setRenderPipelineState
+					// (launch157/158 died before marsh on exactly this).
+					pdI.depthFormat = pm.attDepthFmt;
+					if (pm.attDepthFmt == 260)
+						pdI.stencilFormat = pm.attDepthFmt;
 					pdI.blend.enabled = false;
 					pdI.blend.writeMask = 0xF;
 					std::string errI;
@@ -3989,6 +4028,8 @@ namespace
 							if (s_whiteFn && s_appQ.size() < 8)
 							{
 								PipelineDesc pdS = pdI;
+								pdS.depthFormat = 0; // scratch pass: depthless
+								pdS.stencilFormat = 0;
 								pdS.ps = (__bridge void*)s_whiteFn;
 								pdS.colorFormats.clear();
 								pdS.colorFormats.push_back(80); // BGRA8 scratch
@@ -4083,6 +4124,8 @@ namespace
 								if (s_greenFn)
 								{
 									PipelineDesc pdW3 = pdI;
+									pdW3.depthFormat = 0; // scratch pass: depthless
+									pdW3.stencilFormat = 0;
 									pdW3.vs = (__bridge void*)fnW2;
 									pdW3.ps = (__bridge void*)s_greenFn;
 									pdW3.colorFormats.clear();
@@ -4265,6 +4308,8 @@ namespace
 							if (f7 && s_clipFn)
 							{
 								PipelineDesc pd7 = pdI;
+								pd7.depthFormat = 0; // scratch pass: depthless
+								pd7.stencilFormat = 0;
 								pd7.vs = (__bridge void*)f7;
 								pd7.ps = (__bridge void*)s_clipFn;
 								pd7.colorFormats.clear();
@@ -4278,6 +4323,8 @@ namespace
 							if (f8 && s_mgnFn)
 							{
 								PipelineDesc pd8 = pdI;
+								pd8.depthFormat = 0; // scratch pass: depthless
+								pd8.stencilFormat = 0;
 								pd8.vs = (__bridge void*)f8;
 								pd8.ps = (__bridge void*)s_mgnFn;
 								pd8.colorFormats.clear();
@@ -4291,6 +4338,8 @@ namespace
 							if (f9 && s_ylwFn)
 							{
 								PipelineDesc pd9 = pdI;
+								pd9.depthFormat = 0; // scratch pass: depthless
+								pd9.stencilFormat = 0;
 								pd9.vs = (__bridge void*)f9;
 								pd9.ps = (__bridge void*)s_ylwFn;
 								pd9.colorFormats.clear();
@@ -4304,6 +4353,8 @@ namespace
 							if (f11 && s_limeFn)
 							{
 								PipelineDesc pd11 = pdI;
+								pd11.depthFormat = 0; // scratch pass: depthless
+								pd11.stencilFormat = 0;
 								pd11.vs = (__bridge void*)f11;
 								pd11.ps = (__bridge void*)s_limeFn;
 								pd11.colorFormats.clear();
@@ -4317,6 +4368,8 @@ namespace
 							if (f12 && s_orngFn)
 							{
 								PipelineDesc pd12 = pdI;
+								pd12.depthFormat = 0; // scratch pass: depthless
+								pd12.stencilFormat = 0;
 								pd12.vs = (__bridge void*)f12;
 								pd12.ps = (__bridge void*)s_orngFn;
 								pd12.colorFormats.clear();
@@ -4334,6 +4387,8 @@ namespace
 							if (psR && psR->function)
 							{
 								PipelineDesc pd13 = pdI;
+								pd13.depthFormat = 0; // scratch pass: depthless
+								pd13.stencilFormat = 0;
 								pd13.ps = psR->function;
 								pd13.colorFormats.clear();
 								for (int i13 = 0; i13 < 4; i13++)
@@ -4348,6 +4403,8 @@ namespace
 							if (f5 && s_cyanFn)
 							{
 								PipelineDesc pd5 = pdI;
+								pd5.depthFormat = 0; // scratch pass: depthless
+								pd5.stencilFormat = 0;
 								pd5.vs = (__bridge void*)f5;
 								pd5.ps = (__bridge void*)s_cyanFn;
 								pd5.colorFormats.clear();
@@ -4361,6 +4418,8 @@ namespace
 							if (f6 && s_redFn)
 							{
 								PipelineDesc pd6 = pdI;
+								pd6.depthFormat = 0; // scratch pass: depthless
+								pd6.stencilFormat = 0;
 								pd6.vs = (__bridge void*)f6;
 								pd6.ps = (__bridge void*)s_redFn;
 								pd6.colorFormats.clear();

@@ -59,6 +59,9 @@ struct MtlAppendCanary
 	id<MTLBuffer> ring = nil, vb = nil, ib = nil;
 	id<MTLBuffer> cb = nil; // launch130: CB bytes snapshotted at capture (the
 	                        // ring slot is overwritten by every later draw)
+	id<MTLTexture> vtex[8] = {};        // launch133: VS-stage textures exactly
+	id<MTLSamplerState> vsamp[8] = {};  // as BindDraw bound (missing VS texture
+	                                     // bindings => garbage VS => no frags)
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
 	bool valid = false;
@@ -409,6 +412,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							[ae setVertexBuffer:ap.cb offset:0 atIndex:0];
 						else if (ap.ring)
 							[ae setVertexBuffer:ap.ring offset:ap.ringOff atIndex:0];
+						for (int vi = 0; vi < 8; vi++) // launch133: VS stage state
+						{
+							if (ap.vtex[vi])
+								[ae setVertexTexture:ap.vtex[vi] atIndex:vi];
+							if (ap.vsamp[vi])
+								[ae setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+						}
 						[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
 						[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 						               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
@@ -2717,6 +2727,74 @@ namespace
 							if (ap.cb)
 								memcpy(ap.cb.contents,
 								       (const uint8_t*)pm.ring.contents + slotOff, cbLen);
+						}
+						// launch133: snapshot the VS-stage textures + samplers
+						// exactly as BindDraw just bound them (pair VSes sample
+						// lightmaps etc.; a missing VS binding feeds the VS
+						// garbage => NaN verts => zero fragments).
+						{
+							const std::array<uint8_t, 8> kindsK = ParseMslTexKinds(*vsR);
+							for (const auto& r : vsR->resources)
+							{
+								if (r.isSamplerOnly)
+									continue;
+								const uint32_t slot = r.textureSlot;
+								void* tex = slot < kMaxStage ? pm.stageTex[slot] : nullptr;
+								if (tex && slot < 8)
+								{
+									id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
+									const uint8_t kind = slot < 8 ? kindsK[slot] : kTex2D;
+									bool mismatch = false;
+									switch (kind)
+									{
+									case kTexCube:
+										mismatch = t.textureType != MTLTextureTypeCube;
+										break;
+									case kTex1D:
+										mismatch = t.textureType != MTLTextureType1D;
+										break;
+									case kTex2DArray:
+										mismatch = t.textureType != MTLTextureType2DArray;
+										break;
+									case kTex3D:
+										mismatch = t.textureType != MTLTextureType3D;
+										break;
+									default:
+										mismatch = t.textureType == MTLTextureTypeCube ||
+										           t.textureType == MTLTextureType1D ||
+										           t.textureType == MTLTextureType2DArray;
+									}
+									if (mismatch)
+									{
+										id<MTLTexture> d =
+										    MtlKindDummy((__bridge id<MTLDevice>)pm.dev->Device(),
+										                 kind);
+										if (d)
+											t = d;
+									}
+									ap.vtex[slot] = t;
+								}
+								uint32_t ss = r.samplerSlot;
+								if (ss == UINT32_MAX)
+									ss = slot;
+								if (ss >= kMaxStage)
+									ss = 0;
+								MetalDevice::SamplerDesc desc;
+								if (pm.recorded)
+								{
+									const auto& sst = pm.recorded->SamplerState(ss);
+									if (sst.valid)
+										desc = MakeSamplerDesc(sst, pm.globalBias);
+									else
+										desc = DefaultSamplerDesc(pm.globalBias);
+								}
+								else
+									desc = DefaultSamplerDesc(pm.globalBias);
+								id<MTLSamplerState> samp =
+								    (__bridge id<MTLSamplerState>)pm.dev->SamplerFull(desc);
+								if (samp && ss < 8)
+									ap.vsamp[ss] = samp;
+							}
 						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;
 						ap.ib = (__bridge id<MTLBuffer>)ds.ib;

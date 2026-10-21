@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <deque>
 #include <map>
 #include <memory>
 #include <utility>
@@ -65,6 +66,9 @@ namespace xray::metal
 		// blocks; only a 1s timeout-nil escape hatch), so we account ourselves
 		// via command-buffer completed handlers and skip frames instead.
 		std::shared_ptr<std::atomic<int>> inFlight = std::make_shared<std::atomic<int>>(0);
+		// launch133: recently committed CBs, oldest first. Bounded backlog =
+		// GL-parity swap blocking (see Present).
+		std::deque<id<MTLCommandBuffer>> inflightCBs;
 		std::map<std::pair<int, int>, id<MTLSamplerState>> samplers;
 		std::map<std::array<uint32_t, 8>, id<MTLSamplerState>> samplersFull;
 		std::map<std::pair<void*, uint32_t>, id<MTLTexture>> sliceViews;
@@ -309,6 +313,21 @@ namespace xray::metal
 				[cb commit];
 			if (m_impl->drawable) // drawable handed out but buffer dropped it
 				m_impl->inFlight->fetch_sub(1, std::memory_order_relaxed);
+		}
+		// launch133: bounded CPU ahead-run. GL's SwapBuffers blocked; here a
+		// committed CB pins every buffer it encoded until it retires, so the
+		// marsh staging churn (~10 MB-scale buffers/s) grew RSS unboundedly
+		// (launch131: 30GB with arena counts balanced).
+		if (cb)
+		{
+			m_impl->inflightCBs.push_back(cb);
+			const size_t cap =
+			    (m_impl->layer ? (size_t)m_impl->layer.maximumDrawableCount : 3u) + 1u;
+			while (m_impl->inflightCBs.size() > cap)
+			{
+				[m_impl->inflightCBs.front() waitUntilCompleted];
+				m_impl->inflightCBs.pop_front();
+			}
 		}
 		m_impl->drawable = nil;
 	}

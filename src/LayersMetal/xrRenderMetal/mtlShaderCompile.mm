@@ -66,6 +66,8 @@ namespace
 				mode = 2;
 			else if (e && !strcmp(e, "z2"))
 				mode = 3;
+			else if (e && !strcmp(e, "clamp"))
+				mode = 4; // launch149 verdict: S12 min-clamp lands full coverage
 		}
 		if (!mode)
 			return src;
@@ -85,15 +87,18 @@ namespace
 			                      @"out.gl_Position.w * 0.5;\n    return out;"
 			                    : mode == 2 ? @"out.gl_Position.w = -out.gl_Position.w;\n    "
 			                                  @"return out;"
-			                                : @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
-			                                  @"out.gl_Position.w;\n    return out;";
+			                                : mode == 3
+			                                      ? @"out.gl_Position.z = out.gl_Position.z * 0.5 + "
+			                                        @"out.gl_Position.w;\n    return out;"
+			                                      : @"out.gl_Position.z = min(out.gl_Position.z, "
+			                                        @"out.gl_Position.w * 0.9999);\n    return out;";
 			[mu replaceCharactersInRange:r withString:ins];
 			from = r.location + ins.length;
 			n++;
 		}
 		if (n)
 			fprintf(stderr, "- xrMetal CLIPFIX=%s injected x%d\n",
-			        mode == 1 ? "z" : (mode == 2 ? "w" : "z2"), n);
+			        mode == 1 ? "z" : (mode == 2 ? "w" : (mode == 3 ? "z2" : "clamp")), n);
 		return mu;
 	}
 
@@ -352,6 +357,15 @@ namespace
 			    sname.c_str(), refl.cbufferSize, changed);
 	}
 } // namespace (anon)
+
+// launch151: exposed for MtlRawIntScaledVS (mtlRuntime.mm) — raw-int masked
+// VS variants compile via newLibraryWithSource directly and bypass
+// CreateFunction, so they never received the XR_METAL_CLIPFIX injection
+// (launch150 verdict: 24 terrain/shadow raw-int variants ran unclamped).
+NSString* MtlClipFixApply(NSString* src)
+{
+	return MtlClipFixSource(src);
+}
 
 bool MtlShaderCompilerInit()
 {

@@ -242,9 +242,14 @@ uint64_t MtlDbgDrawStats(int idx)
 	}
 }
 
+	// mtlShaderCompile.mm: XR_METAL_CLIPFIX VS injection (launch151: raw-int
+	// masked VS variants bypass CreateFunction and must apply it themselves).
+	NSString* MtlClipFixApply(NSString* src);
+
 namespace
 {
 	using metal::MetalDevice;
+
 	using metal::MetalStateCache;
 	using metal::PipelineDesc;
 	using metal::DepthStencilDesc;
@@ -1691,7 +1696,8 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		if (!inserts.empty())
 			src.insert(ob + 1, "\n" + inserts);
 		NSError* err = nil;
-		id<MTLLibrary> lib = [dev newLibraryWithSource:[NSString stringWithUTF8String:src.c_str()]
+		id<MTLLibrary> lib = [dev newLibraryWithSource:MtlClipFixApply(
+		                                 [NSString stringWithUTF8String:src.c_str()])
 		                                      options:nil
 		                                        error:&err];
 		if (!lib)

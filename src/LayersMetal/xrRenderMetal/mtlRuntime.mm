@@ -15,6 +15,7 @@
 // Device-side TU: compiled WITHOUT the engine stdafx (ObjC BOOL rule); all
 // engine-type adaptation happened in mtlR_Backend_Runtime.h.
 #import <Metal/Metal.h>
+#import <MetalFX/MetalFX.h>
 #import <QuartzCore/CAMetalLayer.h>
 
 #include "mtlRuntime.h"
@@ -2329,6 +2330,46 @@ void MtlBlitToDrawable(void* srcTex, void* dstTex, uint32_t srcW, uint32_t srcH,
 	{
 		pm.dev->BlitTexture((__bridge void*)pm.cb, srcTex, dstTex);
 		return;
+	}
+	// t4: MetalFX spatial scaler for present-time upscaling (macOS 14+).
+	// Fires only when sizes differ (XR_METAL_SCALE < 1); scaler creation is
+	// cached per (sizes+formats) and a nil result permanently falls back to
+	// the plain FS-triangle path below.
+	if (__builtin_available(macOS 14.0, *))
+	{
+		static std::unordered_map<std::string, id<MTLFXSpatialScaler>> s_scalers;
+		std::string skey = std::to_string(srcW) + ":" + std::to_string(srcH) + ":" +
+		                   std::to_string(dstW) + ":" + std::to_string(dstH) + ":" +
+		                   std::to_string((int)src.pixelFormat) + ":" +
+		                   std::to_string((int)dst.pixelFormat);
+		auto itS = s_scalers.find(skey);
+		if (itS == s_scalers.end())
+		{
+			MTLFXSpatialScalerDescriptor* d = [[MTLFXSpatialScalerDescriptor alloc] init];
+			d.inputWidth = srcW;
+			d.inputHeight = srcH;
+			d.outputWidth = dstW;
+			d.outputHeight = dstH;
+			d.colorTextureFormat = src.pixelFormat;
+			d.outputTextureFormat = dst.pixelFormat;
+			d.colorProcessingMode = src.pixelFormat == MTLPixelFormatRGBA16Float ||
+			                                src.pixelFormat == MTLPixelFormatRGBA16Unorm ||
+			                                src.pixelFormat == MTLPixelFormatRGB9E5Float ||
+			                                src.pixelFormat == MTLPixelFormatBGRA10_XR
+			                            ? MTLFXSpatialScalerColorProcessingModeLinear
+			                            : MTLFXSpatialScalerColorProcessingModePerceptualLinear;
+			id<MTLFXSpatialScaler> sc = [d newSpatialScalerWithDevice:(__bridge id<MTLDevice>)pm.dev->Device()];
+			Log("- xrRenderMetal: MetalFX spatial scaler %ux%u->%ux%u fmt %d->%d: %s", srcW, srcH,
+			    dstW, dstH, (int)src.pixelFormat, (int)dst.pixelFormat, sc ? "ready" : "nil");
+			itS = s_scalers.emplace(std::move(skey), sc).first;
+		}
+		if (itS->second)
+		{
+			itS->second.colorTexture = src;
+			itS->second.outputTexture = dst;
+			[itS->second encodeToCommandBuffer:pm.cb];
+			return;
+		}
 	}
 	id<MTLRenderPipelineState> pso = pm.blitPipeline(dst.pixelFormat, false, false);
 	if (!pso)

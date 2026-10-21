@@ -142,6 +142,30 @@ static std::pair<u32, u32> sdl_drawable_size(SDL_Window* wnd)
     return { (u32)w, (u32)h };
 }
 
+// t4 (XR_METAL_SCALE): internal render scale. Engine resolution
+// (Device.dwWidth/Height -> every scene RT) shrinks; the drawable stays at
+// full window size and MtlBlitToDrawable upscales via MetalFX spatial scaler
+// (falls back to the FS-triangle path). Default 1.0 = exact legacy behavior.
+static float mtl_internal_scale()
+{
+    static float s_val = [] {
+        const char* e = getenv("XR_METAL_SCALE");
+        float f = e ? (float)atof(e) : 1.0f;
+        return f < 0.25f ? 0.25f : (f > 1.0f ? 1.0f : f);
+    }();
+    return s_val;
+}
+
+static void mtl_scaled_res(const std::pair<u32, u32>& sz, u32& engW, u32& engH, u32& drawW,
+                           u32& drawH)
+{
+    const float sc = mtl_internal_scale();
+    drawW = sz.first;
+    drawH = sz.second;
+    engW = sc < 1.f ? std::max(2u, (u32)(sz.first * sc + 0.5f)) : sz.first;
+    engH = sc < 1.f ? std::max(2u, (u32)(sz.second * sc + 0.5f)) : sz.second;
+}
+
 void CHW::CreateDevice(SDL_Window* hWnd)
 {
     ZoneScoped;
@@ -156,8 +180,10 @@ void CHW::CreateDevice(SDL_Window* hWnd)
     // device reset, which the ported paths must do themselves — GL rule).
     {
         const auto sz = sdl_drawable_size(m_window);
-        Device.dwWidth = sz.first;
-        Device.dwHeight = sz.second;
+        u32 engW = 0, engH = 0, drawW = 0, drawH = 0;
+        mtl_scaled_res(sz, engW, engH, drawW, drawH);
+        Device.dwWidth = engW;
+        Device.dwHeight = engH;
     }
 
     std::string error;
@@ -173,7 +199,8 @@ void CHW::CreateDevice(SDL_Window* hWnd)
         VERIFY(false);
         return;
     }
-    MtlDev.Resize(Device.dwWidth, Device.dwHeight);
+    const auto devDsz = sdl_drawable_size(m_window);
+    MtlDev.Resize(devDsz.first, devDsz.second);
     UpdateVSync();
 
     MtlRuntimeAttach(MtlDev, Pipelines);
@@ -206,9 +233,11 @@ void CHW::Reset()
     if (m_window)
     {
         const auto sz = sdl_drawable_size(m_window);
-        Device.dwWidth = sz.first;
-        Device.dwHeight = sz.second;
-        MtlDev.Resize(sz.first, sz.second);
+        u32 engW = 0, engH = 0, drawW = 0, drawH = 0;
+        mtl_scaled_res(sz, engW, engH, drawW, drawH);
+        Device.dwWidth = engW;
+        Device.dwHeight = engH;
+        MtlDev.Resize(drawW, drawH);
     }
     UpdateVSync();
     MtlInvalidatePass();

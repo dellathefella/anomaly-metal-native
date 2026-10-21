@@ -2221,8 +2221,10 @@ namespace
 			if (!defferI)
 			{
 				static int s_skipI = 0;
-				if (s_skipI++ < 12)
-					Log("- p5 canaryI: skip non-deffer ps=%s", psR->name.c_str());
+				if (s_skipI++ < 40)
+					Log("- p5 canaryI: skip ps=%s vsMslLen=%d psMslLen=%d tick=%d",
+					    psR->name.c_str(), (int)vsR->msl.size(), (int)psR->msl.size(),
+					    (int)(g_pgGate % 240));
 			}
 			if (defferI && rtNcI && strstr(rtNcI, "position") && indexed && ds.vb && ds.ib &&
 			    (g_pgGate + 1) % 240 == 4 && g_dbgDrawOK - s_lastI > 50000ull)

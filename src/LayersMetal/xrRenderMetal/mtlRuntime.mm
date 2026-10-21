@@ -737,11 +737,16 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							nz++;
 						if (px[k + 1] == 56)
 							nL++; // R=0.5 -> passthru fragment LANDED
-						if (px[k + 1] == 62)
+						// launch143: half hi-byte FIX — 0.75f->0x3600 (hi=54,
+						// not 62) and 0.125f->0x3000 (hi=48, not 50): the V/X
+						// flags had WRONG scan constants since introduction, so
+						// V=0/X=0 were scanner artifacts (W=52/L=56/T=60 were
+						// all correct). Re-scan with the true bytes.
+						if (px[k + 1] == 54)
 							nV++; // R=0.75 -> V-draw (trivial VS on pair VB) landed
 						if (px[k + 1] == 52)
 							nW++; // R=0.25 -> W-draw (device-ref raw VB) landed
-						if (px[k + 1] == 50)
+						if (px[k + 1] == 48)
 							nX++; // R=0.125 -> X-draw (descriptor path, good IB) landed
 						if (px[k + 3] == 60)
 							nT0++; // G=1.0 -> TEXCOORD0 interpolant alive

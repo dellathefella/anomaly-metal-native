@@ -922,7 +922,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						{
 							if (!ap.s7Pso || !ap.vb || !ap.ib)
 								continue;
-							[e4 setRenderPipelineState:ap.s4Pso];
+							[e4 setRenderPipelineState:ap.s7Pso];
 							if (ap.cb)
 								[e4 setVertexBuffer:ap.cb offset:0 atIndex:0];
 							for (int vi = 0; vi < 8; vi++)
@@ -993,6 +993,74 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							}
 						}
 						[e5 endEncoding];
+					}
+					// launch147: S8 pass (magenta, z'=0.5z+0.5w) and S9 pass
+					// (yellow, z'=0.5z+w) — separate scratches, no overwrite.
+					if (s_s5Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp8 = [MTLRenderPassDescriptor new];
+						sp8.colorAttachments[0].texture = s_s5Tex;
+						sp8.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp8.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp8.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e8 =
+						    [cb renderCommandEncoderWithDescriptor:sp8];
+						[e8 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e8 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s8Pso || !ap.vb || !ap.ib)
+								continue;
+							[e8 setRenderPipelineState:ap.s8Pso];
+							if (ap.cb)
+								[e8 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e8 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e8 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e8 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e8 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e8 endEncoding];
+					}
+					if (s_s6Tex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp9 = [MTLRenderPassDescriptor new];
+						sp9.colorAttachments[0].texture = s_s6Tex;
+						sp9.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp9.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp9.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> e9 =
+						    [cb renderCommandEncoderWithDescriptor:sp9];
+						[e9 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[e9 setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.s9Pso || !ap.vb || !ap.ib)
+								continue;
+							[e9 setRenderPipelineState:ap.s9Pso];
+							if (ap.cb)
+								[e9 setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[e9 setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[e9 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[e9 setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[e9 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[e9 endEncoding];
 					}
 					s_appQ.clear();
 				}
@@ -1142,6 +1210,25 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						Log("- p5 canaryI: S5zfix hits=%zu S6wflip hits=%zu", c5, c6);
 					}
+				}
+				// launch147: S8 (magenta, z'=0.5z+0.5w) + S9 (yellow,
+				// z'=0.5z+w) landing counts — production fix deciders.
+				{
+					size_t c8 = 0, c9 = 0;
+					std::string errC;
+					std::vector<uint8_t> sx8(size_t(1024) * 1024 * 4);
+					if (s_s5Tex && dev->ReadbackSlice((__bridge void*)s_s5Tex, sx8.data(),
+					                                  1024 * 4, 1024, 1024, 0, 0, errC))
+						for (size_t k = 0; k + 2 < sx8.size(); k += 4)
+							if (sx8[k] > 200 && sx8[k + 2] > 200 && sx8[k + 1] < 60)
+								c8++; // BGRA magenta: B>200,R>200,G<60
+					std::vector<uint8_t> sx9(size_t(1024) * 1024 * 4);
+					if (s_s6Tex && dev->ReadbackSlice((__bridge void*)s_s6Tex, sx9.data(),
+					                                  1024 * 4, 1024, 1024, 0, 0, errC))
+						for (size_t k = 0; k + 2 < sx9.size(); k += 4)
+							if (sx9[k + 1] > 200 && sx9[k + 2] > 200 && sx9[k] < 60)
+								c9++; // BGRA yellow: G>200,R>200,B<60
+					Log("- p5 canaryI: S8zremap hits=%zu S9zbias hits=%zu", c8, c9);
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -3789,7 +3876,6 @@ namespace
 								if (!ap.s9Pso)
 									Log("! p5 canaryI: S9 PSO failed: %s", err9.c_str());
 							}
-						}
 							if (f5 && s_cyanFn)
 							{
 								PipelineDesc pd5 = pdI;

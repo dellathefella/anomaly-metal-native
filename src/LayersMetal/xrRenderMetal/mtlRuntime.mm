@@ -356,6 +356,49 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					                                          // encoder defaults to
 					                                          // CullBack — DX9 CW-front
 					                                          // geometry vanishes
+					// launch132: full-screen discriminator — self-contained
+					// trivial pipeline writes R=0.5 (the L flag) everywhere.
+					// L>0 => append encoder+readback healthy and the pair
+					// draws' failure is VS-side; L=0 => the append path itself
+					// cannot write this texture.
+					static id<MTLRenderPipelineState> s_fsqPso = nil;
+					static bool s_fsqTried = false;
+					if (!s_fsqTried)
+					{
+						s_fsqTried = true;
+						id<MTLDevice> devF = (__bridge id<MTLDevice>)dev->Device();
+						NSString* srcF = @"#include <metal_stdlib>\n"
+						                 "using namespace metal;\n"
+						                 "vertex float4 fsq_vs(uint vid [[vertex_id]]) {\n"
+						                 "  const float2 p[3] = { float2(-1.0,-1.0), float2(3.0,-1.0), "
+						                 "float2(-1.0,3.0) };\n"
+						                 "  return float4(p[vid], 0.5, 1.0);\n"
+						                 "}\n"
+						                 "fragment float4 fsq_ps() { return float4(0.5, 0.5, 0.5, 0.5); }\n";
+						NSError* eF = nil;
+						id<MTLLibrary> libF = [devF newLibraryWithSource:srcF options:nil error:&eF];
+						if (libF)
+						{
+							PipelineDesc pdF;
+							pdF.vs = (__bridge void*)[libF newFunctionWithName:@"fsq_vs"];
+							pdF.ps = (__bridge void*)[libF newFunctionWithName:@"fsq_ps"];
+							pdF.stride = 0; // vertex-id-only VS
+							pdF.colorFormats.push_back((int)atex.pixelFormat);
+							std::string errF;
+							s_fsqPso = (__bridge id<MTLRenderPipelineState>)
+							               cache->Pipeline(dev->Device(), pdF, errF);
+							if (!s_fsqPso)
+								Log("! p5 canaryI: fsq PSO failed: %s", errF.c_str());
+						}
+						else
+							Log("! p5 canaryI: fsq lib failed: %s",
+							    [[eF localizedDescription] UTF8String]);
+					}
+					if (s_fsqPso)
+					{
+						[ae setRenderPipelineState:s_fsqPso];
+						[ae drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+					}
 					int drawn = 0;
 					for (const auto& ap : s_appQ)
 					{

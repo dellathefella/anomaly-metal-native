@@ -270,12 +270,29 @@ namespace xray::metal
 	{
 		static uint64_t s_presentN = 0;
 		if (++s_presentN % 120 == 0)
-			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu\n",
+		{
+			// launch132: live arena BYTES (buffers: exact length; textures:
+			// w*h*4*4/3 rough) — separates engine-side retention from
+			// driver-side retention of released resources.
+			unsigned long long bufMB = 0, texMB = 0;
+			for (id<NSObject> o : m_impl->arena)
+			{
+				if ([o isKindOfClass:[NSObject class]] && [o respondsToSelector:@selector(textureType)])
+				{
+					id<MTLTexture> t = (id<MTLTexture>)o;
+					texMB += (unsigned long long)t.width * t.height * 4ull * 4 / 3;
+				}
+				else if ([o respondsToSelector:@selector(length)])
+					bufMB += [(id<MTLBuffer>)o length];
+			}
+			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu liveBufMB=%llu liveTexMB~=%llu\n",
 			        (unsigned long long)s_presentN,
 			        (unsigned long long)(MtlCurRSSBytes() >> 20),
 			        (unsigned long long)g_mtlTexCreated.load(),
 			        (unsigned long long)g_mtlBufCreated.load(),
-			        (unsigned long long)g_mtlResReleased.load());
+			        (unsigned long long)g_mtlResReleased.load(),
+			        bufMB >> 20, texMB >> 20);
+		}
 		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
 		if (cb && m_impl->drawable)
 		{

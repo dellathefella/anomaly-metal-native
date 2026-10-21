@@ -2114,6 +2114,12 @@ void MtlDbgDumpPairs()
 //      pass destroys even the clear => other.
 void MtlDbgBisectProbe(void* rt, void* rt2, void* zb)
 {
+	// Debug-layer runs skip this legacy probe: its synthetic PSO/formats were
+	// never declared (verdict closed in launch103) and MTL_DEBUG_LAYER aborts
+	// on the mismatch before marsh (launch160).
+	static const int s_bisectDbgOff = getenv("MTL_DEBUG_LAYER") ? 1 : 0;
+	if (s_bisectDbgOff)
+		return;
 	MtlPassManager& pm = PM();
 	if (!pm.dev || !rt)
 		return;

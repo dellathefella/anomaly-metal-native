@@ -65,8 +65,8 @@ struct MtlAppendCanary
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
 	uint32_t stride = 0; // launch134: for the V-draw discriminator PSO
-	id<MTLRenderPipelineState> probe = nil; // launch136: P-probe pipeline —
-	int probeSlot = -1;                     // pair VS wrapped to log gl_Position
+	id<MTLRenderPipelineState> sPso = nil; // launch138: S-draw — pair VS + white
+	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
 static MtlAppendCanary s_appI; // legacy single slot
@@ -346,10 +346,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// draws of this pass, so nothing can overwrite them before the
 				// readback. launch129: up to 8 captured draws per window (one
 				// small off-screen mesh rasterizes nothing and reads as zero).
-				// launch136: P-probe scratch — per-slot regions: [0]=count,
-				// [64..]=float4 positions. Declared out here so the readback
-				// (after commit+wait) can see it.
-				static id<MTLBuffer> s_probeBuf = nil;
+				// launch138: S-draw scratch RT (1024² BGRA8, cleared each
+				// window). Declared out here so the readback (after
+				// commit+wait) can see it.
+				static id<MTLTexture> s_sTex = nil;
 				if (g_pgGate % 240 == 5 && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -410,12 +410,17 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						[ae drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 					}
 					int drawn = 0;
-					if (!s_probeBuf)
-						s_probeBuf = [(__bridge id<MTLDevice>)dev->Device()
-						    newBufferWithLength:8 * 8192
-						                options:MTLResourceStorageModeShared];
-					if (s_probeBuf)
-						memset(s_probeBuf.contents, 0, 8 * 8192);
+					if (!s_sTex)
+					{
+						MTLTextureDescriptor* tdS = [MTLTextureDescriptor
+						    texture2DDescriptorWithPixelFormat:(MTLPixelFormat)80
+						                                 width:1024
+						                                height:1024
+						                             mipmapped:NO];
+						tdS.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+						s_sTex = [(__bridge id<MTLDevice>)dev->Device()
+						              newTextureWithDescriptor:tdS];
+					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
 					static bool s_vTried = false;
@@ -435,13 +440,15 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							id<MTLDevice> devV = (__bridge id<MTLDevice>)dev->Device();
 							NSString* srcV = @"#include <metal_stdlib>\n"
 							                 "using namespace metal;\n"
-							                 // launch136 FIX: attribute-style input — the
-							                 // device-ref form ignores the vertex
-							                 // descriptor and read buffer(0) (the CB!)
-							                 // with stride sizeof(T), which is why
-							                 // launch135's V-draw landed nothing.
-							                 "vertex float4 vbc_vs(float4 p [[attribute(0)]]) {\n"
-							                 "  return float4(p.x * 0.002, p.y * 0.002, 0.5, 1.0);\n"
+							                 // launch138: stage_in-struct form — this
+							                 // toolchain rejects DIRECT vertex inputs
+							                 // ('invalid type float4 for input
+							                 // declaration in a vertex function');
+							                 // the engine's VSes always use stage_in.
+							                 "struct vbc_in { float4 p [[attribute(0)]]; };\n"
+							                 "vertex float4 vbc_vs(vbc_in in [[stage_in]]) {\n"
+							                 "  return float4(in.p.x * 0.002, in.p.y * 0.002, 0.5, "
+							                 "1.0);\n"
 							                 "}\n"
 							                 "fragment float4 vbc_ps() { return float4(0.75, 0.25, "
 							                 "0.5, 1.0); }\n";
@@ -505,22 +512,47 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
 						                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 						               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
-						if (ap.probe && ap.probeSlot >= 0 && s_probeBuf) // launch136
-						{
-							const NSUInteger base = (NSUInteger)ap.probeSlot * 8192;
-							[ae setRenderPipelineState:ap.probe];
-							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
-							[ae setVertexBuffer:s_probeBuf offset:base atIndex:30];
-							[ae setVertexBuffer:s_probeBuf offset:base + 64 atIndex:29];
-							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
-							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
-							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
-						}
 						drawn++;
 					}
 					[ae endEncoding];
 					Log("- p5 canaryI: APPENDED pass-end n=%d", drawn);
+					// launch138: S-draw pass — clean 1024² scratch (cleared
+					// black), entries drawn with the pair VS + white PS.
+					// hits>0 + bbox => VS output valid and WHERE it
+					// projected; hits=0 => VS output dead on arrival.
+					if (s_sTex && !s_appQ.empty())
+					{
+						MTLRenderPassDescriptor* sp = [MTLRenderPassDescriptor new];
+						sp.colorAttachments[0].texture = s_sTex;
+						sp.colorAttachments[0].loadAction = MTLLoadActionClear;
+						sp.colorAttachments[0].storeAction = MTLStoreActionStore;
+						sp.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+						id<MTLRenderCommandEncoder> se =
+						    [cb renderCommandEncoderWithDescriptor:sp];
+						[se setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
+						[se setCullMode:MTLCullModeNone];
+						for (const auto& ap : s_appQ)
+						{
+							if (!ap.sPso || !ap.vb || !ap.ib)
+								continue;
+							[se setRenderPipelineState:ap.sPso];
+							if (ap.cb)
+								[se setVertexBuffer:ap.cb offset:0 atIndex:0];
+							for (int vi = 0; vi < 8; vi++)
+							{
+								if (ap.vtex[vi])
+									[se setVertexTexture:ap.vtex[vi] atIndex:vi];
+								if (ap.vsamp[vi])
+									[se setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
+							}
+							[se setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[se drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
+						[se endEncoding];
+					}
 					s_appQ.clear();
 				}
 				[cb commit];
@@ -553,30 +585,39 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					    nz, nL, nV, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
 					    g_pgGate % 240);
 				}
-				// launch136: P-probe readback — what the pair VSes actually
-				// computed as gl_Position (per-slot region of s_probeBuf).
-				if (s_probeBuf)
+				// launch138: S-draw readback — hit count + bbox on the 1024²
+				// scratch: where the pair draws projected with a clean,
+				// depth-free target. bbox centered ~ (512,512) = on-screen.
+				if (s_sTex)
 				{
-					const uint8_t* pb = (const uint8_t*)[s_probeBuf contents];
-					for (int k = 0; k < 8; k++)
+					std::vector<uint8_t> sx(size_t(1024) * 1024 * 4);
+					std::string errS2;
+					if (!dev->ReadbackSlice((__bridge void*)s_sTex, sx.data(), 1024 * 4, 1024,
+					                        1024, 0, 0, errS2))
+						Log("- p5 canaryI: Sdraw readback failed: %s", errS2.c_str());
+					else
 					{
-						const uint8_t* base = pb + k * 8192;
-						uint32_t nP = 0;
-						memcpy(&nP, base, 4);
-						if (!nP)
-							continue;
-						char line[384];
-						int off = snprintf(line, sizeof(line), "- p5 canaryI: Pprobe q%d n=%u", k,
-						                   nP);
-						for (int i = 0; i < 3 && i < (int)nP && off < 300; i++)
-						{
-							float v[4];
-							memcpy(v, base + 64 + i * 16, 16);
-							off += snprintf(line + off, sizeof(line) - off,
-							                " p%d=(%.2f %.2f %.2f %.2f)", i, v[0], v[1], v[2],
-							                v[3]);
-						}
-						Log("%s", line);
+						size_t hits = 0;
+						int x0 = 2000, y0 = 2000, x1 = -1, y1 = -1;
+						for (uint32_t yy = 0; yy < 1024; yy++)
+							for (uint32_t xx = 0; xx < 1024; xx++)
+							{
+								const uint8_t* p = sx.data() + (size_t(yy) * 1024 + xx) * 4;
+								if (p[0] | p[1] | p[2])
+								{
+									hits++;
+									if ((int)xx < x0)
+										x0 = (int)xx;
+									if ((int)xx > x1)
+										x1 = (int)xx;
+									if ((int)yy < y0)
+										y0 = (int)yy;
+									if ((int)yy > y1)
+										y1 = (int)yy;
+								}
+							}
+						Log("- p5 canaryI: Sdraw hits=%zu bbox=(%d,%d..%d,%d)", hits, x0, y0, x1,
+						    y1);
 					}
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
@@ -2917,69 +2958,57 @@ namespace
 									ap.vsamp[ss] = samp;
 							}
 						}
-						// launch136: P-probe — wrap the pair VS (text surgery,
-						// same machinery as the x2 variants) so its
-						// gl_Position lands in a scratch buffer. GPU-side
-						// truth of what the VS computes: NaN (CB/data),
-						// out-of-range (matrices), or INSIDE (raster-level).
+						// launch138: S-draw — the pair VS UNMODIFIED + a
+						// constant-white PS rendering into a clean 1024²
+						// scratch RT (cleared black, no depth). Vertex
+						// functions cannot write buffers in MSL (the
+						// launch137 P-probe was illegal), so the VS output
+						// is measured through rasterization instead: hit
+						// count + bbox say WHERE the draw projects when
+						// nothing else can interfere.
 						{
-							static std::map<std::string, id<MTLRenderPipelineState>> s_pPso;
-							id<MTLRenderPipelineState> pp = nil;
-							auto pit = s_pPso.find(vsR->name);
-							if (pit != s_pPso.end())
-								pp = pit->second;
-							else if (s_pPso.size() < 8)
+							static id<MTLFunction> s_whiteFn = nil;
+							static bool s_wTried = false;
+							if (!s_wTried)
 							{
-								const std::string sig =
-								    "main0(main0_in in [[stage_in]], constant type_Globals& "
-								    "_Globals [[buffer(0)]])";
-								const std::string head = "vertex main0_out main0(";
-								std::string srcP = vsR->msl;
-								if (srcP.find(sig) != std::string::npos &&
-								    srcP.find(head) != std::string::npos)
+								s_wTried = true;
+								id<MTLDevice> devW = (__bridge id<MTLDevice>)pm.dev->Device();
+								NSError* eW = nil;
+								id<MTLLibrary> libW =
+								    [devW newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                             "using namespace metal;\n"
+								                             "fragment float4 wps() { return "
+								                             "float4(1.0, 1.0, 1.0, 1.0); }\n"
+													   options:nil
+													     error:&eW];
+								if (libW)
 								{
-									srcP.replace(srcP.find(head), head.size(),
-									             "vertex main0_out xr_inner(");
-									srcP += "\nvertex main0_out xr_probe_vs(main0_in in "
-									        "[[stage_in]], constant type_Globals& _Globals "
-									        "[[buffer(0)]], device atomic_uint* pcount "
-									        "[[buffer(30)]], device float4* pbuf "
-									        "[[buffer(29)]])\n{ main0_out o = xr_inner(in, "
-									        "_Globals); uint i = atomic_fetch_add(pcount, 1u); "
-									        "if (i < 250u) pbuf[i] = o.gl_Position; return "
-									        "o; }\n";
-									id<MTLDevice> devP =
-									    (__bridge id<MTLDevice>)pm.dev->Device();
-									NSError* eP = nil;
-									id<MTLLibrary> libP =
-									    [devP newLibraryWithSource:[NSString
-									                                   stringWithUTF8String:srcP
-									                                               .c_str()]
-														   options:nil
-														     error:&eP];
-									if (libP)
-									{
-										PipelineDesc pdP = pdI;
-										pdP.vs = (__bridge void*)[libP
-										    newFunctionWithName:@"xr_probe_vs"];
-										std::string errP;
-										pp = (__bridge id<MTLRenderPipelineState>)
-										         pm.cache->Pipeline(pm.dev->Device(), pdP, errP);
-										if (!pp)
-											Log("! p5 canaryI: Pprobe PSO failed (%s): %s",
-											    vsR->name.c_str(), errP.c_str());
-									}
-									else
-										Log("! p5 canaryI: Pprobe compile failed (%s): %s",
-										    vsR->name.c_str(),
-										    [[eP localizedDescription] UTF8String]);
+									id<MTLFunction> fW =
+									    [libW newFunctionWithName:@"wps"];
+									s_whiteFn = fW;
 								}
-								s_pPso[vsR->name] = pp;
+								else
+									Log("! p5 canaryI: wps lib failed: %s",
+									    [[eW localizedDescription] UTF8String]);
 							}
-							if (pp && s_appQ.size() < 8)
+							if (s_whiteFn && s_appQ.size() < 8)
 							{
-								ap.probe = pp;
-								ap.probeSlot = (int)s_appQ.size();
+								PipelineDesc pdS = pdI;
+								pdS.ps = (__bridge void*)s_whiteFn;
+								pdS.colorFormats.clear();
+								pdS.colorFormats.push_back(80); // BGRA8 scratch
+								std::string errS;
+								id<MTLRenderPipelineState> sp =
+								    (__bridge id<MTLRenderPipelineState>)pm.cache->Pipeline(
+								        pm.dev->Device(), pdS, errS);
+								if (sp)
+								{
+									ap.sPso = sp;
+									ap.sSlot = (int)s_appQ.size();
+								}
+								else
+									Log("! p5 canaryI: Sdraw PSO failed (%s): %s",
+									    vsR->name.c_str(), errS.c_str());
 							}
 						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;

@@ -63,6 +63,8 @@ struct MtlAppendCanary
 	id<MTLTexture> vtex[8] = {};        // launch133: VS-stage textures exactly
 	id<MTLSamplerState> vsamp[8] = {};  // as BindDraw bound (missing VS texture
 	                                     // bindings => garbage VS => no frags)
+	id<MTLTexture> ptex[8] = {};        // launch155: PS-stage textures/samplers
+	id<MTLSamplerState> psamp[8] = {};  // (live-PS S13 needs its own bindings)
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
 	uint32_t stride = 0; // launch134: for the V-draw discriminator PSO
@@ -533,10 +535,19 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						               newTextureWithDescriptor:td3];
 						s_s8Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
-						if (!s_s13Tex[0]) // launch154 S13 MRT scratch
+						if (!s_s13Tex[0]) // launch155 S13 MRT scratch (float32:
+						{                  // NaN survives, unlike BGRA8)
+							MTLTextureDescriptor* td13 = [MTLTextureDescriptor
+							    texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float
+							                                 width:1024
+							                                height:1024
+							                             mipmapped:NO];
+							td13.usage = MTLTextureUsageRenderTarget |
+							             MTLTextureUsageShaderRead;
 							for (int i13 = 0; i13 < 4; i13++)
 								s_s13Tex[i13] = [(__bridge id<MTLDevice>)dev->Device()
-								                    newTextureWithDescriptor:td3];
+								                    newTextureWithDescriptor:td13];
+						}
 					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
@@ -1177,15 +1188,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							for (int vi = 0; vi < 8; vi++)
 							{
 								if (ap.vtex[vi])
-								{
 									[e13 setVertexTexture:ap.vtex[vi] atIndex:vi];
-									[e13 setFragmentTexture:ap.vtex[vi] atIndex:vi];
-								}
 								if (ap.vsamp[vi])
-								{
 									[e13 setVertexSamplerState:ap.vsamp[vi] atIndex:vi];
-									[e13 setFragmentSamplerState:ap.vsamp[vi] atIndex:vi];
-								}
+								if (ap.ptex[vi])
+									[e13 setFragmentTexture:ap.ptex[vi] atIndex:vi];
+								if (ap.psamp[vi])
+									[e13 setFragmentSamplerState:ap.psamp[vi] atIndex:vi];
 							}
 							[e13 setVertexBuffer:ap.vb offset:0 atIndex:1];
 							[e13 drawIndexedPrimitives:MTLPrimitiveTypeTriangle
@@ -1393,21 +1402,37 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 								c12++; // orange: B~0 G~127 R~255
 					Log("- p5 canaryI: S11halfshift hits=%zu S12clamp hits=%zu", c11, c12);
 				}
-				// launch154: S13 live-PS landing count (any nonzero write lands).
+				// launch155: S13 live-PS landing — RGBA32Float scratch so NaN
+				// survives (BGRA8 converted NaN to 0, verdict ambiguous).
 				{
-					size_t c13 = 0;
+					size_t c13 = 0, n13 = 0;
 					std::string errC;
-					std::vector<uint8_t> sx13(size_t(1024) * 1024 * 4);
+					std::vector<uint8_t> sx13(size_t(1024) * 1024 * 16);
 					if (s_s13Tex[0] && dev->ReadbackSlice((__bridge void*)s_s13Tex[0],
-					                                      sx13.data(), 1024 * 4, 1024, 1024,
-					                                      0, 0, errC))
-						for (size_t k = 0; k + 3 < sx13.size(); k += 4)
-							if (sx13[k] > 8 || sx13[k + 1] > 8 || sx13[k + 2] > 8 ||
-							 sx13[k + 3] > 8)
+					                                      sx13.data(), 1024 * 16, 1024,
+					                                      1024, 0, 0, errC))
+					{
+						const float* f13 = reinterpret_cast<const float*>(sx13.data());
+						for (size_t p = 0; p + 3 < sx13.size() / 4; p += 4)
+						{
+							bool nan = false, real = false;
+							for (int ch = 0; ch < 4; ch++)
+							{
+								const float v = f13[p + ch];
+								if (std::isnan(v))
+									nan = true;
+								else if (v > 1e-6f || v < -1e-6f)
+									real = true;
+							}
+							if (nan)
+								n13++;
+							else if (real)
 								c13++;
-					Log("- p5 canaryI: S13liveps hits=%zu", c13);
+						}
+					}
+					Log("- p5 canaryI: S13liveps real=%zu nan=%zu", c13, n13);
 				}
-				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
+id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
 				identityDirty = true;
 			}
@@ -3814,6 +3839,76 @@ namespace
 									ap.vsamp[ss] = samp;
 							}
 						}
+						// launch155: PS-stage snapshot too — the terrain VS
+						// samples nothing, so a VS-only snapshot left the S13
+						// live PS sampling UNBOUND textures (NaN out => BGRA8
+						// reads back 0 => verdict ambiguous).
+						if (psR)
+						{
+							const std::array<uint8_t, 8> kindsP = ParseMslTexKinds(*psR);
+							for (const auto& r : psR->resources)
+							{
+								if (r.isSamplerOnly)
+									continue;
+								const uint32_t slot = r.textureSlot;
+								void* tex = slot < kMaxStage ? pm.stageTex[slot] : nullptr;
+								if (tex && slot < 8)
+								{
+									id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
+									const uint8_t kind = kindsP[slot];
+									bool mismatch = false;
+									switch (kind)
+									{
+									case kTexCube:
+										mismatch = t.textureType != MTLTextureTypeCube;
+										break;
+									case kTex1D:
+										mismatch = t.textureType != MTLTextureType1D;
+										break;
+									case kTex2DArray:
+										mismatch = t.textureType != MTLTextureType2DArray;
+										break;
+									case kTex3D:
+										mismatch = t.textureType != MTLTextureType3D;
+										break;
+									default:
+										mismatch = t.textureType == MTLTextureTypeCube ||
+										           t.textureType == MTLTextureType1D ||
+										           t.textureType == MTLTextureType2DArray;
+									}
+									if (mismatch)
+									{
+										id<MTLTexture> d =
+										    MtlKindDummy((__bridge id<MTLDevice>)
+										                     pm.dev->Device(),
+										                 kind);
+										if (d)
+											t = d;
+									}
+									ap.ptex[slot] = t;
+								}
+								uint32_t ss = r.samplerSlot;
+								if (ss == UINT32_MAX)
+									ss = slot;
+								if (ss >= kMaxStage)
+									ss = 0;
+								MetalDevice::SamplerDesc sdP;
+								if (pm.recorded)
+								{
+									const auto& sst = pm.recorded->SamplerState(ss);
+									if (sst.valid)
+										sdP = MakeSamplerDesc(sst, pm.globalBias);
+									else
+										sdP = DefaultSamplerDesc(pm.globalBias);
+								}
+								else
+									sdP = DefaultSamplerDesc(pm.globalBias);
+								id<MTLSamplerState> sampP =
+								    (__bridge id<MTLSamplerState>)pm.dev->SamplerFull(sdP);
+								if (sampP && ss < 8)
+									ap.psamp[ss] = sampP;
+							}
+						}
 						// launch138: S-draw — the pair VS UNMODIFIED + a
 						// constant-white PS rendering into a clean 1024²
 						// scratch RT (cleared black, no depth). Vertex
@@ -4198,7 +4293,7 @@ namespace
 								pd13.ps = psR->function;
 								pd13.colorFormats.clear();
 								for (int i13 = 0; i13 < 4; i13++)
-									pd13.colorFormats.push_back(80);
+									pd13.colorFormats.push_back(116); // RGBA32Float
 								std::string err13;
 								ap.s13Pso = (__bridge id<MTLRenderPipelineState>)
 								                pm.cache->Pipeline(pm.dev->Device(), pd13, err13);

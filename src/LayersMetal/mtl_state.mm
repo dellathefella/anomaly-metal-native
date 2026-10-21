@@ -118,10 +118,15 @@ namespace xray::metal
 			pd.stencilAttachmentPixelFormat = (MTLPixelFormat)desc.stencilFormat;
 		}
 		const bool multiRT = !desc.colorFormats.empty();
+		// p5 DIAG (launch155): blend-off experiment gate for the live PSO path.
+		static const bool s_noBlend = [] {
+			const char* e = getenv("XR_METAL_NOBLEND");
+			return e && e[0] == '1';
+		}();
 		if (desc.blendAlpha && !multiRT)
 		{
 			MTLRenderPipelineColorAttachmentDescriptor* ca = pd.colorAttachments[0];
-			ca.blendingEnabled = YES;
+			ca.blendingEnabled = s_noBlend ? NO : YES;
 			ca.sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
 			ca.sourceAlphaBlendFactor = MTLBlendFactorSourceAlpha;
 			ca.destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;

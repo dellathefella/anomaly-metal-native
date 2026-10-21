@@ -179,6 +179,33 @@ static void mtlLog(const char* fmt, ...)
 @interface MtlLogAssertionHandler : NSAssertionHandler
 @end
 @implementation MtlLogAssertionHandler
+// NSAssert's designated entry points — MUST override these or the default
+// implementation raises NSAssertionException (launch157 abort: our
+// handleAssertionInThread: override below was never called).
+- (void)handleAssertionInFile:(NSString*)fileName
+                     selector:(NSString*)selector
+                         line:(NSInteger)line
+                    condition:(NSString*)condition
+{
+	[self handleAssertionInThread:[NSThread currentThread]
+	                         file:fileName
+	                         line:line
+	                    condition:condition
+	                      description:selector];
+}
+- (void)handleAssertionInFile:(NSString*)fileName
+                     selector:(NSString*)selector
+                         line:(NSInteger)line
+                    condition:(NSString*)condition
+                  description:(NSString*)description
+{
+	(void)selector;
+	[self handleAssertionInThread:[NSThread currentThread]
+	                         file:fileName
+	                         line:line
+	                    condition:condition
+	                      description:description];
+}
 - (void)handleAssertionInThread:(NSThread*)thread
                            file:(NSString*)fileName
                            line:(NSInteger)line
@@ -204,20 +231,37 @@ static void mtlLog(const char* fmt, ...)
 	[self handleAssertionInThread:thread file:fileName line:line
 	                  condition:condition description:description];
 }
+- (void)handleFatalAssertionInFile:(NSString*)fileName
+                          selector:(NSString*)selector
+                              line:(NSInteger)line
+                         condition:(NSString*)condition
+{
+	[self handleAssertionInFile:fileName selector:selector line:line
+	                    condition:condition description:selector];
+}
+- (void)handleFatalAssertionInFile:(NSString*)fileName
+                          selector:(NSString*)selector
+                              line:(NSInteger)line
+                         condition:(NSString*)condition
+                       description:(NSString*)description
+{
+	[self handleAssertionInFile:fileName selector:selector line:line
+	                    condition:condition description:description];
+}
 @end
 
 static void MtlInstallValidationGuard()
 {
 	if (!getenv("MTL_DEBUG_LAYER"))
 		return;
-	static BOOL s_done = NO;
-	if (s_done)
-		return;
-	s_done = YES;
-	MtlLogAssertionHandler* h = [MtlLogAssertionHandler new]; // process-lifetime
 	NSThread* t = [NSThread currentThread];
+	if ([[t threadDictionary] objectForKey:@"MtlGuardInstalled"])
+		return; // this thread already guarded
+	[[t threadDictionary] setObject:@YES forKey:@"MtlGuardInstalled"];
+	MtlLogAssertionHandler* h = [MtlLogAssertionHandler new]; // process-lifetime
 	[[t threadDictionary] setObject:h forKey:NSAssertionHandlerKey];
-	Log("- xrMetal: validation-continue assertion handler installed (render thread)");
+	Log("- xrMetal: validation-continue assertion handler installed (main-thread=%d)",
+	    (int)[t isMainThread]);
 }
 
 namespace xray::render::RENDER_NAMESPACE

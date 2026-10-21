@@ -71,6 +71,10 @@ struct MtlAppendCanary
 	id<MTLRenderPipelineState> s4Pso = nil; // launch145: S4 — clip-coords readout VS
 	id<MTLRenderPipelineState> s5Pso = nil; // launch145: S5 — z=0.5w fix only
 	id<MTLRenderPipelineState> s6Pso = nil; // launch145: S6 — w=-w flip only
+	id<MTLRenderPipelineState> s7Pso = nil; // launch147: S7 — clipdbg readout + z
+	                                        // forced (histogram of true z/w)
+	id<MTLRenderPipelineState> s8Pso = nil; // launch147: S8 — remap z'=0.5z+0.5w
+	id<MTLRenderPipelineState> s9Pso = nil; // launch147: S9 — remap z'=0.5z+w
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
@@ -422,6 +426,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// commit+wait) can see it.
 				static id<MTLTexture> s_sTex = nil;
 				static id<MTLTexture> s_s3Tex = nil, s_s4Tex = nil; // launch145
+				static id<MTLTexture> s_s5Tex = nil, s_s6Tex = nil; // launch147
 				if ((g5 == 5 || g5 == 6) && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -508,6 +513,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						s_s3Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
 						s_s4Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
+						s_s5Tex = [(__bridge id<MTLDevice>)dev->Device()
+						               newTextureWithDescriptor:td3];
+						s_s6Tex = [(__bridge id<MTLDevice>)dev->Device()
 						               newTextureWithDescriptor:td3];
 					}
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
@@ -894,7 +903,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						[se endEncoding];
 					}
-					// launch145: S4 pass (clip-coord readout) on its own scratch.
+					// launch147: S7 pass — clip-coord histogram on its own
+					// scratch. VS forces z=0.5w (so fragments survive the clip
+					// test) but forwards the ORIGINAL gl_Position through the
+					// locn30 interpolant — the PS reports true sign(w)+z/w.
 					if (s_s3Tex && !s_appQ.empty())
 					{
 						MTLRenderPassDescriptor* sp4 = [MTLRenderPassDescriptor new];
@@ -908,7 +920,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						[e4 setCullMode:MTLCullModeNone];
 						for (const auto& ap : s_appQ)
 						{
-							if (!ap.s4Pso || !ap.vb || !ap.ib)
+							if (!ap.s7Pso || !ap.vb || !ap.ib)
 								continue;
 							[e4 setRenderPipelineState:ap.s4Pso];
 							if (ap.cb)
@@ -3628,9 +3640,7 @@ namespace
 						{
 							id<MTLDevice> devP = (__bridge id<MTLDevice>)pm.dev->Device();
 							static std::map<std::string, id<MTLFunction>> s_p4, s_p5, s_p6;
-							id<MTLFunction> f4 = MtlPatchVsFn(
-							    devP, vsR->msl, "float4 clipdbg [[user(locn30)]]",
-							    "out.clipdbg = out.gl_Position", "S4", vsR->name, s_p4);
+							static std::map<std::string, id<MTLFunction>> s_p7, s_p8, s_p9;
 							id<MTLFunction> f5 = MtlPatchVsFn(
 							    devP, vsR->msl, nullptr,
 							    "out.gl_Position.z = out.gl_Position.w * 0.5", "S5",
@@ -3639,7 +3649,26 @@ namespace
 							    MtlPatchVsFn(devP, vsR->msl, nullptr,
 							                 "out.gl_Position.w = -out.gl_Position.w", "S6",
 							                 vsR->name, s_p6);
-							static id<MTLFunction> s_clipFn, s_cyanFn, s_redFn;
+							// launch147: S7 = clipdbg readout + z FORCED inside
+							// (so fragments survive to the PS and the true z/w
+							// histogram gets sampled). S8/S9 = the two candidate
+							// production remaps as landing booleans.
+							id<MTLFunction> f7 = MtlPatchVsFn(
+							    devP, vsR->msl, "float4 clipdbg [[user(locn30)]]",
+							    "out.clipdbg = out.gl_Position; out.gl_Position.z = "
+							    "out.gl_Position.w * 0.5",
+							    "S7", vsR->name, s_p7);
+							id<MTLFunction> f8 = MtlPatchVsFn(
+							    devP, vsR->msl, nullptr,
+							    "out.gl_Position.z = out.gl_Position.z * 0.5 + "
+							    "out.gl_Position.w * 0.5",
+							    "S8", vsR->name, s_p8);
+							id<MTLFunction> f9 = MtlPatchVsFn(
+							    devP, vsR->msl, nullptr,
+							    "out.gl_Position.z = out.gl_Position.z * 0.5 + "
+							    "out.gl_Position.w",
+							    "S9", vsR->name, s_p9);
+							static id<MTLFunction> s_clipFn, s_cyanFn, s_redFn, s_mgnFn, s_ylwFn;
 							static bool s_psTried = false;
 							if (!s_psTried)
 							{
@@ -3693,20 +3722,74 @@ namespace
 								else
 									Log("! p5 canaryI: rdsps lib failed: %s",
 									    [[e3 localizedDescription] UTF8String]);
+								// launch147: S8 magenta, S9 yellow.
+								NSError* e4 = nil;
+								id<MTLLibrary> l4 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 mgnps() { return "
+								                       "float4(1.0, 0.0, 1.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e4];
+								if (l4)
+									s_mgnFn = [l4 newFunctionWithName:@"mgnps"];
+								else
+									Log("! p5 canaryI: mgnps lib failed: %s",
+									    [[e4 localizedDescription] UTF8String]);
+								NSError* e5 = nil;
+								id<MTLLibrary> l5 = [devP
+								    newLibraryWithSource:@"#include <metal_stdlib>\n"
+								                       "using namespace metal;\n"
+								                       "fragment float4 ylwps() { return "
+								                       "float4(1.0, 1.0, 0.0, 1.0); }\n"
+								                         options:nil
+								                           error:&e5];
+								if (l5)
+									s_ylwFn = [l5 newFunctionWithName:@"ylwps"];
+								else
+									Log("! p5 canaryI: ylwps lib failed: %s",
+									    [[e5 localizedDescription] UTF8String]);
 							}
-							if (f4 && s_clipFn)
+							if (f7 && s_clipFn)
 							{
-								PipelineDesc pd4 = pdI;
-								pd4.vs = (__bridge void*)f4;
-								pd4.ps = (__bridge void*)s_clipFn;
-								pd4.colorFormats.clear();
-								pd4.colorFormats.push_back(80);
-								std::string err4;
-								ap.s4Pso = (__bridge id<MTLRenderPipelineState>)
-								               pm.cache->Pipeline(pm.dev->Device(), pd4, err4);
-								if (!ap.s4Pso)
-									Log("! p5 canaryI: S4 PSO failed: %s", err4.c_str());
+								PipelineDesc pd7 = pdI;
+								pd7.vs = (__bridge void*)f7;
+								pd7.ps = (__bridge void*)s_clipFn;
+								pd7.colorFormats.clear();
+								pd7.colorFormats.push_back(80);
+								std::string err7;
+								ap.s7Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd7, err7);
+								if (!ap.s7Pso)
+									Log("! p5 canaryI: S7 PSO failed: %s", err7.c_str());
 							}
+							if (f8 && s_mgnFn)
+							{
+								PipelineDesc pd8 = pdI;
+								pd8.vs = (__bridge void*)f8;
+								pd8.ps = (__bridge void*)s_mgnFn;
+								pd8.colorFormats.clear();
+								pd8.colorFormats.push_back(80);
+								std::string err8;
+								ap.s8Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd8, err8);
+								if (!ap.s8Pso)
+									Log("! p5 canaryI: S8 PSO failed: %s", err8.c_str());
+							}
+							if (f9 && s_ylwFn)
+							{
+								PipelineDesc pd9 = pdI;
+								pd9.vs = (__bridge void*)f9;
+								pd9.ps = (__bridge void*)s_ylwFn;
+								pd9.colorFormats.clear();
+								pd9.colorFormats.push_back(80);
+								std::string err9;
+								ap.s9Pso = (__bridge id<MTLRenderPipelineState>)
+								               pm.cache->Pipeline(pm.dev->Device(), pd9, err9);
+								if (!ap.s9Pso)
+									Log("! p5 canaryI: S9 PSO failed: %s", err9.c_str());
+							}
+						}
 							if (f5 && s_cyanFn)
 							{
 								PipelineDesc pd5 = pdI;

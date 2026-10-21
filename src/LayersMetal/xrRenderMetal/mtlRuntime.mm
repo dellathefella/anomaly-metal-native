@@ -4293,7 +4293,8 @@ namespace
 								pd13.ps = psR->function;
 								pd13.colorFormats.clear();
 								for (int i13 = 0; i13 < 4; i13++)
-									pd13.colorFormats.push_back(116); // RGBA32Float
+									pd13.colorFormats.push_back(
+									    (int)MTLPixelFormatRGBA32Float);
 								std::string err13;
 								ap.s13Pso = (__bridge id<MTLRenderPipelineState>)
 								                pm.cache->Pipeline(pm.dev->Device(), pd13, err13);

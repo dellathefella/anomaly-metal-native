@@ -65,6 +65,8 @@ struct MtlAppendCanary
 	NSUInteger ringOff = 0, ibOff = 0, idxCount = 0;
 	NSInteger baseV = 0;
 	uint32_t stride = 0; // launch134: for the V-draw discriminator PSO
+	id<MTLRenderPipelineState> probe = nil; // launch136: P-probe pipeline —
+	int probeSlot = -1;                     // pair VS wrapped to log gl_Position
 	bool valid = false;
 };
 static MtlAppendCanary s_appI; // legacy single slot
@@ -344,6 +346,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// draws of this pass, so nothing can overwrite them before the
 				// readback. launch129: up to 8 captured draws per window (one
 				// small off-screen mesh rasterizes nothing and reads as zero).
+				// launch136: P-probe scratch — per-slot regions: [0]=count,
+				// [64..]=float4 positions. Declared out here so the readback
+				// (after commit+wait) can see it.
+				static id<MTLBuffer> s_probeBuf = nil;
 				if (g_pgGate % 240 == 5 && !s_appQ.empty())
 				{
 					id<MTLTexture> atex = (__bridge id<MTLTexture>)pg;
@@ -404,50 +410,19 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						[ae drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 					}
 					int drawn = 0;
+					if (!s_probeBuf)
+						s_probeBuf = [(__bridge id<MTLDevice>)dev->Device()
+						    newBufferWithLength:8 * 8192
+						                options:MTLResourceStorageModeShared];
+					if (s_probeBuf)
+						memset(s_probeBuf.contents, 0, 8 * 8192);
 					static std::map<uint32_t, id<MTLRenderPipelineState>> s_vPso;
 					static id<MTLLibrary> s_vLib = nil;
 					static bool s_vTried = false;
-					static std::set<void*> s_vdDumped; // launch134: per-PSO vd dump
 					for (const auto& ap : s_appQ)
 					{
 						if (!ap.pso)
 							continue;
-						// launch134: read back the RESOLVED vertex descriptor —
-						// the CPU clip sim read raw decl offsets; the GPU reads
-						// whatever this descriptor says. A mismatch between the
-						// two = GPU reads garbage positions while CPU says
-						// "INSIDE" — exactly the observed contradiction.
-						if (s_vdDumped.insert((__bridge void*)ap.pso).second)
-						{
-							// The current SDK header dropped -vertexDescriptor
-							// from MTLRenderPipelineState; the runtime object
-							// still answers it — reach it via KVC.
-							id vdObj = nil;
-							@try
-							{
-								vdObj = [(id)ap.pso valueForKey:@"vertexDescriptor"];
-							}
-							@catch (NSException* exVd)
-							{
-							}
-							MTLVertexDescriptor* vd =
-							    [vdObj isKindOfClass:[MTLVertexDescriptor class]]
-							        ? (MTLVertexDescriptor*)vdObj
-							        : nil;
-							if (!vd)
-								Log("- p5 canaryI: psoVd unavailable (kvc=%d)", vdObj != nil);
-							else
-								for (NSUInteger ai = 0; ai < 8; ai++)
-								{
-									MTLVertexAttributeDescriptor* va = vd.attributes[ai];
-									if (va.format == MTLVertexFormatInvalid)
-										continue;
-									Log("- p5 canaryI: psoVd a%zu buf=%zu off=%zu fmt=%zu "
-									    "stride=%zu",
-									    ai, va.bufferIndex, va.offset, (NSUInteger)va.format,
-									    vd.layouts[va.bufferIndex].stride);
-								}
-						}
 						// launch134: V-draw — trivial VS reading the pair VB's
 						// position attribute (Float3@0, stream slot 1) scaled
 						// into view + constant PS (R=0.75 => byte1==62 = V
@@ -460,8 +435,12 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							id<MTLDevice> devV = (__bridge id<MTLDevice>)dev->Device();
 							NSString* srcV = @"#include <metal_stdlib>\n"
 							                 "using namespace metal;\n"
-							                 "vertex float4 vbc_vs(const device packed_float3& p "
-							                 "[[buffer(0)]]) {\n"
+							                 // launch136 FIX: attribute-style input — the
+							                 // device-ref form ignores the vertex
+							                 // descriptor and read buffer(0) (the CB!)
+							                 // with stride sizeof(T), which is why
+							                 // launch135's V-draw landed nothing.
+							                 "vertex float4 vbc_vs(float4 p [[attribute(0)]]) {\n"
 							                 "  return float4(p.x * 0.002, p.y * 0.002, 0.5, 1.0);\n"
 							                 "}\n"
 							                 "fragment float4 vbc_ps() { return float4(0.75, 0.25, "
@@ -526,6 +505,18 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
 						                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
 						               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						if (ap.probe && ap.probeSlot >= 0 && s_probeBuf) // launch136
+						{
+							const NSUInteger base = (NSUInteger)ap.probeSlot * 8192;
+							[ae setRenderPipelineState:ap.probe];
+							[ae setVertexBuffer:ap.vb offset:0 atIndex:1];
+							[ae setVertexBuffer:s_probeBuf offset:base atIndex:30];
+							[ae setVertexBuffer:s_probeBuf offset:base + 64 atIndex:29];
+							[ae drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							               indexCount:ap.idxCount indexType:MTLIndexTypeUInt16
+							                 indexBuffer:ap.ib indexBufferOffset:ap.ibOff
+							               instanceCount:1 baseVertex:ap.baseV baseInstance:0];
+						}
 						drawn++;
 					}
 					[ae endEncoding];
@@ -561,6 +552,32 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					    "tick=%d",
 					    nz, nL, nV, nT0, nT1, px[mid], px[mid + 1], px[mid + 2], px[mid + 3],
 					    g_pgGate % 240);
+				}
+				// launch136: P-probe readback — what the pair VSes actually
+				// computed as gl_Position (per-slot region of s_probeBuf).
+				if (s_probeBuf)
+				{
+					const uint8_t* pb = (const uint8_t*)[s_probeBuf contents];
+					for (int k = 0; k < 8; k++)
+					{
+						const uint8_t* base = pb + k * 8192;
+						uint32_t nP = 0;
+						memcpy(&nP, base, 4);
+						if (!nP)
+							continue;
+						char line[384];
+						int off = snprintf(line, sizeof(line), "- p5 canaryI: Pprobe q%d n=%u", k,
+						                   nP);
+						for (int i = 0; i < 3 && i < (int)nP && off < 300; i++)
+						{
+							float v[4];
+							memcpy(v, base + 64 + i * 16, 16);
+							off += snprintf(line + off, sizeof(line) - off,
+							                " p%d=(%.2f %.2f %.2f %.2f)", i, v[0], v[1], v[2],
+							                v[3]);
+						}
+						Log("%s", line);
+					}
 				}
 				id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -2898,6 +2915,71 @@ namespace
 								    (__bridge id<MTLSamplerState>)pm.dev->SamplerFull(desc);
 								if (samp && ss < 8)
 									ap.vsamp[ss] = samp;
+							}
+						}
+						// launch136: P-probe — wrap the pair VS (text surgery,
+						// same machinery as the x2 variants) so its
+						// gl_Position lands in a scratch buffer. GPU-side
+						// truth of what the VS computes: NaN (CB/data),
+						// out-of-range (matrices), or INSIDE (raster-level).
+						{
+							static std::map<std::string, id<MTLRenderPipelineState>> s_pPso;
+							id<MTLRenderPipelineState> pp = nil;
+							auto pit = s_pPso.find(vsR->name);
+							if (pit != s_pPso.end())
+								pp = pit->second;
+							else if (s_pPso.size() < 8)
+							{
+								const std::string sig =
+								    "main0(main0_in in [[stage_in]], constant type_Globals& "
+								    "_Globals [[buffer(0)]])";
+								const std::string head = "vertex main0_out main0(";
+								std::string srcP = vsR->msl;
+								if (srcP.find(sig) != std::string::npos &&
+								    srcP.find(head) != std::string::npos)
+								{
+									srcP.replace(srcP.find(head), head.size(),
+									             "vertex main0_out xr_inner(");
+									srcP += "\nvertex main0_out xr_probe_vs(main0_in in "
+									        "[[stage_in]], constant type_Globals& _Globals "
+									        "[[buffer(0)]], device atomic_uint* pcount "
+									        "[[buffer(30)]], device float4* pbuf "
+									        "[[buffer(29)]])\n{ main0_out o = xr_inner(in, "
+									        "_Globals); uint i = atomic_fetch_add(pcount, 1u); "
+									        "if (i < 250u) pbuf[i] = o.gl_Position; return "
+									        "o; }\n";
+									id<MTLDevice> devP =
+									    (__bridge id<MTLDevice>)pm.dev->Device();
+									NSError* eP = nil;
+									id<MTLLibrary> libP =
+									    [devP newLibraryWithSource:[NSString
+									                                   stringWithUTF8String:srcP
+									                                               .c_str()]
+														   options:nil
+														     error:&eP];
+									if (libP)
+									{
+										PipelineDesc pdP = pdI;
+										pdP.vs = (__bridge void*)[libP
+										    newFunctionWithName:@"xr_probe_vs"];
+										std::string errP;
+										pp = (__bridge id<MTLRenderPipelineState>)
+										         pm.cache->Pipeline(pm.dev->Device(), pdP, errP);
+										if (!pp)
+											Log("! p5 canaryI: Pprobe PSO failed (%s): %s",
+											    vsR->name.c_str(), errP.c_str());
+									}
+									else
+										Log("! p5 canaryI: Pprobe compile failed (%s): %s",
+										    vsR->name.c_str(),
+										    [[eP localizedDescription] UTF8String]);
+								}
+								s_pPso[vsR->name] = pp;
+							}
+							if (pp && s_appQ.size() < 8)
+							{
+								ap.probe = pp;
+								ap.probeSlot = (int)s_appQ.size();
 							}
 						}
 						ap.vb = (__bridge id<MTLBuffer>)ds.vb;

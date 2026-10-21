@@ -8,6 +8,9 @@
 // mapping header lives in the device-layer subdir.
 #include "xrRenderMetal/mtl_dx9_map.h"
 
+#include <mach/mach.h>
+
+#include <cstdio>
 #include <unordered_map>
 
 namespace xray::metal
@@ -151,6 +154,20 @@ namespace xray::metal
 			return nullptr;
 		}
 		m_impl->cache[key] = pso;
+		// launch131 LEAK HEARTBEAT (strip in t6): PSO churn + RSS.
+		{
+			static uint64_t s_psoN = 0;
+			if (++s_psoN % 100 == 0)
+			{
+				task_vm_info_data_t vi;
+				mach_msg_type_number_t cnt = TASK_VM_INFO_COUNT;
+				unsigned long long rss = 0;
+				if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&vi, &cnt) == KERN_SUCCESS)
+					rss = (unsigned long long)((uint64_t)vi.internal + vi.compressed) >> 20;
+				fprintf(stderr, "- p5 leakbeat: pso=%llu cached=%zu rss=%lluMB\n",
+				        (unsigned long long)s_psoN, m_impl->cache.size(), rss);
+			}
+		}
 		return (__bridge void*)pso;
 	}
 

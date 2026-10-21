@@ -11,6 +11,8 @@
 
 #import "mtl_device.h"
 
+#include <mach/mach.h>
+
 #include <SDL.h>
 #include <SDL_syswm.h>
 
@@ -18,6 +20,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <map>
 #include <memory>
 #include <utility>
@@ -26,6 +29,17 @@
 // deprecated legacy API, still exported by CoreGraphics (same route as the
 // GL path's occlusion guard): catches the screen lock where occlusion lags.
 extern "C" CFDictionaryRef CGSessionCopyCurrentDictionary(void);
+
+// launch131 LEAK HEARTBEAT (strip in t6): resource creation counters + RSS.
+static std::atomic<uint64_t> g_mtlTexCreated{ 0 }, g_mtlBufCreated{ 0 }, g_mtlResReleased{ 0 };
+static uint64_t MtlCurRSSBytes()
+{
+	task_vm_info_data_t vi;
+	mach_msg_type_number_t cnt = TASK_VM_INFO_COUNT;
+	if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&vi, &cnt) != KERN_SUCCESS)
+		return 0;
+	return (uint64_t)vi.internal + vi.compressed;
+}
 
 namespace xray::metal
 {
@@ -59,7 +73,10 @@ namespace xray::metal
 		id<NSObject> retain(id<NSObject> obj)
 		{
 			if (obj)
+			{
 				arena.push_back(obj);
+				g_mtlTexCreated++; // 3D/cube/array textures route here (leakbeat)
+			}
 			return obj;
 		}
 	};
@@ -248,8 +265,17 @@ namespace xray::metal
 		return true;
 	}
 
+	// launch131: Present() carries the leakbeat (see top of file).
 	void MetalDevice::Present(void* commandBuffer)
 	{
+		static uint64_t s_presentN = 0;
+		if (++s_presentN % 120 == 0)
+			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu\n",
+			        (unsigned long long)s_presentN,
+			        (unsigned long long)(MtlCurRSSBytes() >> 20),
+			        (unsigned long long)g_mtlTexCreated.load(),
+			        (unsigned long long)g_mtlBufCreated.load(),
+			        (unsigned long long)g_mtlResReleased.load());
 		id<MTLCommandBuffer> cb = (__bridge id<MTLCommandBuffer>)commandBuffer;
 		if (cb && m_impl->drawable)
 		{
@@ -304,7 +330,10 @@ namespace xray::metal
 			return nullptr;
 		id<MTLBuffer> buf = [m_impl->device newBufferWithLength:bytes options:MTLResourceStorageModeShared];
 		if (buf)
+		{
 			m_impl->arena.push_back(buf); // device-owned arena; borrowed handle back
+			g_mtlBufCreated++; // leakbeat
+		}
 		return (__bridge void*)buf;
 	}
 
@@ -329,7 +358,10 @@ namespace xray::metal
 			td.usage |= MTLTextureUsageShaderRead;
 		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
 		if (tex)
+		{
 			m_impl->arena.push_back(tex);
+			g_mtlTexCreated++; // leakbeat
+		}
 		return (__bridge void*)tex;
 	}
 
@@ -343,6 +375,7 @@ namespace xray::metal
 			if (*it == target)
 			{
 				m_impl->arena.erase(it);
+				g_mtlResReleased++; // leakbeat
 				return;
 			}
 		}

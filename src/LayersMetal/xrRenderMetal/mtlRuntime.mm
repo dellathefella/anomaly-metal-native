@@ -334,7 +334,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		{
 			void* pg = pendingPostGeom;
 			pendingPostGeom = nullptr;
-			if (++g_pgGate % 240 < 7) // launch110: read canaryG(0)/vscanary(1)/H2(2)/H3(3)/canaryI(5->6)
+			if (++g_pgGate % 240 == 5) // launch131: 1 readback window/240 (was 7 —
 			{
 				// launch128/129: canaryI pass-end appends — after ALL engine
 				// draws of this pass, so nothing can overwrite them before the

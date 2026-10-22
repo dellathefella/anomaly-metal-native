@@ -4362,6 +4362,20 @@ namespace
 				Log("! xrRenderMetal: unknown topology %u in draw", topology);
 			return false;
 		}
+		// p5 launch244: does the sun accum cuboid/mask reach the encoder?
+		if (pair && strstr(pair->name.c_str(), "accum_sun"))
+		{
+			static int s_adN = 0;
+			if (s_adN++ < 12)
+			{
+				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s zb=%p bl=%d mask=%X zE=%d zF=%d "
+				    "vp=%.0fx%.0f",
+				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.zb,
+				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, (int)pm.depthEn,
+				    pm.depthFunc, pm.vpW, pm.vpH);
+			}
+		}
 		if (indexed)
 		{
 			if (!ds.ib)

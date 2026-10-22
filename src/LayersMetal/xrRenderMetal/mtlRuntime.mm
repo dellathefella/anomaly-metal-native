@@ -4850,38 +4850,64 @@ namespace
 							// baseVertex 0 — tests whether the DX9
 							// (relative-index + baseVertex) convention is what
 							// kills coverage. Plus raw index dump below.
+							// launch281: red is now BAKED (idx+baseV into
+							// scratch, baseVertex 0) — identical semantics to
+							// the additive form. Red lands => the baseVertex
+							// PARAMETER itself is broken on this runtime.
+							// Cyan lands but red dies => vertices are NOT at
+							// baseV*stride (lock-offset mismatch, engine side).
 							{
 								id<MTLDevice> mdevC2 =
 								        (__bridge id<MTLDevice>)pm.dev->Device();
+								id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
+								const uint16_t* ix = ibB ? (const uint16_t*)ibB.contents : nullptr;
+								static id<MTLBuffer> s_bake = nil;
+								const NSUInteger need = (NSUInteger)primCount * 2;
+								if (ix && (!s_bake || [s_bake length] < need))
+									s_bake = [mdevC2
+									            newBufferWithLength:(need < 65536 ? (NSUInteger)65536
+									                                          : need * 2)
+									                      options:MTLResourceStorageModeShared];
 								const float colC[4] = { 0.0f, 1.0f, 1.0f, 1.0f };
 								id<MTLBuffer> pbC = [mdevC2 newBufferWithBytes:colC
 								                                      length:sizeof(colC)
 								                                    options:MTLResourceStorageModeShared];
-								if (pbC)
+								if (ix && s_bake && pbC)
 								{
+									uint16_t* bk = (uint16_t*)[s_bake contents];
+									for (NSUInteger q = 0; q < need / 2; q++)
+										bk[q] = (uint16_t)(ix[startI + q] + (uint16_t)baseV);
 									[pm.enc setFragmentBuffer:pbC offset:0 atIndex:0];
 									[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 									                   indexCount:primCount
 									                    indexType:MTLIndexTypeUInt16
-									                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
-									            indexBufferOffset:(NSUInteger)startI * 2
+									                  indexBuffer:s_bake
+									            indexBufferOffset:0
 									                  instanceCount:1
 									                     baseVertex:0
 									                   baseInstance:0];
 								}
-								id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
-								const uint16_t* ix = ibB ? (const uint16_t*)ibB.contents : nullptr;
 								if (ix)
 								{
-									char xb[128];
+									id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;
+									const float* vAt =
+									    vbB ? (const float*)vbB.contents : nullptr;
+									const float* vB =
+									    vAt ? vAt + (size_t)baseV * (ds.vbStride / 4) : nullptr;
+									char xb[192];
 									int xo = 0;
-									for (int q = 0; q < 8; q++)
-										xo += snprintf(xb + xo, sizeof(xb) - xo, "%u ",
-										               ix[startI + q]);
+									xo += snprintf(xb + xo, sizeof(xb) - xo,
+									               "v@bV=(%.1f %.1f %.1f %.1f)",
+									               vB ? vB[0] : 0.f, vB ? vB[1] : 0.f,
+									               vB ? vB[2] : 0.f, vB ? vB[3] : 0.f);
+									snprintf(xb + xo, sizeof(xb) - xo, " v@0=(%.1f %.1f %.1f %.1f)",
+									         vAt ? vAt[0] : 0.f, vAt ? vAt[1] : 0.f,
+									         vAt ? vAt[2] : 0.f, vAt ? vAt[3] : 0.f);
 									Log("- p5 accix: ib=%p len=%llu startI=%u baseV=%u pc=%u "
-									    "idx=[%s]",
+									    "idx=[%u %u %u %u] %s",
 									    (void*)ds.ib, (unsigned long long)[ibB length],
 									    (unsigned)startI, (unsigned)baseV, (unsigned)primCount,
+									    ix[startI], ix[startI + 1], ix[startI + 2], ix[startI + 3],
 									    xb);
 								}
 							}

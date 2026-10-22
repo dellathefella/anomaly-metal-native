@@ -305,6 +305,8 @@ void CEnvironment::SetWeather(shared_str name, bool forced)
 	//. if(bAlready) return;
 	if (name.size())
 	{
+		// p5 launch238: who switches the weather cycle, and to what?
+		Msg("- p5 setwthr: name=%s forced=%d", *name, forced);
 		//. bAlready = TRUE;
 		EnvsMapIt it = WeatherCycles.find(name);
 		if (it == WeatherCycles.end())
@@ -335,6 +337,8 @@ void CEnvironment::SetWeather(shared_str name, bool forced)
 
 bool CEnvironment::SetWeatherFX(shared_str name)
 {
+	// p5 launch238: weather-FX activation (rain/storm effects).
+	Msg("- p5 setwfx: name=%s bWFX=%d", *name, bWFX);
 	if (bWFX) return false;
 	if (name.size())
 	{

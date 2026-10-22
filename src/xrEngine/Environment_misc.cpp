@@ -507,9 +507,12 @@ void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescrip
 	{
 		static int s_elN = 0;
 		if ((s_elN++ % 240) == 0)
-			Msg("- p5 envlerp: n=%d f=%.2f A=(%.3f %.3f %.3f) B=(%.3f %.3f %.3f) out=(%.3f %.3f %.3f)",
-				s_elN, f, A.sun_color.x, A.sun_color.y, A.sun_color.z,
-				B.sun_color.x, B.sun_color.y, B.sun_color.z, sun_color.x, sun_color.y, sun_color.z);
+			Msg("- p5 envlerp: n=%d f=%.2f A=%s B=%s Asun=(%.3f %.3f %.3f) Bsun=(%.3f %.3f %.3f) Ahemi=(%.3f %.3f %.3f) Afog=(%.3f %.3f %.3f)",
+				s_elN, f, *A.m_identifier, *B.m_identifier,
+				A.sun_color.x, A.sun_color.y, A.sun_color.z,
+				B.sun_color.x, B.sun_color.y, B.sun_color.z,
+				A.hemi_color.x, A.hemi_color.y, A.hemi_color.z,
+				A.fog_color.x, A.fog_color.y, A.fog_color.z);
 	}
 
 	if (rain_density > 0.f)

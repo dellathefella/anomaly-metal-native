@@ -4374,6 +4374,57 @@ namespace
 				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.zb,
 				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, (int)pm.depthEn,
 				    pm.depthFunc, pm.vpW, pm.vpH);
+				// launch245: what CB floats does the sun PS actually read?
+				if (psR && pm.psSize && !pm.staging.empty())
+				{
+					for (const auto& u : psR->uniforms)
+						if (u.name != "m_shadow" && u.name != "m_sunmask" && u.name != "m_texgen" &&
+						    u.name != "view_shadow_proj" && u.offset + 16 <= pm.psSize)
+						{
+							const float* q = reinterpret_cast<const float*>(
+							    pm.staging.data() + Align16(pm.vsSize) + u.offset);
+							Log("- p5 acccb: %s off=%u (%.4g %.4g %.4g %.4g)", u.name.c_str(),
+							    u.offset, q[0], q[1], q[2], q[3]);
+						}
+				}
+				// launch246: stencil plane of the accum DSV (previous committed
+				// frame) — did the mask quad write the light marker?
+				if (s_adN >= 3 && s_adN <= 5 && pm.zb)
+				{
+					id<MTLTexture> zt = (__bridge id<MTLTexture>)pm.zb;
+					if (zt.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
+					{
+						id<MTLTexture> sv =
+						    [zt newTextureViewWithPixelFormat:MTLPixelFormatStencil8];
+						if (sv)
+						{
+							const uint32_t sw = (uint32_t)zt.width, sh = (uint32_t)zt.height;
+							std::vector<uint8_t> sb(size_t(sw) * sh);
+							std::string serr;
+							if (pm.dev->ReadbackSlice((__bridge void*)sv, sb.data(), sw, sw, sh, 0,
+							                          0, serr))
+							{
+								size_t snz = 0;
+								uint32_t hist[16] = { 0 };
+								for (size_t k = 0; k < sb.size(); k++)
+								{
+									if (sb[k])
+										snz++;
+									if (sb[k] < 16)
+										hist[sb[k]]++;
+								}
+								Log("- p5 strb: n=%d %ux%u nz=%zu/%zu h[1..7]=%u,%u,%u,%u,%u,%u,%u",
+								    s_adN, sw, sh, snz, sb.size(), hist[1], hist[2], hist[3],
+								    hist[4], hist[5], hist[6], hist[7]);
+							}
+							else
+								Log("! p5 strb: failed %s", serr.c_str());
+						}
+					}
+					else
+						Log("- p5 strb: n=%d zb fmt=%ld (no stencil plane)", s_adN,
+						    (long)zt.pixelFormat);
+				}
 			}
 		}
 		if (indexed)

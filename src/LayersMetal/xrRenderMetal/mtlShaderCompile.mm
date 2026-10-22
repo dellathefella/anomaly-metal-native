@@ -865,6 +865,23 @@ namespace
 	}
 } // namespace
 
+// p5 launch228: DXBC translator renames the DX9 vertex-color semantics on
+// one side of the interface: VS outputs carry COLOR/COLOR0/1/2 while PS
+// inputs read TEXCOORD10/11/12 (and the ffp path already aliases via
+// MapFfpInputSemantic). Pure name matching misses the pair and "adds" a
+// zero-filled VS output — every such PS then multiplies vertex color by 0
+// (rain stubs painted accum/albedo black, launch224-227 black-world hunt).
+static std::string V2PSemAlias(const std::string& s)
+{
+	if (s == "TEXCOORD10" || s == "COLOR")
+		return "COLOR0";
+	if (s == "TEXCOORD11")
+		return "COLOR1";
+	if (s == "TEXCOORD12")
+		return "COLOR2";
+	return s;
+}
+
 bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageRefl& outVs,
                        MtlStageRefl& outPs, std::string& error)
 {
@@ -881,7 +898,7 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	int maxLocn = -1;
 	for (size_t i = 0; i < vf.size(); i++)
 	{
-		vmap[vf[i].sem] = i;
+		vmap[V2PSemAlias(vf[i].sem)] = i;
 		if (vf[i].locn > maxLocn)
 			maxLocn = vf[i].locn;
 	}
@@ -897,7 +914,7 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	for (size_t i = 0; i < pf.size(); i++)
 	{
 		const V2PField& p = pf[i];
-		const auto it = vmap.find(p.sem);
+		const auto it = vmap.find(V2PSemAlias(p.sem));
 		if (it == vmap.end())
 		{
 			added.emplace_back(p.sem, ++maxLocn, p.width);

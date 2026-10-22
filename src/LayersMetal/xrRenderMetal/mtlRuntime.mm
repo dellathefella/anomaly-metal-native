@@ -518,6 +518,77 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			void* pgAlb = pendingPostGeomAlb;
 			pendingPostGeom = nullptr;
 			pendingPostGeomAlb = nullptr;
+			// p5 launch228: LIVE content probes (the S13/canary window below is
+			// disabled; these read only settled textures after commit+wait —
+			// no replay state, safe). postalb: does the gbuffer ever paint
+			// albedo? deftex: is the bound diffuse texture's content alive?
+			{
+				static uint64_t s_lcTick = 0;
+				static int s_paN = 0, s_dtN = 0;
+				const uint64_t tk = s_lcTick++;
+				void* dt = pendingDefferTex;
+				const bool wantAlb = pgAlb && (tk % 20 == 7) && s_paN < 20;
+				const bool wantDt = dt && (tk % 20 == 11) && s_dtN < 12;
+				if ((wantAlb || wantDt) && cb)
+				{
+					[cb commit];
+					[cb waitUntilCompleted];
+					// fresh CB: the encoder we are about to build needs one.
+					cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+					if (wantAlb)
+					{
+						s_paN++;
+						id<MTLTexture> at = (__bridge id<MTLTexture>)pgAlb;
+						const uint32_t aw = (uint32_t)at.width, ah = (uint32_t)at.height;
+						std::vector<uint8_t> ab(size_t(aw) * ah * 4);
+						std::string aerr;
+						if (dev->ReadbackSlice(pgAlb, ab.data(), aw * 4, aw, ah, 0, 0, aerr))
+						{
+							size_t anz = 0;
+							uint8_t chx[3] = { 0, 0, 0 };
+							for (size_t k = 0; k + 3 < ab.size(); k += 16)
+							{
+								if (ab[k] | ab[k + 1] | ab[k + 2])
+									anz++;
+								for (int c = 0; c < 3; c++)
+									if (ab[k + c] > chx[c])
+										chx[c] = ab[k + c];
+							}
+							const size_t amid = (size_t(ah / 2) * aw + aw / 2) * 4;
+							Log("- p5 postalb: %ux%u nz=%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u)",
+							    aw, ah, anz, chx[0], chx[1], chx[2], ab[amid], ab[amid + 1],
+							    ab[amid + 2], ab[amid + 3]);
+						}
+						else
+							Log("! p5 postalb: readback failed: %s", aerr.c_str());
+					}
+					if (wantDt)
+					{
+						s_dtN++;
+						id<MTLTexture> dtx = (__bridge id<MTLTexture>)dt;
+						const uint32_t dw = (uint32_t)dtx.width, dh = (uint32_t)dtx.height;
+						std::vector<uint8_t> db(size_t(dw) * dh * 4);
+						std::string derr;
+						if (dev->ReadbackSlice(dt, db.data(), dw * 4, dw, dh, 0, 0, derr))
+						{
+							size_t dnz = 0;
+							uint8_t chx[3] = { 0, 0, 0 };
+							for (size_t k = 0; k + 3 < db.size(); k += 4)
+							{
+								if (db[k] | db[k + 1] | db[k + 2])
+									dnz++;
+								for (int c = 0; c < 3; c++)
+									if (db[k + c] > chx[c])
+										chx[c] = db[k + c];
+							}
+							Log("- p5 deftex: %ux%u t%ld nz=%zu/%zu chmax=(%u,%u,%u)", dw, dh,
+							    (long)dtx.textureType, dnz, db.size() / 4, chx[0], chx[1], chx[2]);
+						}
+						else
+							Log("! p5 deftex: readback failed: %s", derr.c_str());
+					}
+				}
+			}
 			// launch139: window covers TWO consecutive position pass-ends
 			// (5 and 6). launch138 verdict: the frame runs the position pass
 			// twice (main model + rain) and the main/rain PARITY flips with
@@ -1521,7 +1592,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// its own counter. Answers: does albedo ever hold pixels?
 				{
 					static uint64_t s_paTick = 0;
-					void* pa = (s_paTick++ % 240 == 7) ? pgAlb : nullptr;
+					static int s_paN = 0; // p5 launch228: count-based gating — the
+					void* pa = nullptr;   // %240 phase missed the in-game window.
+					if (pgAlb && (s_paTick++ % 20 == 7) && s_paN < 20)
+					{
+						pa = pgAlb;
+						s_paN++;
+					}
 					if (pa && PM().dev)
 					{
 						id<MTLTexture> at = (__bridge id<MTLTexture>)pa;
@@ -1561,7 +1638,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				// draws (albedo-color-is-black hunt). ReadbackSlice is BC-aware.
 				{
 					static uint64_t s_dtTick = 0;
-					void* dt = (s_dtTick++ % 240 == 11) ? PM().pendingDefferTex : nullptr;
+					static int s_dtN = 0; // p5 launch228: count-gated like postalb.
+					void* dt = nullptr;
+					if (PM().pendingDefferTex && (s_dtTick++ % 20 == 11) && s_dtN < 12)
+					{
+						dt = PM().pendingDefferTex;
+						s_dtN++;
+					}
 					if (dt && PM().dev)
 					{
 						id<MTLTexture> dtx = (__bridge id<MTLTexture>)dt;
@@ -5406,7 +5489,9 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 								Log("* p5 t5cb: %s %s off=%u (%.4g %.4g %.4g %.4g)", pn,
 								    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3]);
 							}
-							if (++unc >= 20)
+							// p5 launch228: full struct — Ldynamic_color@m720 is
+							// the sun PS multiplier, beyond the old 20-cap.
+							if (++unc >= 32)
 								break;
 						}
 						// p5 launch227: stash the diffuse bound to a gbuffer draw —

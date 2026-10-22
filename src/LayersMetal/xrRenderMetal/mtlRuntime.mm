@@ -4741,7 +4741,11 @@ namespace
 				[pm.enc setDepthStencilState:nil]; // canaries must survive any depth
 				pm.initBuiltins();
 				bool anyB = false, anyA = false;
-				if (!wantBlit && pm.fillPs)
+				// launch277: mask canary excluded — its stub_notransform VS
+				// blows the quad to full-screen (RHW reinterpretation) and
+				// overwrites the near/far canary verdicts before the readback
+				// ever samples them (276's full-screen blue was the mask).
+				if (!wantBlit && pm.fillPs && !isMask)
 				{
 					PipelineDesc pdB;
 					pdB.vs = vsR->function;

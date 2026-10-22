@@ -4919,7 +4919,7 @@ namespace
 									// outside z-range the cuboid legitimately
 									// clips away — a data bug, not a Metal bug.
 									char cb2[288];
-									char cb3[224];
+									char cb3[640];
 									cb3[0] = 0;
 									if (vB && pm.vsSize >= 272 + 64 &&
 									    pm.staging.size() >= 272 + 64)
@@ -4936,7 +4936,6 @@ namespace
 										         M[12], M[13], M[14], M[15]);
 										const float* Pv = (const float*)pm.staging.data() + 96 / 4;
 										const float* Vv = (const float*)pm.staging.data() + 48 / 4;
-										char cb3[448];
 										snprintf(cb3, sizeof(cb3),
 										         " P=[%.4g %.4g %.4g %.4g|%.4g %.4g %.4g %.4g|%.4g %.4g "
 										         "%.4g %.4g|%.4g %.4g %.4g %.4g]"

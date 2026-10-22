@@ -4877,6 +4877,28 @@ namespace
 									uint16_t* bk = (uint16_t*)[s_bake contents];
 									for (NSUInteger q = 0; q < need / 2; q++)
 										bk[q] = (uint16_t)(ix[startI + q] + (uint16_t)baseV);
+									// NDC-shift the baked copy down (y -= 0.25)
+									// so red and cyan occupy disjoint screen
+									// bands — union chmax reads both verdicts.
+									std::vector<uint8_t> cbShift;
+									const size_t slotBytes =
+									    (size_t)Align16(pm.vsSize) + Align16(pm.psSize);
+									bool shifted = false;
+									if (pm.vsSize >= 272 + 64)
+									{
+										cbShift.assign(pm.staging.begin(),
+										               pm.staging.begin() +
+										                   (slotBytes < pm.staging.size()
+										                        ? slotBytes
+										                        : pm.staging.size()));
+										float* mvp = (float*)cbShift.data() + (272 / 4);
+										mvp[3 * 4 + 1] -= 0.25f; // M[3][1]
+										shifted = true;
+									}
+									if (shifted)
+										[pm.enc setVertexBytes:cbShift.data()
+										                  length:(NSUInteger)cbShift.size()
+										                 atIndex:0];
 									[pm.enc setFragmentBuffer:pbC offset:0 atIndex:0];
 									[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 									                   indexCount:primCount

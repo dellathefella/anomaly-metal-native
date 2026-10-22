@@ -584,9 +584,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					const float* rp =
 					    (const float*)[rb contents] + (g_accSlotOff / 4) + 272 / 4;
 					const uint32_t got = *(const uint32_t*)&rp[0];
+					const float expf = *(const float*)&g_accExpect0;
 					Log("- p5 accgpu2: ring@%llu r0=(%.4g %.4g %.4g %.4g) expect=%.8g %s",
 					    (unsigned long long)g_accSlotOff, rp[0], rp[1], rp[2], rp[3],
-					    (double)g_accExpect0,
+					    (double)expf,
 					    (uint64_t)got == g_accExpect0 ? "INTACT" : "OVERWRITTEN");
 				}
 				}
@@ -4883,7 +4884,7 @@ namespace
 									// re-read in the postaccum probe.
 									g_accSlotRing = (__bridge void*)pm.ring;
 									g_accSlotOff = g_lastSlotOff;
-									g_accExpect0 = rb[0];
+									g_accExpect0 = *(const uint32_t*)&rb[0]; // bit pattern
 								}
 							}
 							[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle

@@ -4916,6 +4916,26 @@ namespace
 									    vbB ? (const float*)vbB.contents : nullptr;
 									const float* vB =
 									    vAt ? vAt + (size_t)baseV * (ds.vbStride / 4) : nullptr;
+									// CPU clip-space transform with the live
+									// m_WVP (row-vector form, M@272): if the
+									// result is behind the camera (w<=0) or
+									// outside z-range the cuboid legitimately
+									// clips away — a data bug, not a Metal bug.
+									char cb2[160];
+									if (vB && pm.vsSize >= 272 + 64 &&
+									    pm.staging.size() >= 272 + 64)
+									{
+										const float* M = (const float*)pm.staging.data() + 272 / 4;
+										float o[4] = { 0, 0, 0, 0 };
+										for (int j = 0; j < 4; j++)
+											for (int i = 0; i < 4; i++)
+												o[j] += vB[i] * M[i * 4 + j];
+										snprintf(cb2, sizeof(cb2),
+										         " clip=(%.1f %.1f %.1f w=%.1f)", o[0], o[1],
+										         o[2], o[3]);
+									}
+									else
+										cb2[0] = 0;
 									char xb[192];
 									int xo = 0;
 									xo += snprintf(xb + xo, sizeof(xb) - xo,
@@ -4926,11 +4946,11 @@ namespace
 									         vAt ? vAt[0] : 0.f, vAt ? vAt[1] : 0.f,
 									         vAt ? vAt[2] : 0.f, vAt ? vAt[3] : 0.f);
 									Log("- p5 accix: ib=%p len=%llu startI=%u baseV=%u pc=%u "
-									    "idx=[%u %u %u %u] %s",
+									    "idx=[%u %u %u %u] %s%s",
 									    (void*)ds.ib, (unsigned long long)[ibB length],
 									    (unsigned)startI, (unsigned)baseV, (unsigned)primCount,
 									    ix[startI], ix[startI + 1], ix[startI + 2], ix[startI + 3],
-									    xb);
+									    xb, cb2);
 								}
 							}
 							// launch279: magenta non-indexed variant PROVED the

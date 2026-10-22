@@ -4380,12 +4380,13 @@ namespace
 		{
 			static int s_adN = 0;
 			s_adN++;
-			if (s_adN <= 12)
+			if (s_adN <= 12 || s_adN == 241)
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
-				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s zb=%p bl=%d mask=%X zE=%d zF=%d "
+				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s/%p zb=%p bl=%d mask=%X zE=%d zF=%d "
 				    "vp=%.0fx%.0f scE=%d sc=(%u,%u,%u,%u)",
-				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.zb,
+				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.rt[0],
+				    pm.zb,
 				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, (int)pm.depthEn,
 				    pm.depthFunc, pm.vpW, pm.vpH, (int)pm.scissorEn,
 				    (unsigned)pm.scL, (unsigned)pm.scT, (unsigned)pm.scR, (unsigned)pm.scB);

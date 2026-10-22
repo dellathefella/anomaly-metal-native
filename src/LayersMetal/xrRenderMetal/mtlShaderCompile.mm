@@ -460,25 +460,41 @@ bool MtlShaderCompilerInit()
 	return g_init_ok.load();
 }
 
-// launch264: DX9 tex2Dproj onto a depth-comparison sampler compares the
+// launch264/266: DX9 tex2Dproj onto a depth-comparison sampler compares the
 // raster depth against the smap texel — the reference depth rides in the
 // proj coord's z (c.z/c.w). SPIRV-Cross lowers proj samples to
 // `sample(s, (c.xy / float2(c.w)))` and drops z, so Metal's runtime depth-
 // compare (sampler compareFunction + depth texture, enabled by r_Sampler_cmp)
 // compares against a missing value and fails every tap: shadow() returns 0
-// everywhere and the direct sun never writes accum. Rewrite to
-// `sample(s, float3(c.xy, c.z) / c.w)` — MSL takes the compare reference
-// from coord.z, exactly DX9 semantics. Plain tex2D samples keep float2
-// coords, so the software-PCF paths in r2/shadow.h (raw smap reads) are
-// untouched; non-comparison samplers ignore a z component entirely.
-// Idempotent: patched text no longer matches the pattern.
+// everywhere and the direct sun never writes accum.
+//
+// Rewrite the shadow-sampler convention texture (s_smap) to MSL's depth-texture
+// form, where float3 coords carry the reference in z and samples return a
+// scalar (DX9's compare result):
+//   a) s_smap.sample(S, (X.xy / float2(X.w))).x -> s_smap.sample(S, float3(X.xy, X.z) / X.w)
+//   b) s_smap.sample(S, ARGS).x                 -> s_smap.sample(S, ARGS)   (raw/lod taps)
+//   c) texture2d<float> s_smap [[texture(N)]]   -> texture2d_depth s_smap [[texture(N)]]
+// Shaders that bind the sample result to a vector (r2/shadow.h's
+// shadowtest_sun: `r = tex2Dproj(...)` for DX9 FOURCC-PCF raw math) would
+// break under the scalar form — those are skipped wholesale and keep the old
+// raw-sample behaviour. Idempotent: patched text matches none of the patterns.
 static std::string MtlPatchShadowDref(const std::string& msl)
 {
-	static const std::regex re(R"((\w+)\.sample\((\w+), \((\w+)\.xy / float2\(\3\.w\)\))");
-	// NB: the match ends one paren BEFORE the sample call's close (it
-	// consumes the proj-div group's close), so the template must NOT close
-	// the sample call — the original close survives right after the match.
-	return std::regex_replace(msl, re, "$1.sample($2, float3($3.xy, $3.z) / $3.w");
+	if (msl.find("s_smap") == std::string::npos)
+		return msl;
+	// Vector-assigned sample results (volumetric FOURCC-PCF style) — leave be.
+	static const std::regex assignRe(R"(=\s*s_smap\.sample\()");
+	if (std::regex_search(msl, assignRe))
+		return msl;
+	std::string out = msl;
+	static const std::regex projRe(
+	    R"(s_smap\.sample\((\w+), \((\w+)\.xy / float2\(\2\.w\)\)\)\.x)");
+	out = std::regex_replace(out, projRe, "s_smap.sample($1, float3($2.xy, $2.z) / $2.w)");
+	static const std::regex tapRe(R"(s_smap\.sample\((\w+), ([^;]*?)\)\.x(?![\w]))");
+	out = std::regex_replace(out, tapRe, "s_smap.sample($1, $2)");
+	static const std::regex declRe(R"(texture2d<float> s_smap(?=[ \t]*\[\[texture\())");
+	out = std::regex_replace(out, declRe, "texture2d_depth s_smap");
+	return out;
 }
 
 bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, const char* name,

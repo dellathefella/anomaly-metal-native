@@ -52,6 +52,8 @@ static uint64_t g_dbgDrawOK = 0, g_dbgDrawNoShader = 0, g_dbgDrawNoPso = 0;
 // (frame CB, committed+waited by the readback flush). Env XR_METAL_VIS=1.
 static id<MTLBuffer> g_visE13 = nil;
 static id<MTLBuffer> g_visLiveBuf = nil;
+// launch279b: fragment counter for the live $user$accum pass (sun canary)
+static id<MTLBuffer> g_visAccumBuf = nil;
 // p5 diag: RT texture pointer -> creation name ("$user$position" etc.), so the
 // periodic content scan can attribute dead render targets to R2 phases.
 // (launch166: definition moved above MtlPassManager for the VIS gate.)
@@ -560,11 +562,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					}
 					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 8;
 					Log("- p5 postaccum: %p %ux%u nz=%zu/%zu chmax=(%u,%u,%u,%u,%u,%u,%u,%u) "
-					    "mid=(%u,%u,%u,%u,%u,%u,%u,%u) bands=(%zu,%zu,%zu,%zu)",
+					    "mid=(%u,%u,%u,%u,%u,%u,%u,%u) bands=(%zu,%zu,%zu,%zu) vis=%llu",
 					    pa, pw, ph, pnz, pb.size() / 8, chx[0], chx[1], chx[2], chx[3], chx[4],
 					    chx[5], chx[6], chx[7], pb[pmid], pb[pmid + 1], pb[pmid + 2],
 					    pb[pmid + 3], pb[pmid + 4], pb[pmid + 5], pb[pmid + 6], pb[pmid + 7],
-					    bands[0], bands[1], bands[2], bands[3]);
+					    bands[0], bands[1], bands[2], bands[3],
+					    g_visAccumBuf ? (unsigned long long)*(const uint64_t*)g_visAccumBuf.contents
+					                  : 0ull);
 				}
 				else
 					Log("! p5 postaccum: readback failed: %s", perr.c_str());
@@ -2179,6 +2183,19 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				                    newBufferWithLength:16
 				                                options:MTLResourceStorageModeShared];
 				rpd.visibilityResultBuffer = g_visLiveBuf;
+				visAttached = YES;
+			}
+			// launch279b: same trick for the accum pass — pass-level fragment
+			// count distinguishes "sun/canary draws rasterize nothing" (vis=0
+			// despite draws) from "fragments exist, color writes lost" (vis>0,
+			// readback zero). Read by the postaccum probe post commit+wait.
+			if (s_visLive && rt[0] && g_mtlRtNames.count(rt[0]) &&
+			    g_mtlRtNames[rt[0]] == "$user$accum")
+			{
+				g_visAccumBuf = [(__bridge id<MTLDevice>)dev->Device()
+				                    newBufferWithLength:16
+				                                options:MTLResourceStorageModeShared];
+				rpd.visibilityResultBuffer = g_visAccumBuf;
 				visAttached = YES;
 			}
 		}
@@ -4732,6 +4749,18 @@ namespace
 			static uint64_t s_accN = 0;
 			const uint64_t my = s_accN++;
 			const bool wantBlit = (my % 240) == 5; // occasional pass-persistence probe
+			// launch279b: pass-level fragment count of the PREVIOUS accum pass
+			// (buffer is per-encoder; recreated each accum pass, so read the
+			// pointer before this pass's encoder is replaced — value here is
+			// from the last committed pass, CPU-visible after commit+wait).
+			static uint64_t s_vAcc = 0;
+			static id<MTLBuffer> s_prevAccBuf = nil;
+			if (s_prevAccBuf != g_visAccumBuf)
+			{
+				if (s_prevAccBuf)
+					s_vAcc = *(const uint64_t*)s_prevAccBuf.contents;
+				s_prevAccBuf = g_visAccumBuf;
+			}
 			{
 				const bool isFar = strstr(pair->name.c_str(), "far") != nullptr;
 				const bool isMask = strstr(pair->name.c_str(), "mask") != nullptr;
@@ -4868,9 +4897,11 @@ namespace
 					}
 				}
 				if (my < 6 || wantBlit)
-					Log("- p5 acccanary: pair=%s vsFill=%d blitFill=%d atts=%d fmt0=%d col=(%.0f,%.0f,%.0f)",
+					Log("- p5 acccanary: pair=%s vsFill=%d blitFill=%d atts=%d fmt0=%d col=(%.0f,%.0f,%.0f) "
+					    "vAcc=%llu",
 					    pair->name.c_str(), (int)anyB, (int)anyA, pm.attColorCount,
-					    pm.attColorCount ? pm.attColorFmt[0] : -1, col[0], col[1], col[2]);
+					    pm.attColorCount ? pm.attColorFmt[0] : -1, col[0], col[1], col[2],
+					    (unsigned long long)s_vAcc);
 			}
 		}
 		// p5 DIAG (launch100): fill canary — once, after a real draw that

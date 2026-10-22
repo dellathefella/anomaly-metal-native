@@ -2555,7 +2555,17 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			break;
 		}
 		if (S.CompareEnable)
-			d.compareFunc = (int)MtlMapCompare(S.CompareFunc);
+		{
+			// launch263 hunt: MSL from DX9 tex2Dproj carries NO reference
+			// depth (float2 coords, dref dropped by SPIRV-Cross), so Metal's
+			// depth-compare sampling compares against a missing value and
+			// fails every tap (s=0 => sun output 0). XR_P5_NOCMPSAMP=1 drops
+			// the compare to read raw smap depth instead — if sun lands then,
+			// the dref path is the culprit.
+			static const int s_nocmp = getenv("XR_P5_NOCMPSAMP") ? atoi(getenv("XR_P5_NOCMPSAMP")) : 0;
+			if (!s_nocmp)
+				d.compareFunc = (int)MtlMapCompare(S.CompareFunc);
+		}
 		return d;
 	}
 

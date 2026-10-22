@@ -298,8 +298,14 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     // ---- cache read -------------------------------------------------------
     if (FS.exist(full_path))
     {
-        IReader* file = FS.r_open(full_path);
-        if (file->length() > 16)
+        // launch270: a game killed mid-write leaves a truncated entry; r_string
+        // past EOF threw an uncaught FS exception and aborted the next run.
+        // A bad cache entry must degrade to a recompile, never to a fatal.
+        IReader* file = nullptr;
+        try
+        {
+            file = FS.r_open(full_path);
+            if (file->length() > 16)
         {
             xr_string adapter, metalVer, cachedEntry;
             file->r_string(adapter);
@@ -347,7 +353,23 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                 }
             }
         }
-        file->close();
+            file->close();
+        }
+        catch (const std::exception& ex)
+        {
+            Msg("! Metal shader cache read threw for %s: %s (recompiling)", filename, ex.what());
+            refl = MtlStageRefl{};
+            if (file)
+            {
+                try
+                {
+                    file->close();
+                }
+                catch (...)
+                {
+                }
+            }
+        }
     }
 
     // ---- compile ----------------------------------------------------------

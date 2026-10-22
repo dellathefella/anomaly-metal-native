@@ -134,6 +134,10 @@ namespace xray::metal
 		// Generalized CPU readback (needs ShaderRead usage).
 		bool ReadbackSlice(void* texture, void* dst, uint32_t bytesPerRow, uint32_t w, uint32_t h,
 		                   uint32_t slice, uint32_t mip, std::string& error);
+		// Self-contained depth clear (own command buffer): DX/GL depth surfaces
+		// conventionally start at 1.0 (far). Zero-init kills the sun when the
+		// engine skips the shadow phase (empty smap = all-shadow taps).
+		void ClearDepthOne(void* texture);
 		uint32_t TextureBpp(void* texture); // bytes per pixel of the texture format
 		int TextureFormat(void* texture); // MTLPixelFormat raw value (0 on null)
 		void TextureDims(void* texture, uint32_t* w, uint32_t* h); // texel size (0 on null)

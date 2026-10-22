@@ -73,6 +73,11 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount /*= 1*/
     pZRT = pRT;
     target = 0; // mtd2D
     MtlDbgRTName(pRT, Name); // p5 diag
+    // p5 launch235: depth targets start at far (1.0), matching GL's effective
+    // initial state. The sun shadow map is never cleared when the engine skips
+    // the phase — a zeroed map reads as all-shadow and blacks the direct light.
+    if (MtlIsD3DDepthFormat(f))
+        HW.MtlDev.ClearDepthOne(pRT);
 
     pTexture = RImplementation.Resources->_CreateTexture(Name);
     pTexture->surface_set(pRT);

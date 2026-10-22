@@ -119,10 +119,10 @@ void CBlender_Compile::i_Texture(u32 s, LPCSTR name)
         static int s_itN = 0;
         if (0 == xr_strcmp(name, "$user$generic"))
             Msg("- Metal iTexture GENERIC: stage=%u tex=%p surf=%p", s, (void*)t,
-                t ? t->surface_get() : nullptr);
+                (void*)(uintptr_t)(t ? t->surface_get() : 0));
         else if (name[0] == '$' && s_itN++ < 400)
             Msg("- Metal iTexture: '%s' stage=%u surf=%p", name, s,
-                t ? t->surface_get() : nullptr);
+                (void*)(uintptr_t)(t ? t->surface_get() : 0));
         passTextures.emplace_back(s, ref_texture(t));
     }
 }

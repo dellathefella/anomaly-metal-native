@@ -845,6 +845,39 @@ namespace xray::metal
 		return true;
 	}
 
+	// Self-contained depth clear to 1.0 (own command buffer + wait). DX/GL
+	// depth surfaces conventionally begin at far (1.0); Metal zero-fills, and
+	// the engine skips the sun-shadow phase clear when the sun is inactive —
+	// a zeroed smap then reads as all-shadow and kills the direct light.
+	void MetalDevice::ClearDepthOne(void* texture)
+	{
+		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;
+		if (!tex)
+			return;
+		if (tex.pixelFormat != MTLPixelFormatDepth32Float_Stencil8 && tex.pixelFormat != MTLPixelFormatDepth32Float)
+			return;
+		id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)Queue();
+		if (!queue)
+			return;
+		id<MTLCommandBuffer> cb = [queue commandBuffer];
+		MTLRenderPassDescriptor* rpd = [MTLRenderPassDescriptor new];
+		rpd.depthAttachment.texture = tex;
+		rpd.depthAttachment.loadAction = MTLLoadActionClear;
+		rpd.depthAttachment.storeAction = MTLStoreActionStore;
+		rpd.depthAttachment.clearDepth = 1.0;
+		if (tex.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
+		{
+			rpd.stencilAttachment.texture = tex;
+			rpd.stencilAttachment.loadAction = MTLLoadActionClear;
+			rpd.stencilAttachment.storeAction = MTLStoreActionStore;
+			rpd.stencilAttachment.clearStencil = 0;
+		}
+		id<MTLRenderCommandEncoder> e = [cb renderCommandEncoderWithDescriptor:rpd];
+		[e endEncoding];
+		[cb commit];
+		[cb waitUntilCompleted];
+	}
+
 	uint32_t MetalDevice::TextureBpp(void* texture)
 	{
 		id<MTLTexture> tex = (__bridge id<MTLTexture>)texture;

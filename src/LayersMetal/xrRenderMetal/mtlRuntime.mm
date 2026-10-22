@@ -5068,8 +5068,7 @@ namespace
 								    ((size_t)startI + primCount) * 2 <= [ibB2 length])
 								{
 									id<MTLDevice> dv =
-									    (__bridge id<MTLDevice>)pm.dev->Device();
-									if (!s_pVB || [s_pVB length] < vbBytes)
+									    (__bridge id<MTLDevice>)pm.dev->Device();									if (!s_pVB || [s_pVB length] < vbBytes)
 										s_pVB = [dv newBufferWithLength:
 										             (vbBytes < 65536 ? (NSUInteger)65536
 										                              : vbBytes * 2)
@@ -5110,12 +5109,56 @@ namespace
 											                instanceCount:1
 											                   baseVertex:0
 											                 baseInstance:0];
+											// launch291: private NON-indexed twin
+											// (the 279-proven form, private bytes,
+											// GREEN = chx[3] unique). Indexed dies
+											// + green lands => index-path defect
+											// survives total privatization.
+											{
+												id<MTLDevice> dv2 =
+												    (__bridge id<MTLDevice>)pm.dev->Device();
+												const float colG2[4] = {
+													0.0f, 1.0f, 0.0f, 1.0f
+												};
+												id<MTLBuffer> pbG2 =
+												    [dv2 newBufferWithBytes:colG2
+												                     length:sizeof(colG2)
+												                   options:
+												                       MTLResourceStorageModeShared];
+												if (pbG2)
+												{
+													[pm.enc setFragmentBuffer:pbG2
+													                     offset:0
+													                    atIndex:0];
+													[pm.enc drawPrimitives:
+													    MTLPrimitiveTypeTriangle
+													              vertexStart:0
+													              vertexCount:primCount];
+												}
+											}
 											// restore shared VB binding for later draws
 											[pm.enc setVertexBuffer:
 											    (__bridge id<MTLBuffer>)ds.vb offset:0
 											                atIndex:1];
+											static int s_privN = 0;
+											if (s_privN++ < 4)
+												Log("- p5 accpriv: drew idx+nonidx "
+												    "pc=%u vbBytes=%zu slot=%zu",
+												    (unsigned)primCount, vbBytes,
+												    slotBytes);
 										}
 									}
+								}
+								else if (vsrc)
+								{
+									static int s_privSkip = 0;
+									if (s_privSkip++ < 4)
+										Log("! p5 accpriv: gated out vs=%u ps=%u stg=%zu "
+										    "slot=%zu vbN=%llu ibN=%llu",
+										    (unsigned)pm.vsSize, (unsigned)pm.psSize,
+										    pm.staging.size(), slotBytes,
+										    (unsigned long long)[vbB2 length],
+										    (unsigned long long)[ibB2 length]);
 								}
 							}
 							anyB = true;

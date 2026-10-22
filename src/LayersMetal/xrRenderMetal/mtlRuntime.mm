@@ -5469,14 +5469,11 @@ namespace
 						a.format = MapDeclFormat(pm.declElems[e].Type);
 						pdB.attrs.push_back(a);
 					}
-					if (pm.rt[0])
-						pdB.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
-					// launch111: the REAL geometry PSO declares cf=[pos,albedo].
-					// Build the fill probe with the same 2-attachment config:
-					// magenta dies => 2-attachment PSO config is the killer;
-					// lands => PSO config innocent, only the real PS differs.
-					if (pm.rt[1])
-						pdB.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[1]));
+					// launch297 fix: use the LIVE rpd attachment list (debug
+					// layer caught rt[0]/rt[1]-only PSOs asserting against the
+					// 3-attachment deferred pass — release silently UB'd).
+					for (int iF = 0; iF < pm.attColorCount && iF < 4; iF++)
+						pdB.colorFormats.push_back(pm.attColorFmt[iF]);
 					MtlPdDepthFromEncoder(pm, pdB); // RC#5: match live rpd
 					pdB.blend.enabled = false;
 					pdB.blend.writeMask = 0xF;
@@ -5590,8 +5587,8 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						a.format = MapDeclFormat(pm.declElems[e].Type);
 						pdP.attrs.push_back(a);
 					}
-					pdP.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
-					pdP.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[1]));
+					for (int iP = 0; iP < pm.attColorCount && iP < 4; iP++)
+						pdP.colorFormats.push_back(pm.attColorFmt[iP]);
 					MtlPdDepthFromEncoder(pm, pdP);
 					pdP.blend.enabled = false;
 					pdP.blend.writeMask = 0xF;
@@ -5766,10 +5763,8 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						a.format = MapDeclFormat(pm.declElems[e].Type);
 						pdI.attrs.push_back(a);
 					}
-					if (pm.rt[0])
-						pdI.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
-					if (pm.rt[1])
-						pdI.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[1]));
+					for (int iI = 0; iI < pm.attColorCount && iI < 4; iI++)
+						pdI.colorFormats.push_back(pm.attColorFmt[iI]);
 					// launch158: match the live rpd's depth/stencil formats.
 					// Release tolerates the mismatch (draw just lands), but
 					// MTL_DEBUG_LAYER hard-asserts at setRenderPipelineState

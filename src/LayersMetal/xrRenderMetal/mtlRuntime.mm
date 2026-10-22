@@ -442,6 +442,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// p5 DIAG (launch102): position RT whose pass just ended (postgeom readback)
 		void* pendingPostGeom = nullptr;
 		void* pendingPostGeomAlb = nullptr; // p5 launch184: albedo at same pass-end
+		void* pendingAccum = nullptr;       // p5 launch255: accum RT at pass-end
 		void* pendingDefferTex = nullptr;   // p5 launch227: diffuse bound to a gbuffer draw
 		void* pendingMatTex = nullptr;      // p5 launch231: volume material bound to sun
 		void* pendingSmapTex = nullptr;     // p5 launch232: sampled sun shadow map
@@ -514,6 +515,45 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// (legal mid-frame split) and read the texture back before any later
 		// phase can touch it. postgeom non-zero + Present-time zero == a later
 		// phase clears the target, not a lost write.
+		// p5 launch255: accum pass-end readback — do the sun writes exist at
+		// all before any later phase touches accum? nz>0 here + rtscan zero ==
+		// later-phase destruction; nz=0 here == writes never landed.
+		if (pendingAccum && cb)
+		{
+			static uint64_t s_paTick = 0;
+			const bool wantPa = (s_paTick++ % 120) == 0;
+			void* pa = pendingAccum;
+			pendingAccum = nullptr;
+			if (wantPa)
+			{
+				[cb commit];
+				[cb waitUntilCompleted];
+				cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+				id<MTLTexture> pt = (__bridge id<MTLTexture>)pa;
+				const uint32_t pw = (uint32_t)pt.width, ph = (uint32_t)pt.height;
+				std::vector<uint8_t> pb(size_t(pw) * ph * 4);
+				std::string perr;
+				if (dev->ReadbackSlice(pa, pb.data(), pw * 4, pw, ph, 0, 0, perr))
+				{
+					size_t pnz = 0;
+					uint8_t chx[3] = { 0, 0, 0 };
+					for (size_t k = 0; k + 3 < pb.size(); k += 4)
+					{
+						if (pb[k] | pb[k + 1] | pb[k + 2])
+							pnz++;
+						for (int c = 0; c < 3; c++)
+							if (pb[k + c] > chx[c])
+								chx[c] = pb[k + c];
+					}
+					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 4;
+					Log("- p5 postaccum: %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u)",
+					    pw, ph, pnz, pb.size() / 4, chx[0], chx[1], chx[2], pb[pmid],
+					    pb[pmid + 1], pb[pmid + 2], pb[pmid + 3]);
+				}
+				else
+					Log("! p5 postaccum: readback failed: %s", perr.c_str());
+			}
+		}
 		if (pendingPostGeom && cb)
 		{
 			void* pg = pendingPostGeom;
@@ -2566,6 +2606,8 @@ static void MtlInvalidateReleased(void* obj)
 		pm.pendingPostGeom = nullptr;
 	if (pm.pendingPostGeomAlb == obj)
 		pm.pendingPostGeomAlb = nullptr;
+	if (pm.pendingAccum == obj)
+		pm.pendingAccum = nullptr;
 	if (pm.pendingDefferTex == obj)
 		pm.pendingDefferTex = nullptr;
 	if (pm.pendingMatTex == obj)
@@ -2604,6 +2646,8 @@ void MtlTargetsChanged(void* const* rts, const void* zb)
 	// end (rt[] is overwritten below before the encoder actually closes).
 	{
 		const char* on0 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+		if (pm.enc && on0 && strstr(on0, "accum"))
+			pm.pendingAccum = pm.rt[0];
 		if (pm.enc && on0 && strstr(on0, "position"))
 		{
 			pm.pendingPostGeom = pm.rt[0];
@@ -4576,12 +4620,22 @@ namespace
 						uint32_t usage = 0, index = 0;
 						ParseSemantic(in.semantic, usage, index);
 						int e = curB.find(usage, index);
-						if (e < 0)
-							continue;
 						VertexAttr a;
 						a.index = in.attribute;
-						a.offset = pm.declElems[e].Offset;
-						a.format = MapDeclFormat(pm.declElems[e].Type);
+						if (e < 0)
+						{
+							// ResolvePipeline fallback: bind missing inputs to
+							// the first decl element (garbage values, valid PSO).
+							if (!pm.declCount)
+								continue;
+							a.offset = pm.declElems[0].Offset;
+							a.format = MapDeclFormat(pm.declElems[0].Type);
+						}
+						else
+						{
+							a.offset = pm.declElems[e].Offset;
+							a.format = MapDeclFormat(pm.declElems[e].Type);
+						}
 						pdB.attrs.push_back(a);
 					}
 					for (int i = 0; i < pm.attColorCount && i < 4; i++)

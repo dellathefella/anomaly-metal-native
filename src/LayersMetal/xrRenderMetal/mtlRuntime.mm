@@ -442,6 +442,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// p5 DIAG (launch102): position RT whose pass just ended (postgeom readback)
 		void* pendingPostGeom = nullptr;
 		void* pendingPostGeomAlb = nullptr; // p5 launch184: albedo at same pass-end
+		void* pendingDefferTex = nullptr;   // p5 launch227: diffuse bound to a gbuffer draw
 
 		// Built-ins
 		id<MTLFunction> blitVs = nil, blitPs = nil, fillPs = nil;
@@ -1556,6 +1557,37 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 					}
 				}
+				// p5 launch227: content of the diffuse texture bound to gbuffer
+				// draws (albedo-color-is-black hunt). ReadbackSlice is BC-aware.
+				{
+					static uint64_t s_dtTick = 0;
+					void* dt = (s_dtTick++ % 240 == 11) ? PM().pendingDefferTex : nullptr;
+					if (dt && PM().dev)
+					{
+						id<MTLTexture> dtx = (__bridge id<MTLTexture>)dt;
+						const uint32_t dw = (uint32_t)dtx.width, dh = (uint32_t)dtx.height;
+						std::vector<uint8_t> db(size_t(dw) * dh * 4);
+						std::string derr;
+						if (PM().dev->ReadbackSlice(dt, db.data(), dw * 4, dw, dh, 0, 0, derr))
+						{
+							size_t dnz = 0;
+							uint8_t chx[3] = { 0, 0, 0 };
+							for (size_t k = 0; k + 3 < db.size(); k += 4)
+							{
+								if (db[k] | db[k + 1] | db[k + 2])
+									dnz++;
+								for (int c = 0; c < 3; c++)
+									if (db[k + c] > chx[c])
+										chx[c] = db[k + c];
+							}
+							Log("- p5 deftex: %ux%u t%ld nz=%zu/%zu chmax=(%u,%u,%u)", dw, dh,
+							    (long)dtx.textureType, dnz, db.size() / 4, chx[0], chx[1], chx[2]);
+						}
+						else
+							Log("! p5 deftex: readback failed: %s", derr.c_str());
+						PM().pendingDefferTex = nullptr;
+					}
+				}
 				// p5 launch184 postalb block REMOVED (launch195): it read
 				// RGBA16F albedo (8 bpp) with a 4-bpp buffer — heap overflow
 				// → SIGSEGV in ensureEncoder seconds after entering game.
@@ -2366,6 +2398,8 @@ static void MtlInvalidateReleased(void* obj)
 		pm.pendingPostGeom = nullptr;
 	if (pm.pendingPostGeomAlb == obj)
 		pm.pendingPostGeomAlb = nullptr;
+	if (pm.pendingDefferTex == obj)
+		pm.pendingDefferTex = nullptr;
 	if (g_mtlDbgRTs)
 		g_mtlDbgRTs->erase(std::remove(g_mtlDbgRTs->begin(), g_mtlDbgRTs->end(), obj),
 		                   g_mtlDbgRTs->end());
@@ -2405,12 +2439,23 @@ void MtlTargetsChanged(void* const* rts, const void* zb)
 			// means the fetch (next draw) only sees the LAST stash — the alb
 			// pair was being clobbered by a later null-alb switch. Keep the
 			// albedo pointer across switches until it is consumed.
-			if (pm.rt[1])
-				pm.pendingPostGeomAlb = pm.rt[1];
+			// p5 launch227: the gbuffer MRT is (position, normal, albedo) —
+			// albedo is rt[2], not rt[1]; scan all slots by name.
+			for (int si = 0; si < 4; si++)
+				if (pm.rt[si])
+				{
+					const char* an = MtlDbgRTGetName(pm.rt[si]);
+					if (an && strstr(an, "albedo"))
+					{
+						pm.pendingPostGeomAlb = pm.rt[si];
+						break;
+					}
+				}
 			static int s_psN = 0;
 			if (g_dbgDrawOK > 60000 && s_psN++ < 40)
-				Log("- p5 pstash: alb=%p name=%s rt2=%p", pm.rt[1],
-				    pm.rt[1] ? MtlDbgRTGetName(pm.rt[1]) : "-", pm.rt[2]);
+				Log("- p5 pstash: alb=%p name=%s rt2=%p", pm.pendingPostGeomAlb,
+				    pm.pendingPostGeomAlb ? MtlDbgRTGetName(pm.pendingPostGeomAlb) : "-",
+				    pm.rt[2]);
 		}
 	}
 	for (int i = 0; i < 4; i++)
@@ -5322,7 +5367,10 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				}
 				// p5 launch201: PP paints yellow — dump which TEXTURE each
 				// fragment stage slot actually resolves to for this draw.
-				if (strstr(pn, "postprocess") || strstr(pn, "combine_1"))
+				// p5 launch226: + the two black-output suspects (albedo MRT
+				// writer + sun accumulation) and their PS constants.
+				if (strstr(pn, "postprocess") || strstr(pn, "combine_1") ||
+				    strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun"))
 				{
 					std::string sl;
 					for (int si = 0; si < 8; si++)
@@ -5334,11 +5382,39 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						}
 						const char* tn = MtlDbgRTGetName(pm.stageTex[si]);
 						id<MTLTexture> tt = (__bridge id<MTLTexture>)pm.stageTex[si];
+						// p5 launch227: type/depth/mips — texture3d material arg
+						// vs 2D-created texture silently kills accum_sun+combine.
 						sl += std::to_string(si) + ":" + (tn ? tn : "?") +
 						      " " + std::to_string(tt.width) + "x" + std::to_string(tt.height) +
-						      " f" + std::to_string((int)tt.pixelFormat) + " ";
+						      " f" + std::to_string((int)tt.pixelFormat) +
+						      " t" + std::to_string((int)tt.textureType) +
+						      " z" + std::to_string((int)tt.depth) +
+						      " m" + std::to_string((int)tt.mipmapLevelCount) + " ";
 					}
 					Log("* p5 ppslots: pair=%s [%s]", pn, sl.c_str());					// p5 launch209: yellow = real (1,1,0) values — dump raw
+					// p5 launch226: PS constants for the black-output suspects.
+					if (strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun"))
+					{
+						int unc = 0;
+						for (const auto& u : psR->uniforms)
+						{
+							if (u.offset + 16 <= pm.psSize)
+							{
+								float q[4];
+								std::memcpy(q, pm.staging.data() + Align16(pm.vsSize) + u.offset,
+								    16);
+								Log("* p5 t5cb: %s %s off=%u (%.4g %.4g %.4g %.4g)", pn,
+								    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3]);
+							}
+							if (++unc >= 20)
+								break;
+						}
+						// p5 launch227: stash the diffuse bound to a gbuffer draw —
+						// read back at present to split "texture content dead" vs
+						// "sampling/write dead".
+						if (strstr(pn, "deffer_base_flat") && pm.stageTex[0])
+							pm.pendingDefferTex = pm.stageTex[0];
+					}
 					// half-float content of slot 0 + every PS CB float so the
 					// Inf-scene vs junk-constant theory splits cleanly.
 					static int s_ppRaw = 0;

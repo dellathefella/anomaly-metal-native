@@ -520,7 +520,8 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	out.entry = entry;
 	// p5 launch211: raw MSL text for targeted shader hunts (postprocess etc.).
 	if (getenv("XR_METAL_DUMPMSL") && name &&
-	    (strstr(name, "postprocess") || strstr(name, "combine") || strstr(name, "ffp_vs")))
+	    (strstr(name, "postprocess") || strstr(name, "combine") || strstr(name, "ffp_vs") ||
+	     strstr(name, "deffer_base_flat") || strstr(name, "accum_sun")))
 	{
 		std::string dp = std::string("/tmp/msldump_") + name + (target == 'v' ? ".vs" : ".ps") +
 		                 ".msl";

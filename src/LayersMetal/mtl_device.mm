@@ -344,6 +344,18 @@ namespace xray::metal
 				[m_impl->inflightCBs.front() waitUntilCompleted];
 				m_impl->inflightCBs.pop_front();
 			}
+			// launch301 experiment: XR_P5_SYNC=1 drains every CB each frame
+			// (fully synchronous GPU). If release-mode draws land with this,
+			// the black world is a CPU-ahead-of-GPU race, not state.
+			static const bool s_syncDrain = !!getenv("XR_P5_SYNC");
+			if (s_syncDrain)
+			{
+				while (!m_impl->inflightCBs.empty())
+				{
+					[m_impl->inflightCBs.front() waitUntilCompleted];
+					m_impl->inflightCBs.pop_front();
+				}
+			}
 			// launch134: retire released buffers — reusable only after every
 			// CB that could have encoded them retired (the wait above bounds
 			// the backlog to cap presents, so gen+cap+1 is a safe lag).

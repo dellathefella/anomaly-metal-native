@@ -3589,7 +3589,14 @@ namespace
 		if (pm.ring)
 		{
 			[e setVertexBuffer:pm.ring offset:slotOff atIndex:0];
-			[e setFragmentBuffer:pm.ring offset:slotOff atIndex:0];
+			// p5 launch223: the PS must read its OWN region of the ring slot.
+			// Real pairs only worked by accident: DXC emits the same full
+			// type_Globals layout for both stages, so reading the VS copy at
+			// slotOff aliased identical offsets. The synthesized ffp VS declares
+			// just screen_res (16B) → the PP PS read every constant shifted
+			// −16B; c_brightness@960 landed on J_spot[5] garbage → NaN →
+			// solid-yellow screen (launch196-222 chase).
+			[e setFragmentBuffer:pm.ring offset:slotOff + pm.psBase atIndex:0];
 		}
 		auto bindStage = [&](bool fragment, const MtlStageRefl& refl) {
 			const std::array<uint8_t, 8> kinds = ParseMslTexKinds(refl);
@@ -3808,11 +3815,11 @@ namespace
 			if (!s_ppT0)
 				s_ppT0 = nowT;
 			const long el = (long)(nowT - s_ppT0) - 65;
-			const int era = el < 0 ? -1 : (el / 30 > 5 ? 5 : (int)(el / 30));
+			const int era = el < 0 ? -1 : (el / 30 > 6 ? 6 : (int)(el / 30));
 			if (era != s_lastEra)
 			{
 				static const char* const kNm[] = {"black", "scene", "gray", "noc0", "c0view",
-				                                  "constc0"};
+				                                  "constc0", "cbview"};
 				Log("* p5 eraSwitch: mode=%s t=%lds", era < 0 ? "pre" : kNm[era],
 				    (long)(nowT - s_ppT0));
 				// launch220: dump the PP quad's raw vertex bytes — the CPU-side
@@ -3830,7 +3837,7 @@ namespace
 				s_lastEra = era;
 				g_ppEra = era;
 			}
-			if (era >= 0 && era < 6)
+			if (era >= 0 && era < 7)
 			{
 				void* vf = MtlPpVariantFn(era);
 				if (vf)

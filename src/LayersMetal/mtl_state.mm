@@ -229,6 +229,17 @@ namespace xray::metal
 		dsd.depthWriteEnabled = desc.depthWrite ? YES : NO;
 		if (desc.stencilEnable)
 		{
+			// p5 launch242: XR_P5_NOSTENCIL globally neutralizes stencil
+			// (test always-pass, ops keep) to isolate state-test culling of
+			// the sun accum cuboid. Temporary, strip in t6.
+			static const char* s_noStencil = getenv("XR_P5_NOSTENCIL");
+			if (s_noStencil && s_noStencil[0] == '1')
+			{
+				dsd.frontFaceStencil = nil;
+				dsd.backFaceStencil = nil;
+			}
+			else
+			{
 			MTLStencilDescriptor* sd = [MTLStencilDescriptor new];
 			sd.stencilCompareFunction = (MTLCompareFunction)MtlMapCompare(desc.func);
 			sd.stencilFailureOperation = (MTLStencilOperation)MtlMapStencilOp(desc.failOp);
@@ -238,6 +249,7 @@ namespace xray::metal
 			sd.writeMask = desc.writeMask;
 			dsd.frontFaceStencil = sd;
 			dsd.backFaceStencil = sd; // DX9 is single-sided
+			}
 		}
 		id<MTLDepthStencilState> dss = [dev newDepthStencilStateWithDescriptor:dsd];
 		if (dss)

@@ -286,10 +286,29 @@ void CHW::Present()
     MtlFrameEnd(); // finish the last encoder
 
     const bool can = MtlDev.CanPresent();
+    if (can)
+    {
+        static int s_canLogged = 0;
+        if (s_canLogged++ < 3)
+            Msg("- p5 present: CanPresent OK (drawable path armed)");
+    }
+    else
+    {
+        static int s_cannotLogged = 0;
+        if (s_cannotLogged < 3)
+            Msg("! p5 present: CanPresent FALSE #%d", s_cannotLogged);
+        s_cannotLogged++;
+    }
     void* drawable = nullptr;
     std::string error;
     if (can && !MtlDev.NextDrawable(&drawable, error))
+    {
         drawable = nullptr;
+        static int s_ndFail = 0;
+        if (s_ndFail < 6 || (s_ndFail % 240) == 0)
+            Msg("! p5 present: NextDrawable FAILED #%d: %s", s_ndFail, error.c_str());
+        s_ndFail++;
+    }
 
     if (drawable)
     {

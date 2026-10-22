@@ -249,13 +249,28 @@ namespace
 			align = packed ? comp : MslVecAlign(C, comp);
 			return true;
 		}
-		// matrix: C columns x R rows; column stride rounds the column vector up
-		// to its own alignment (MSL spec). Only true 4x4 of 4-byte components
-		// carries the wide 64-byte alignment.
-		const uint32_t colAlign = packed ? comp : MslVecAlign(C, comp);
-		const uint32_t colStride = packed ? C * comp : MslAlignUp(C * comp, colAlign);
-		size = R * colStride;
-		align = packed ? comp : (C == 4 && R == 4 ? 4u * 4u * comp : colAlign);
+		// matrix: MSL `T CxR` = C columns x R rows. The COLUMN vector is the
+		// R-component vector: column stride rounds vec<R> up to its own
+		// alignment, the struct size is C columns of that stride. (launch166
+		// root cause: this used C for the column vector and R as the count —
+		// every non-square matrix got the wrong size. float3x4 computed 64B
+		// instead of 48B, so the realign pass "confirmed" DXC's column-major
+		// SPIR-V offsets (m_WVP@320) as MSL-native and refused to move them,
+		// while the emitted MSL struct packs m_WVP@272: every matrix uniform
+		// after the first float3x4 was read from the wrong bytes — VS output
+		// clipped entirely, zero fragments on every geometry draw.)
+		// Empirical (launch168 offprobe on this toolchain): alignof(float4x4)
+		// == 16, NOT the 64 the MSL spec prose suggests — sizeof 64, packed at
+		// 16. Measured struct: m_VP@208, m_WVP@272, m_xform@960, size 1152.
+		// DXC's SPIR-V offsets use DXBC 64B matrix registers (m_WVP@320,
+		// m_xform@1008) — the realign pass must MOVE them to the 16-aligned
+		// MSL layout; the old 4x4-64B special case reproduced DXC's layout
+		// verbatim, reported changed=0, and every mixed-size struct read its
+		// matrices from the wrong bytes (zero fragments on all geometry).
+		const uint32_t colAlign = packed ? comp : MslVecAlign(R, comp);
+		const uint32_t colStride = packed ? R * comp : MslAlignUp(R * comp, colAlign);
+		size = C * colStride;
+		align = packed ? comp : colAlign;
 		return true;
 	}
 
@@ -457,6 +472,13 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 	out.function = (__bridge_retained void*)fn; // RC#4 — retain (see above)
 	out.msl = msl; // keep for per-pair V2P patching
 	out.entry = entry;
+	// launch167: disk-cache hits carry the reflection blob serialized at
+	// compile time — which predates the matrix-size fix (float3x4 was sized
+	// 64B, so the realign "confirmed" DXC's column-major offsets and moved
+	// nothing). Re-run the realign against the cached MSL struct: idempotent
+	// for already-correct blobs, repairs every stale cache entry without a
+	// cache-version bump (m_WVP must land at 272, not the SPIR-V 320).
+	MtlAlignReflToMslLayout(out, out.msl);
 	return true;
 }
 
@@ -987,10 +1009,17 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	// launch109: restrict to deffer geometry pairs — the menu stub pairs filled
 	// the old cap of 8 and the real dead pairs never got dumped.
 	static int s_dumpN = 0;
-	if (getenv("XR_METAL_DUMPMSL") && s_dumpN < 12 &&
+	static int s_dumpD = 0; // launch163: separate budget for the terrain _d pairs
+	const bool isD = ps.name.find("_d") != std::string::npos ||
+	                 vs.name.find("_d") != std::string::npos;
+	if (getenv("XR_METAL_DUMPMSL") &&
+	    ((isD && s_dumpD < 40) || (!isD && s_dumpN < 40)) &&
 	    ps.name.find("deffer") != std::string::npos)
 	{
-		s_dumpN++;
+		if (isD)
+			s_dumpD++;
+		else
+			s_dumpN++;
 		std::string dp = "/tmp/msldump_" + vs.name + "__" + ps.name;
 		for (size_t i = 5; i < dp.size(); i++)
 			if (!(isalnum(dp[i]) || dp[i] == '.' || dp[i] == '_' || dp[i] == '-'))

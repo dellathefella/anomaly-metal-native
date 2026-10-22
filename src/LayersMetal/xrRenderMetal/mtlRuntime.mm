@@ -1273,6 +1273,9 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						sp13.visibilityResultBuffer = g_visE13;
 						id<MTLRenderCommandEncoder> e13 =
 						    [cb renderCommandEncoderWithDescriptor:sp13];
+						// Attaching visibilityResultBuffer alone leaves the counter
+						// at zero — the mode must be enabled (launch168 rastcheck).
+						[e13 setVisibilityResultMode:MTLVisibilityResultModeCounting offset:0];
 						[e13 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
 						[e13 setCullMode:MTLCullModeNone];
 						for (const auto& ap : s_appQ)
@@ -1670,6 +1673,7 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		// so the count is CPU-readable in the SAME window as the texture
 		// scan: livevis>0 + postgeom flat => fragments exist, writes lost;
 		// livevis==0 => the live draws rasterize nothing.
+		BOOL visAttached = NO;
 		{
 			static const int s_visLive =
 			    getenv("XR_METAL_VIS") ? atoi(getenv("XR_METAL_VIS")) : 0;
@@ -1680,10 +1684,13 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				                    newBufferWithLength:4
 				                                options:MTLResourceStorageModeShared];
 				rpd.visibilityResultBuffer = g_visLiveBuf;
+				visAttached = YES;
 			}
 		}
 		MtlInstallValidationGuard(); // render-thread first encoder
 		enc = [cb renderCommandEncoderWithDescriptor:rpd];
+		if (visAttached) // mode WITHOUT an attached buffer = validation abort (launch171)
+			[enc setVisibilityResultMode:MTLVisibilityResultModeCounting offset:0];
 		g_dbgEncoders++;
 		identityDirty = false;
 		applyEncoderState();

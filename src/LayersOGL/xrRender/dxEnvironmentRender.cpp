@@ -232,6 +232,24 @@ void dxEnvironmentRender::lerp(CEnvDescriptorMixer& currentEnv, IEnvDescriptorRe
 
 void dxEnvironmentRender::RenderSky(CEnvironment& env)
 {
+    // p5 launch275: XR_P5_NOSKY=1 skips skybox, =2 also skips the sun lens
+    // flare — isolating the radial-streak artifact in the final frame.
+    static const int s_nosky = getenv("XR_P5_NOSKY") ? atoi(getenv("XR_P5_NOSKY")) : 0;
+    if (s_nosky)
+    {
+        if (s_nosky < 2)
+        {
+            RImplementation.rmFar(RCache);
+            RCache.set_Z(FALSE);
+            RCache.set_Z(TRUE);
+        }
+        else
+        {
+            RImplementation.rmFar(RCache);
+        }
+        RImplementation.rmNormal(RCache);
+        return;
+    }
     RImplementation.rmFar(RCache);
 
     // draw sky box

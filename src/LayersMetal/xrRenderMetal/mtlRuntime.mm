@@ -4493,6 +4493,11 @@ namespace
 		// p5 launch244: does the sun accum cuboid/mask reach the encoder?
 		if (pair && strstr(pair->name.c_str(), "accum_sun"))
 		{
+			// launch273: re-arm the pass-end readback AFTER the sun draws —
+			// the set_RT capture could fire its 1-in-120 read during the
+			// emissive pass, before any sun fragment (269's "2M px" was very
+			// likely emissive content, not sun).
+			pm.pendingAccum = pm.rt[0];
 			static int s_adN = 0;
 			s_adN++;
 			if (s_adN <= 12 || s_adN == 241)

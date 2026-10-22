@@ -220,6 +220,14 @@ void CLight_DB::Update()
         sun->set_position(pos);
         sun->set_color(E.sun_color.x * ps_r2_sun_lumscale, E.sun_color.y * ps_r2_sun_lumscale, E.sun_color.z * ps_r2_sun_lumscale);
         sun->set_range(600.f);
+        // p5 launch234: sun color pipeline — env value at calculate time.
+        {
+            static int s_luN = 0;
+            if ((s_luN++ % 120) == 0)
+                Msg("- p5 lupd: n=%d env=(%.3f %.3f %.3f) lum=%.3f out=(%.3f %.3f %.3f) dir=(%.2f %.2f %.2f)",
+                    s_luN, E.sun_color.x, E.sun_color.y, E.sun_color.z, ps_r2_sun_lumscale,
+                    _sun->color.r, _sun->color.g, _sun->color.b, dir.x, dir.y, dir.z);
+        }
     }
     // Clear selection
     package.clear();

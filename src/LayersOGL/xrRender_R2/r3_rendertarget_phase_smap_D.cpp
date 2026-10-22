@@ -4,6 +4,17 @@ namespace xray::render::RENDER_NAMESPACE
 {
 void CRenderTarget::phase_smap_direct(CBackend& cmd_list, light *L, u32 sub_phase)
 {
+    // p5 launch232: does the sun phase run at all, and on which target?
+    {
+        static int s_sdN = 0;
+        if (s_sdN++ < 12)
+            Msg("- p5 smapD: sub=%u zb=%p %ux%u sl=%u fmt=%u", sub_phase,
+                (void*)rt_smap_depth._get(),
+                rt_smap_depth ? rt_smap_depth->dwWidth : 0,
+                rt_smap_depth ? rt_smap_depth->dwHeight : 0,
+                rt_smap_depth ? rt_smap_depth->n_slices : 0,
+                rt_smap_depth ? (u32)rt_smap_depth->fmt : 0);
+    }
     if (sub_phase == SE_SUN_RAIN_SMAP)
     {
         u_setrt(cmd_list, nullptr, nullptr, nullptr, rt_smap_rain);

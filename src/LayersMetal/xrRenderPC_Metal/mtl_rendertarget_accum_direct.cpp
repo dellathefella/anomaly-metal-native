@@ -76,6 +76,13 @@ void CRenderTarget::accum_direct(CBackend& cmd_list, u32 sub_phase)
     L_spec = u_diffuse2s(L_clr);
     Device.mView.transform_dir(L_dir, fuckingsun->direction);
     L_dir.normalize();
+    // p5 launch235: which accum variant paints in-game? (accum_direct)
+    {
+        static int s_a1N = 0;
+        if ((s_a1N++ % 240) == 0)
+            Msg("- p5 accdir1: n=%d sub=%u col=(%.3f %.3f %.3f) spec=%.3f",
+                s_a1N, sub_phase, L_clr.x, L_clr.y, L_clr.z, L_spec);
+    }
 
     // Perform masking (only once - on the first/near phase)
     RCache.set_CullMode(CULL_NONE);
@@ -367,6 +374,13 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
     float L_spec;
     L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
     L_spec = u_diffuse2s(L_clr);
+    // p5 launch234: sun color at draw time (compare vs lupd at calc time).
+    {
+        static int s_acN = 0;
+        if ((s_acN++ % 240) == 0)
+            Msg("- p5 accdir: n=%d sub=%u col=(%.3f %.3f %.3f) spec=%.3f",
+                s_acN, sub_phase, L_clr.x, L_clr.y, L_clr.z, L_spec);
+    }
     Device.mView.transform_dir(L_dir, fuckingsun->direction);
     L_dir.normalize();
 
@@ -790,6 +804,13 @@ void CRenderTarget::accum_direct_f(CBackend& cmd_list, u32 sub_phase)
     L_spec = u_diffuse2s(L_clr);
     Device.mView.transform_dir(L_dir, fuckingsun->direction);
     L_dir.normalize();
+    // p5 launch235: which accum variant paints in-game? (accum_direct_f)
+    {
+        static int s_afN = 0;
+        if ((s_afN++ % 240) == 0)
+            Msg("- p5 accdirf: n=%d sub=%u col=(%.3f %.3f %.3f) spec=%.3f",
+                s_afN, sub_phase, L_clr.x, L_clr.y, L_clr.z, L_spec);
+    }
 
     // Perform masking (only once - on the first/near phase)
     RCache.set_CullMode(CULL_NONE);

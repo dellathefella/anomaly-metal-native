@@ -443,6 +443,8 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		void* pendingPostGeom = nullptr;
 		void* pendingPostGeomAlb = nullptr; // p5 launch184: albedo at same pass-end
 		void* pendingDefferTex = nullptr;   // p5 launch227: diffuse bound to a gbuffer draw
+		void* pendingMatTex = nullptr;      // p5 launch231: volume material bound to sun
+		void* pendingSmapTex = nullptr;     // p5 launch232: sampled sun shadow map
 
 		// Built-ins
 		id<MTLFunction> blitVs = nil, blitPs = nil, fillPs = nil;
@@ -518,18 +520,30 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			void* pgAlb = pendingPostGeomAlb;
 			pendingPostGeom = nullptr;
 			pendingPostGeomAlb = nullptr;
+			// p5 launch231: is this block reached at all? (postalb/deftex
+			// never logged in 228-230 despite stashes firing.)
+			{
+				static unsigned long long s_pfN = 0;
+				if ((s_pfN++ % 120) == 0)
+					Log("- p5 pfetch: n=%llu alb=%p dt=%p mt=%p", s_pfN, pgAlb,
+					    pendingDefferTex, pendingMatTex);
+			}
 			// p5 launch228: LIVE content probes (the S13/canary window below is
 			// disabled; these read only settled textures after commit+wait —
 			// no replay state, safe). postalb: does the gbuffer ever paint
 			// albedo? deftex: is the bound diffuse texture's content alive?
 			{
 				static uint64_t s_lcTick = 0;
-				static int s_paN = 0, s_dtN = 0;
+				static int s_paN = 0, s_dtN = 0, s_mtN = 0, s_smN = 0;
 				const uint64_t tk = s_lcTick++;
 				void* dt = pendingDefferTex;
+				void* mt = pendingMatTex;
+				void* sm = pendingSmapTex;
 				const bool wantAlb = pgAlb && (tk % 20 == 7) && s_paN < 20;
 				const bool wantDt = dt && (tk % 20 == 11) && s_dtN < 12;
-				if ((wantAlb || wantDt) && cb)
+				const bool wantMt = mt && (tk % 20 == 13) && s_mtN < 8;
+				const bool wantSm = sm && (tk % 20 == 17) && s_smN < 6;
+				if ((wantAlb || wantDt || wantMt || wantSm) && cb)
 				{
 					[cb commit];
 					[cb waitUntilCompleted];
@@ -586,6 +600,64 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						else
 							Log("! p5 deftex: readback failed: %s", derr.c_str());
+					}
+					if (wantMt)
+					{
+						s_mtN++;
+						id<MTLTexture> mtx = (__bridge id<MTLTexture>)mt;
+						const uint32_t mw = (uint32_t)mtx.width, mh = (uint32_t)mtx.height;
+						std::vector<uint8_t> mb(size_t(mw) * mh * 4);
+						std::string merr;
+						if (dev->ReadbackSlice(mt, mb.data(), mw * 4, mw, mh, 0, 0, merr))
+						{
+							size_t mnz = 0;
+							uint8_t chx[3] = { 0, 0, 0 };
+							for (size_t k = 0; k + 3 < mb.size(); k += 4)
+							{
+								if (mb[k] | mb[k + 1] | mb[k + 2])
+									mnz++;
+								for (int c = 0; c < 3; c++)
+									if (mb[k + c] > chx[c])
+										chx[c] = mb[k + c];
+							}
+							Log("- p5 mattex: %ux%u f%ld t%ld z%ld m%ld nz=%zu/%zu chmax=(%u,%u,%u)",
+							    mw, mh, (long)mtx.pixelFormat, (long)mtx.textureType,
+							    (long)mtx.depth, (long)mtx.mipmapLevelCount, mnz,
+							    mb.size() / 4, chx[0], chx[1], chx[2]);
+						}
+						else
+							Log("! p5 mattex: readback failed: %s", merr.c_str());
+					}
+					if (wantSm)
+					{
+						s_smN++;
+						id<MTLTexture> smx = (__bridge id<MTLTexture>)sm;
+						const uint32_t sw = (uint32_t)smx.width, sh = (uint32_t)smx.height;
+						std::vector<uint8_t> sb(size_t(sw) * sh * 4);
+						std::string serr;
+						// Depth32Float_Stencil8 → blit yields the float plane
+						// (4 Bpp); stats below interpret it as float depth.
+						if (dev->ReadbackSlice(sm, sb.data(), sw * 4, sw, sh, 0, 0, serr))
+						{
+							size_t snz = 0;
+							float smin = 1e9f, smax = -1e9f;
+							for (size_t k = 0; k + 3 < sb.size(); k += 4)
+							{
+								if (sb[k] | sb[k + 1] | sb[k + 2] | sb[k + 3])
+									snz++;
+								float q;
+								std::memcpy(&q, sb.data() + k, 4);
+								if (q < smin)
+									smin = q;
+								if (q > smax)
+									smax = q;
+							}
+							Log("- p5 smaprb: %ux%u f%ld t%ld nz=%zu/%zu dmin=%.4g dmax=%.4g",
+							    sw, sh, (long)smx.pixelFormat, (long)smx.textureType, snz,
+							    sb.size() / 4, smin, smax);
+						}
+						else
+							Log("! p5 smaprb: readback failed: %s", serr.c_str());
 					}
 				}
 			}
@@ -2483,6 +2555,10 @@ static void MtlInvalidateReleased(void* obj)
 		pm.pendingPostGeomAlb = nullptr;
 	if (pm.pendingDefferTex == obj)
 		pm.pendingDefferTex = nullptr;
+	if (pm.pendingMatTex == obj)
+		pm.pendingMatTex = nullptr;
+	if (pm.pendingSmapTex == obj)
+		pm.pendingSmapTex = nullptr;
 	if (g_mtlDbgRTs)
 		g_mtlDbgRTs->erase(std::remove(g_mtlDbgRTs->begin(), g_mtlDbgRTs->end(), obj),
 		                   g_mtlDbgRTs->end());
@@ -3345,6 +3421,16 @@ void MtlConstWrite(uint32_t stage, uint32_t offset, uint32_t size, const void* d
 	}
 	if (base + offset + bytes <= pm.staging.size())
 		std::memcpy(pm.staging.data() + base + offset, data, bytes);
+	else
+	{
+		// p5 launch230: the silent truncation killer — m_shadow@976+64 needs
+		// 1040 but DXBC cbSize says 1024; the whole write used to vanish.
+		static int s_cbDrop = 0;
+		if (s_cbDrop++ < 32)
+			Log("! p5 cbdrop: stage=%u off=%u bytes=%u sz=%u staging=%zu base=%u draws=%llu",
+			    stage, offset, bytes, size, pm.staging.size(), base,
+			    (unsigned long long)g_dbgDrawOK);
+	}
 	(void)size;
 }
 
@@ -5400,6 +5486,17 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				}
 			if (!n0 && pm.zb && g_mtlRtNames.count(pm.zb)) // zfill (depth-only) draws too
 				n0 = g_mtlRtNames[pm.zb].c_str();
+			// p5 launch231: who rasterizes the SUN shadow map? (accum_sun
+			// multiplies by avg4(smap taps) — an untouched smap_depth = black
+			// sun = black accum.) Budget-free so smap_rain draws can't hide it.
+			if (n0 && strstr(n0, "smap_depth"))
+			{
+				static std::map<std::string, unsigned long long> s_smapW;
+				const std::string sk = pn ? pn : "?";
+				const unsigned long long sc = ++s_smapW[sk];
+				if (sc <= 3 || sc % 600 == 0)
+					Log("* p5 smapw: pair=%s n=%llu", sk.c_str(), sc);
+			}
 			static std::map<std::string, int> s_scLogged;
 			// p5 launch216: postprocess bypasses the 6-draw budget
 			// periodically — old budget-3 sampling only saw the first
@@ -5472,25 +5569,47 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						      " f" + std::to_string((int)tt.pixelFormat) +
 						      " t" + std::to_string((int)tt.textureType) +
 						      " z" + std::to_string((int)tt.depth) +
-						      " m" + std::to_string((int)tt.mipmapLevelCount) + " ";
+						      " m" + std::to_string((int)tt.mipmapLevelCount) +
+						      " @" + std::to_string((size_t)(uintptr_t)tt) + " ";
 					}
 					Log("* p5 ppslots: pair=%s [%s]", pn, sl.c_str());					// p5 launch209: yellow = real (1,1,0) values — dump raw
 					// p5 launch226: PS constants for the black-output suspects.
 					if (strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun"))
 					{
+						// p5 launch230: region sizes + FULL member bytes —
+						// m_shadow@976 needs 64B; the old 16B probe hid whether
+						// rows 1-3 landed, and the size line exposes cbSize
+						// truncation (1024 vs 1040) directly.
+						static std::map<std::string, int> s_t5sz;
+						if (s_t5sz[pn]++ < 2)
+							Log("* p5 t5sz: pair=%s vsSize=%u psSize=%u psBase=%u staging=%zu",
+							    pn, pm.vsSize, pm.psSize, pm.psBase, pm.staging.size());
 						int unc = 0;
+						const size_t ps0 = Align16(pm.vsSize);
 						for (const auto& u : psR->uniforms)
 						{
-							if (u.offset + 16 <= pm.psSize)
+							if (ps0 + u.offset >= pm.staging.size())
 							{
-								float q[4];
-								std::memcpy(q, pm.staging.data() + Align16(pm.vsSize) + u.offset,
-								    16);
-								Log("* p5 t5cb: %s %s off=%u (%.4g %.4g %.4g %.4g)", pn,
-								    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3]);
+								Log("* p5 t5cb: %s %s off=%u OOB ps=%zu", pn, u.name.c_str(),
+								    u.offset, pm.staging.size() - ps0);
+								if (++unc >= 32)
+									break;
+								continue;
 							}
-							// p5 launch228: full struct — Ldynamic_color@m720 is
-							// the sun PS multiplier, beyond the old 20-cap.
+							uint32_t nb = u.size > 64 ? 16u : (u.size < 16u ? 16u : u.size);
+							if (u.offset + nb > pm.staging.size() - ps0)
+								nb = (uint32_t)(pm.staging.size() - ps0 - u.offset);
+							std::string vq;
+							for (uint32_t b = 0; b + 4 <= nb; b += 4)
+							{
+								float q;
+								std::memcpy(&q, pm.staging.data() + ps0 + u.offset + b, 4);
+								char tmp[32];
+								snprintf(tmp, sizeof tmp, " %.4g", q);
+								vq += tmp;
+							}
+							Log("* p5 t5cb: %s %s off=%u/%u%s", pn, u.name.c_str(), u.offset,
+							    u.size, vq.c_str());
 							if (++unc >= 32)
 								break;
 						}
@@ -5499,6 +5618,17 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						// "sampling/write dead".
 						if (strstr(pn, "deffer_base_flat") && pm.stageTex[0])
 							pm.pendingDefferTex = pm.stageTex[0];
+						// p5 launch231: sun material volume (probe showed
+						// 128x256 z4 — X-Ray's is 128x256x16 BC1) — out =
+						// Ldynamic_color * MAT * avg4(smap): if MAT samples
+						// zero, the sun writes zero. Read its content back.
+						if (strstr(pn, "accum_sun") && pm.stageTex[2])
+							pm.pendingMatTex = pm.stageTex[2];
+						// p5 launch232: is the SAMPLED smap_depth content
+						// alive? (engine probes say whether the sun shadow
+						// phase runs; this says what the taps actually read.)
+						if (strstr(pn, "accum_sun") && pm.stageTex[3])
+							pm.pendingSmapTex = pm.stageTex[3];
 					}
 					// half-float content of slot 0 + every PS CB float so the
 					// Inf-scene vs junk-constant theory splits cleanly.

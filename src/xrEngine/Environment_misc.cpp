@@ -556,6 +556,15 @@ void CEnvDescriptorMixer::boost(CEnvironment* env)
 		sun_color.clamp({0.f, 0.f, 0.f}, {1.f, 1.f, 1.f});
 	}
 
+	// p5 launch236: do the weather descriptors carry the sun color?
+	{
+		static int s_elN = 0;
+		if ((s_elN++ % 240) == 0)
+			Msg("- p5 envlerp: n=%d f=%.2f A=(%.3f %.3f %.3f) B=(%.3f %.3f %.3f) out=(%.3f %.3f %.3f)",
+				s_elN, f, A.sun_color.x, A.sun_color.y, A.sun_color.z,
+				B.sun_color.x, B.sun_color.y, B.sun_color.z, sun_color.x, sun_color.y, sun_color.z);
+	}
+
 	//Rain color brightness adjustment
 	if (env->env_boost.rain_color != 0.f)
 	{

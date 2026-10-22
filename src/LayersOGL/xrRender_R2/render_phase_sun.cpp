@@ -32,6 +32,16 @@ void render_sun::init()
     if (RImplementation.o.sunstatic)
         o.active = false;
 
+    // p5 launch233: why does the sun phase die after the first frame?
+    {
+        static int s_suN = 0;
+        if ((s_suN++ % 120) == 0)
+            Msg("- p5 suninit: n=%d act=%d static=%d sun=%d col=(%.3f %.3f %.3f) mtc=%d mtd=%d",
+                s_suN, o.active, RImplementation.o.sunstatic,
+                ps_r2_ls_flags.test(R2FLAG_SUN), sun_color.r, sun_color.g, sun_color.b,
+                RImplementation.o.mt_calculate, RImplementation.o.mt_render);
+    }
+
     if (!o.active)
         return;
 
@@ -272,6 +282,18 @@ void render_sun::calculate()
 
                 // Fill the database
                 dsgraph.build_subspace();
+                // p5 launch233: did the shadow subspace traverse anything?
+                {
+                    static int s_bsN = 0;
+                    if ((s_bsN++ % 120) == 0)
+                        Msg("- p5 sunbuild: n=%d ci=%u sec=%u nn=%u srt=%u secN=%zu hom=%d ptf=%u spt=%u",
+                            s_bsN, cascade_ind, dsgraph.o.sector_id,
+                            (u32)dsgraph.mapNormalPasses[0][0].size(),
+                            (u32)dsgraph.mapSorted.size(),
+                            dsgraph.PortalTraverser.r_sectors.size(),
+                            dsgraph.o.use_hom, dsgraph.o.portal_traverse_flags,
+                            dsgraph.o.spatial_types);
+                }
             }
         }
     };
@@ -308,6 +330,20 @@ void render_sun::render()
             bool bNormal = !dsgraph.mapNormalPasses[0][0].empty() || !dsgraph.mapMatrixPasses[0][0].empty();
             bool bSpecial = !dsgraph.mapNormalPasses[1][0].empty() || !dsgraph.mapMatrixPasses[1][0].empty() ||
                 !dsgraph.mapSorted.empty();
+            // p5 launch232: sun-cascade gate — if the shadow graph is empty the
+            // phase_smap_direct never runs, rt_smap_depth is never rasterized
+            // and accum_sun's smap taps read zero (black sun, black accum).
+            {
+                static int s_scN = 0;
+                if (s_scN++ < 16)
+                    Msg("- p5 suncasc: ci=%u bN=%d bS=%d nn=%u nm=%u mn=%u mm=%u srt=%u",
+                        cascade_ind, bNormal, bSpecial,
+                        (u32)dsgraph.mapNormalPasses[0][0].size(),
+                        (u32)dsgraph.mapMatrixPasses[0][0].size(),
+                        (u32)dsgraph.mapNormalPasses[1][0].size(),
+                        (u32)dsgraph.mapMatrixPasses[1][0].size(),
+                        (u32)dsgraph.mapSorted.size());
+            }
             if (bNormal || bSpecial)
             {
                 RImplementation.Target->phase_smap_direct(dsgraph.cmd_list, sun, cascade_ind);

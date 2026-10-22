@@ -4786,8 +4786,10 @@ namespace
 			{
 				const bool isFar = strstr(pair->name.c_str(), "far") != nullptr;
 				const bool isMask = strstr(pair->name.c_str(), "mask") != nullptr;
+				// launch292: far fill G=0.5 (chx[3]=56) so pure green
+				// (chx[3]=60) is UNIQUE to the private non-indexed twin.
 				const float col[4] = { isMask ? 0.f : (isFar ? 0.f : 1.f),
-					                   isMask ? 0.f : (isFar ? 1.f : 0.f),
+					                   isMask ? 0.f : (isFar ? 0.5f : 0.f),
 					                   isMask ? 1.f : 0.f, 1.f };
 				// (282: setDepthStencilState:nil is ILLEGAL — debug-layer abort.
 				// NODEPTH already forces Always in the bound state; do not set.)
@@ -5052,6 +5054,15 @@ namespace
 							// "vanished" verdict was not evidence.)
 							{
 								static id<MTLBuffer> s_pVB = nil, s_pIB = nil;
+								// mask pair (stub VS, RHW quad) would land the
+								// green twin unconditionally — contaminate the
+								// cuboid verdict. Gate to NEAR pair only
+								// (292: far fill recolored to G=0.5, so
+								// green-60 = private non-indexed, magenta
+								// chx[5]=60 = private indexed, both near-only).
+								const bool privOK =
+								    strstr(pair->name.c_str(), "near") !=
+								    nullptr;
 								id<MTLBuffer> vbB2 = (__bridge id<MTLBuffer>)ds.vb;
 								id<MTLBuffer> ibB2 = (__bridge id<MTLBuffer>)ds.ib;
 								const uint8_t* vsrc =
@@ -5061,8 +5072,8 @@ namespace
 								const size_t vbBytes = (size_t)primCount * ds.vbStride;
 								const size_t slotBytes =
 								    (size_t)Align16(pm.vsSize) + Align16(pm.psSize);
-								if (vsrc && isrc && pm.vsSize && pm.psSize &&
-								    pm.staging.size() >= slotBytes &&
+								if (privOK && vsrc && isrc && pm.vsSize &&
+								    pm.psSize && pm.staging.size() >= slotBytes &&
 								    (size_t)baseV * ds.vbStride + vbBytes <=
 								        [vbB2 length] &&
 								    ((size_t)startI + primCount) * 2 <= [ibB2 length])
@@ -5143,7 +5154,8 @@ namespace
 											static int s_privN = 0;
 											if (s_privN++ < 4)
 												Log("- p5 accpriv: drew idx+nonidx "
-												    "pc=%u vbBytes=%zu slot=%zu",
+												    "%s pc=%u vbBytes=%zu slot=%zu",
+												    pair->name.c_str(),
 												    (unsigned)primCount, vbBytes,
 												    slotBytes);
 										}

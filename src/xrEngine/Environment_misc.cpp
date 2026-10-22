@@ -503,6 +503,14 @@ void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescrip
 	}
 
 	sun_color.lerp(A.sun_color, B.sun_color, f);
+	// p5 launch236: do the weather descriptors carry the sun color?
+	{
+		static int s_elN = 0;
+		if ((s_elN++ % 240) == 0)
+			Msg("- p5 envlerp: n=%d f=%.2f A=(%.3f %.3f %.3f) B=(%.3f %.3f %.3f) out=(%.3f %.3f %.3f)",
+				s_elN, f, A.sun_color.x, A.sun_color.y, A.sun_color.z,
+				B.sun_color.x, B.sun_color.y, B.sun_color.z, sun_color.x, sun_color.y, sun_color.z);
+	}
 
 	if (rain_density > 0.f)
 		env->wetness_factor += rain_density / 10000.f;
@@ -555,14 +563,12 @@ void CEnvDescriptorMixer::boost(CEnvironment* env)
 		sun_color.add(env->env_boost.sun_color);
 		sun_color.clamp({0.f, 0.f, 0.f}, {1.f, 1.f, 1.f});
 	}
-
-	// p5 launch236: do the weather descriptors carry the sun color?
+	// p5 launch236: final sun color after boost (mixer pipeline end).
 	{
-		static int s_elN = 0;
-		if ((s_elN++ % 240) == 0)
-			Msg("- p5 envlerp: n=%d f=%.2f A=(%.3f %.3f %.3f) B=(%.3f %.3f %.3f) out=(%.3f %.3f %.3f)",
-				s_elN, f, A.sun_color.x, A.sun_color.y, A.sun_color.z,
-				B.sun_color.x, B.sun_color.y, B.sun_color.z, sun_color.x, sun_color.y, sun_color.z);
+		static int s_ebN = 0;
+		if ((s_ebN++ % 240) == 0)
+			Msg("- p5 envboost: n=%d final=(%.3f %.3f %.3f) boost=%.3f",
+				s_ebN, sun_color.x, sun_color.y, sun_color.z, env->env_boost.sun_color);
 	}
 
 	//Rain color brightness adjustment

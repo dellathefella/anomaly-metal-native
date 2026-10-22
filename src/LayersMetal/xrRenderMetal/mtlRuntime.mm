@@ -4589,7 +4589,21 @@ namespace
 		if (pair && strstr(pair->name.c_str(), "combine"))
 		{
 			static int s_cbN = 0;
-			if (s_cbN++ < 6 || s_cbN % 240 == 0)
+			static std::map<std::string, int> s_cbCnt;
+			s_cbCnt[pair->name]++;
+			if (s_cbN++ < 6 || (s_cbN % 4800) == 0)
+			{
+				std::string dump;
+				for (const auto& kv : s_cbCnt)
+				{
+					dump += " ";
+					dump += kv.first.substr(0, 34);
+					dump += "=";
+					dump += std::to_string(kv.second);
+				}
+				Log("- p5 cbcnt: n=%d%s", s_cbN, dump.c_str());
+			}
+			if (s_cbN < 40)
 			{
 				const char* rnC = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				std::string texs;

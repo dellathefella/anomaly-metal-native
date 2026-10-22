@@ -4767,7 +4767,8 @@ namespace
 				const float col[4] = { isMask ? 0.f : (isFar ? 0.f : 1.f),
 					                   isMask ? 0.f : (isFar ? 1.f : 0.f),
 					                   isMask ? 1.f : 0.f, 1.f };
-				[pm.enc setDepthStencilState:nil]; // canaries must survive any depth
+				// (282: setDepthStencilState:nil is ILLEGAL — debug-layer abort.
+				// NODEPTH already forces Always in the bound state; do not set.)
 				pm.initBuiltins();
 				bool anyB = false, anyA = false;
 				// launch277: mask canary excluded — its stub_notransform VS

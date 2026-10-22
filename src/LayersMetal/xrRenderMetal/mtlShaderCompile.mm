@@ -371,7 +371,7 @@ namespace
 			    "%u offsets moved)\n",
 			    sname.c_str(), refl.cbufferSize, changed);
 	}
-void* g_ppVar[4] = {nullptr, nullptr, nullptr, nullptr};
+void* g_ppVar[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 } // namespace (anon)
 
 // p5 launch218: postprocess PS term-bisect variants. Patch the final
@@ -381,12 +381,18 @@ void* g_ppVar[4] = {nullptr, nullptr, nullptr, nullptr};
 // (declared in mtlRuntime.h); CreateFunction/g_ppVar stay anon-visible.
 void MtlBuildPpVariants(const std::string& msl, const char* entry)
 {
-	static const char* kExprs[4] = {
+	static const char* kExprs[6] = {
 		"float4(0.0, 0.0, 0.0, 1.0)",
 		"float4(_68, 1.0)",
 		"float4(_78, 1.0)",
 		"float4(mix((_78 * float3(s_noise.sample(s_noise_smplr, in.in_var_TEXCOORD2).xyz)) * "
 		"2.0, _78, float3(in.in_var_TEXCOORD10.w)), 1.0)",
+		// launch220: show COLOR0 interpolant raw (0.498 gray expected); full
+		// formula with CONSTANT multiplier (black expected) — isolates whether
+		// the NaN rides in in_var_TEXCOORD10 itself.
+		"float4(in.in_var_TEXCOORD10.xyz, 1.0)",
+		"float4(mix((_78 * float3(s_noise.sample(s_noise_smplr, in.in_var_TEXCOORD2).xyz)) * "
+		"2.0, _78, float3(in.in_var_TEXCOORD10.w)) * float3(0.498, 0.498, 0.498), 1.0)",
 	};
 	const std::string needle = "out.out_var_SV_TARGET = ";
 	size_t b = msl.rfind(needle);
@@ -396,7 +402,7 @@ void MtlBuildPpVariants(const std::string& msl, const char* entry)
 		fprintf(stderr, "! xrMetal ppVariants: output stmt not found\n");
 		return;
 	}
-	for (int m = 0; m < 4; m++)
+	for (int m = 0; m < 6; m++)
 	{
 		if (g_ppVar[m])
 			continue;
@@ -409,13 +415,13 @@ void MtlBuildPpVariants(const std::string& msl, const char* entry)
 		else
 			fprintf(stderr, "! xrMetal ppVariant %d failed: %s\n", m, e2.c_str());
 	}
-	fprintf(stderr, "- xrMetal ppVariants: %d%d%d%d compiled\n", !!g_ppVar[0], !!g_ppVar[1],
-	        !!g_ppVar[2], !!g_ppVar[3]);
+	fprintf(stderr, "- xrMetal ppVariants: %d%d%d%d%d%d compiled\n", !!g_ppVar[0], !!g_ppVar[1],
+	        !!g_ppVar[2], !!g_ppVar[3], !!g_ppVar[4], !!g_ppVar[5]);
 }
 
 void* MtlPpVariantFn(int mode)
 {
-	return (mode >= 0 && mode < 4) ? g_ppVar[mode] : nullptr;
+	return (mode >= 0 && mode < 6) ? g_ppVar[mode] : nullptr;
 }
 
 // launch151: exposed for MtlRawIntScaledVS (mtlRuntime.mm) — raw-int masked

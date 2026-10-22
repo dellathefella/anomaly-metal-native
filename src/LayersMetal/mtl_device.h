@@ -13,6 +13,13 @@
 
 namespace xray::metal
 {
+	// p5 launch221: released-resource notification hook. The render layer
+	// registers a callback so ReleaseResource() can invalidate non-retained
+	// raw handles (pass-manager rt[]/zb/stageTex[]) pointing at a texture
+	// about to be freed — the engine recreates all RTs on world load and the
+	// stale ids crashed objc_retain inside ensureEncoder (font draw SIGSEGV).
+	extern void (*g_texReleaseHook)(void*);
+
 
 	class MetalDevice
 	{

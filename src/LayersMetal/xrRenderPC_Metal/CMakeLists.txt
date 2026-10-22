@@ -221,6 +221,8 @@ target_compile_definitions(xrRender_METAL
 )
 
 target_compile_options(xrRender_METAL PRIVATE -fdelayed-template-parsing)
+# p5 launch220: line tables for crash symbolication (tiny size cost, no codegen change)
+target_compile_options(xrRender_METAL PRIVATE -gline-tables-only)
 
 find_library(METAL_FRAMEWORK Metal)
 find_library(FOUNDATION_FRAMEWORK Foundation)

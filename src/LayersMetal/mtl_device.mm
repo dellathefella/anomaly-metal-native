@@ -45,6 +45,9 @@ static uint64_t MtlCurRSSBytes()
 namespace xray::metal
 {
 
+	// p5 launch221: see mtl_device.h — set by the render layer at load.
+	void (*g_texReleaseHook)(void*) = nullptr;
+
 	struct MetalDevice::Impl
 	{
 		id<MTLDevice> device = nil;
@@ -457,6 +460,14 @@ namespace xray::metal
 	{
 		if (!obj)
 			return;
+		// p5 launch221: let the render layer drop raw handles to this resource
+		// BEFORE ARC retires it (dangling-id crash guard, see g_texReleaseHook).
+		if (g_texReleaseHook)
+			g_texReleaseHook(obj);
+		// p5 launch221: cached slice views keyed by this texture must die with
+		// it (allocator address reuse would otherwise hand out stale views).
+		for (auto it = m_impl->sliceViews.begin(); it != m_impl->sliceViews.end();)
+			it = (it->first.first == obj) ? m_impl->sliceViews.erase(it) : std::next(it);
 		id<NSObject> target = (__bridge id<NSObject>)obj;
 		// launch134: MTLBuffers (respond to -length; textures don't) go to the
 		// pool retire queue instead of being dropped — deferred recycling

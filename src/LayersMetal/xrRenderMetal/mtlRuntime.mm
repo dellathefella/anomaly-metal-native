@@ -2337,6 +2337,50 @@ void MtlInvalidatePass()
 // p5 diag: distinct color RTs bound since the last clear (draw-landing hunt).
 static std::vector<void*>* g_mtlDbgRTs = nullptr;
 
+// p5 launch221: dangling-handle guard. The engine recreates every RT on world
+// load (menu 3024x1662 → in-game 3024x1658) and releases the old textures into
+// the device arena, while MtlPassManager stores NON-RETAINED void* handles.
+// ensureEncoder materializes strong id<MTLTexture> (objc_retain) from them —
+// launch219/220 font-draw SIGSEGV symbolicated to mtlRuntime.mm:3792 (the
+// inlined ensureEncoder). Purge every slot that references a released object.
+static void MtlInvalidateReleased(void* obj)
+{
+	if (!obj)
+		return;
+	MtlPassManager& pm = PM();
+	for (int i = 0; i < 4; i++)
+		if (pm.rt[i] == obj)
+		{
+			pm.rt[i] = nullptr;
+			pm.identityDirty = true; // encoder references a dead attachment
+		}
+	if (pm.zb == obj)
+	{
+		pm.zb = nullptr;
+		pm.identityDirty = true;
+	}
+	for (uint32_t i = 0; i < kMaxStage; i++)
+		if (pm.stageTex[i] == obj)
+			pm.stageTex[i] = nullptr;
+	if (pm.pendingPostGeom == obj)
+		pm.pendingPostGeom = nullptr;
+	if (pm.pendingPostGeomAlb == obj)
+		pm.pendingPostGeomAlb = nullptr;
+	if (g_mtlDbgRTs)
+		g_mtlDbgRTs->erase(std::remove(g_mtlDbgRTs->begin(), g_mtlDbgRTs->end(), obj),
+		                   g_mtlDbgRTs->end());
+	g_mtlRtNames.erase(obj);
+}
+
+namespace
+{
+	struct MtlReleaseHookReg
+	{
+		MtlReleaseHookReg() { xray::metal::g_texReleaseHook = &MtlInvalidateReleased; }
+	};
+	MtlReleaseHookReg s_relHookReg; // static-init at dylib load
+} // namespace
+
 void MtlTargetsChanged(void* const* rts, const void* zb)
 {
 	MtlPassManager& pm = PM();
@@ -3729,22 +3773,64 @@ namespace
 		MtlStageRefl psRw;
 		if (s_rw && pair && psR && strstr(pair->name.c_str(), "postprocess"))
 		{
+			// p5 launch222: build variants from the BOUND MSL text — postprocess.ps
+			// compiles in multiple macro configs; compile-time builds could patch a
+			// different config than this pair carries (idempotent once filled).
+			if (!psR->msl.empty())
+				MtlBuildPpVariants(psR->msl, psR->entry.c_str());
 			static time_t s_ppT0 = 0;
 			static int s_lastEra = -2;
+			// p5 launch222: the era math is provably impossible with the
+			// DUMPED MSL (black mix × finite C0 ≠ yellow) — dump the MSL text
+			// actually BOUND to the live PP pair (disk-cache/macro-config
+			// divergence suspect) + the full RT set of a PP draw (stale
+			// ping-pong RT handle suspect).
+			static bool s_boundDumped = false;
+			if (!s_boundDumped)
+			{
+				s_boundDumped = true;
+				if (FILE* fb = fopen("/tmp/bound_pp_ps.msl", "w"))
+				{
+					fwrite(psR->msl.data(), 1, psR->msl.size(), fb);
+					fclose(fb);
+				}
+				std::string rts;
+				for (int ri = 0; ri < 4; ri++)
+				{
+					const char* rn = pm.rt[ri] ? MtlDbgRTGetName(pm.rt[ri]) : nullptr;
+					rts += std::to_string(ri) + ":" + (rn ? rn : (pm.rt[ri] ? "?" : "null")) +
+					       " ";
+				}
+				Log("* p5 ppRts: [%s] zb=%s", rts.c_str(),
+				    pm.zb ? (MtlDbgRTGetName(pm.zb) ? MtlDbgRTGetName(pm.zb) : "?") : "null");
+			}
 			const time_t nowT = time(nullptr);
 			if (!s_ppT0)
 				s_ppT0 = nowT;
 			const long el = (long)(nowT - s_ppT0) - 65;
-			const int era = el < 0 ? -1 : (el / 30 > 4 ? 4 : (int)(el / 30));
+			const int era = el < 0 ? -1 : (el / 30 > 5 ? 5 : (int)(el / 30));
 			if (era != s_lastEra)
 			{
-				static const char* const kNm[] = {"black", "scene", "gray", "noc0", "off"};
+				static const char* const kNm[] = {"black", "scene", "gray", "noc0", "c0view",
+				                                  "constc0"};
 				Log("* p5 eraSwitch: mode=%s t=%lds", era < 0 ? "pre" : kNm[era],
 				    (long)(nowT - s_ppT0));
+				// launch220: dump the PP quad's raw vertex bytes — the CPU-side
+				// truth for COLOR0/COLOR1 feeding the FFP VS.
+				if (ds.vb && ds.vbStride >= 24)
+				{
+					id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;
+					const uint8_t* v0 =
+						(const uint8_t*)[vbB contents] + (size_t)baseV * ds.vbStride;
+					const float* f0 = (const float*)v0;
+					Log("* p5 ppVB: stride=%u baseV=%u c0=%08X c1=%08X pos=(%.1f,%.1f,%.4g,%.4g)",
+					    ds.vbStride, baseV, ((const uint32_t*)(v0 + 16))[0],
+					    ((const uint32_t*)(v0 + 20))[0], f0[0], f0[1], f0[2], f0[3]);
+				}
 				s_lastEra = era;
 				g_ppEra = era;
 			}
-			if (era >= 0 && era < 4)
+			if (era >= 0 && era < 6)
 			{
 				void* vf = MtlPpVariantFn(era);
 				if (vf)

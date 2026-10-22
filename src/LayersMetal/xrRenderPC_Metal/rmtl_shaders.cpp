@@ -306,53 +306,67 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
         {
             file = FS.r_open(full_path);
             if (file->length() > 16)
-        {
-            xr_string adapter, metalVer, cachedEntry;
-            file->r_string(adapter);
-            file->r_string(metalVer);
-            file->r_string(cachedEntry);
-            const u32 savedFileCrc = file->r_u32();
-            const u32 savedBytecodeCrc = file->r_u32();
-            const u32 payloadLen = file->elapsed();
-            const u32 payloadCrc = crc32(file->pointer(), payloadLen);
-            if (0 == xr_strcmp(adapter.c_str(), HW.AdapterName) &&
-                0 == xr_strcmp(metalVer.c_str(), HW.MetalVersionString) &&
-                savedFileCrc == fileCrc && savedBytecodeCrc == payloadCrc)
             {
-                // Binary-safe payload framing (matches the write side:
-                // u32 length + raw bytes; the reflection blob embeds NULs).
-                std::string mslText, blobText;
-                const u32 remaining = file->length() - file->elapsed();
-                if (remaining > 8)
+                xr_string adapter, metalVer, cachedEntry;
+                file->r_string(adapter);
+                file->r_string(metalVer);
+                file->r_string(cachedEntry);
+                const u32 savedFileCrc = file->r_u32();
+                const u32 savedBytecodeCrc = file->r_u32();
+                if (0 == xr_strcmp(adapter.c_str(), HW.AdapterName) &&
+                    0 == xr_strcmp(metalVer.c_str(), HW.MetalVersionString) &&
+                    savedFileCrc == fileCrc)
                 {
-                    const u32 mslLen = file->r_u32();
-                    if (mslLen && mslLen + 8 <= remaining)
+                    // Binary-safe payload framing (matches the write side:
+                    // u32 length + raw bytes; the reflection blob embeds NULs).
+                    // launch272: the blob ends at EOF, so the old
+                    // `blobLen + 4 <= remaining` check rejected every entry —
+                    // cache hits never happened — and the payload CRC was
+                    // computed over the header bytes instead of the payload.
+                    std::string mslText, blobText;
+                    const u32 remaining = file->length() - file->elapsed();
+                    u32 mslLen = 0, blobLen = 0;
+                    if (remaining > 8)
                     {
-                        mslText.resize(mslLen);
-                        file->r(mslText.data(), mslLen);
-                        const u32 blobLen = file->r_u32();
-                        if (blobLen && blobLen + 4 <= file->length() - file->elapsed())
+                        mslLen = file->r_u32();
+                        if (mslLen && mslLen + 8 <= remaining)
                         {
-                            blobText.resize(blobLen);
-                            file->r(blobText.data(), blobLen);
+                            mslText.resize(mslLen);
+                            file->r(mslText.data(), mslLen);
+                            blobLen = file->r_u32();
+                            if (blobLen && blobLen <= file->length() - file->elapsed())
+                            {
+                                blobText.resize(blobLen);
+                                file->r(blobText.data(), blobLen);
+                            }
                         }
                     }
-                }
-                std::string error;
-                if (!mslText.empty() && !blobText.empty() &&
-                    MtlDeserializeReflection(blobText, refl, error) &&
-                    MetalCreateStageFromMsl(refl, name, mslText.c_str(), cachedEntry.c_str(), error))
-                {
-                    msl = std::move(mslText);
-                    xr_strcpy(entry, cachedEntry.c_str());
-                }
-                else
-                {
-                    Msg("! Metal shader cache load failed for %s: %s", filename, error.c_str());
-                    refl = MtlStageRefl{};
+                    // payload crc, computed exactly like the write side
+                    u32 payloadCrc = 0;
+                    payloadCrc = crc32(&mslLen, 4, payloadCrc);
+                    payloadCrc = crc32(mslText.data(), mslText.size(), payloadCrc);
+                    payloadCrc = crc32(&blobLen, 4, payloadCrc);
+                    payloadCrc = crc32(blobText.data(), blobText.size(), payloadCrc);
+                    if (payloadCrc != savedBytecodeCrc)
+                    {
+                        mslText.clear();
+                        blobText.clear();
+                    }
+                    std::string error;
+                    if (!mslText.empty() && !blobText.empty() &&
+                        MtlDeserializeReflection(blobText, refl, error) &&
+                        MetalCreateStageFromMsl(refl, name, mslText.c_str(), cachedEntry.c_str(), error))
+                    {
+                        msl = std::move(mslText);
+                        xr_strcpy(entry, cachedEntry.c_str());
+                    }
+                    else
+                    {
+                        Msg("! Metal shader cache load failed for %s: %s", filename, error.c_str());
+                        refl = MtlStageRefl{};
+                    }
                 }
             }
-        }
             file->close();
         }
         catch (const std::exception& ex)

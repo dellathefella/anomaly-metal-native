@@ -4918,7 +4918,9 @@ namespace
 									// result is behind the camera (w<=0) or
 									// outside z-range the cuboid legitimately
 									// clips away — a data bug, not a Metal bug.
-									char cb2[160];
+									char cb2[288];
+									char cb3[224];
+									cb3[0] = 0;
 									if (vB && pm.vsSize >= 272 + 64 &&
 									    pm.staging.size() >= 272 + 64)
 									{
@@ -4928,8 +4930,20 @@ namespace
 											for (int i = 0; i < 4; i++)
 												o[j] += vB[i] * M[i * 4 + j];
 										snprintf(cb2, sizeof(cb2),
-										         " clip=(%.1f %.1f %.1f w=%.1f)", o[0], o[1],
-										         o[2], o[3]);
+										         " clip=(%.1f %.1f %.1f w=%.1f) WVP[r0=(%.2f %.2f "
+										         "%.2f %.2f) r3=(%.2f %.2f %.2f %.2f)]",
+										         o[0], o[1], o[2], o[3], M[0], M[1], M[2], M[3],
+										         M[12], M[13], M[14], M[15]);
+										const float* Pv = (const float*)pm.staging.data() + 96 / 4;
+										const float* VPv =
+									    (const float*)pm.staging.data() + 208 / 4;
+										char cb3[224];
+										snprintf(cb3, sizeof(cb3),
+										         " P[r2=(%.3f %.3f %.3f %.3f) r3=(%.3f %.3f %.3f %.3f)]"
+										         " VP[r0=(%.2f %.2f %.2f %.2f) r3=(%.2f %.2f %.2f %.2f)]",
+										         Pv[8], Pv[9], Pv[10], Pv[11], Pv[12], Pv[13], Pv[14],
+										         Pv[15], VPv[0], VPv[1], VPv[2], VPv[3], VPv[12],
+										         VPv[13], VPv[14], VPv[15]);
 									}
 									else
 										cb2[0] = 0;
@@ -4943,11 +4957,11 @@ namespace
 									         vAt ? vAt[0] : 0.f, vAt ? vAt[1] : 0.f,
 									         vAt ? vAt[2] : 0.f, vAt ? vAt[3] : 0.f);
 									Log("- p5 accix: ib=%p len=%llu startI=%u baseV=%u pc=%u "
-									    "idx=[%u %u %u %u] %s%s",
+									    "idx=[%u %u %u %u] %s%s%s",
 									    (void*)ds.ib, (unsigned long long)[ibB length],
 									    (unsigned)startI, (unsigned)baseV, (unsigned)primCount,
 									    ix[startI], ix[startI + 1], ix[startI + 2], ix[startI + 3],
-									    xb, cb2);
+									    xb, cb2, cb3);
 								}
 							}
 							// launch279: magenta non-indexed variant PROVED the

@@ -4846,26 +4846,49 @@ namespace
 							                  instanceCount:1
 							                     baseVertex:(NSInteger)baseV
 							                   baseInstance:0];
-							// launch279: magenta non-indexed variant — cuboid VB
-							// is a 48-vert triangle list, so vertexStart/count is
-							// legal. Green channel in postaccum => the index
-							// buffer path is the killer; red-only => index path
-							// is fine and the defect is VS/descriptor level.
+							// launch280: cyan = same indexed draw but
+							// baseVertex 0 — tests whether the DX9
+							// (relative-index + baseVertex) convention is what
+							// kills coverage. Plus raw index dump below.
 							{
-								id<MTLDevice> mdevC =
+								id<MTLDevice> mdevC2 =
 								        (__bridge id<MTLDevice>)pm.dev->Device();
-								const float colG[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
-								id<MTLBuffer> pbG = [mdevC newBufferWithBytes:colG
-								                                      length:sizeof(colG)
+								const float colC[4] = { 0.0f, 1.0f, 1.0f, 1.0f };
+								id<MTLBuffer> pbC = [mdevC2 newBufferWithBytes:colC
+								                                      length:sizeof(colC)
 								                                    options:MTLResourceStorageModeShared];
-								if (pbG)
+								if (pbC)
 								{
-									[pm.enc setFragmentBuffer:pbG offset:0 atIndex:0];
-									[pm.enc drawPrimitives:MTLPrimitiveTypeTriangle
-									            vertexStart:(NSUInteger)baseV
-									            vertexCount:(NSUInteger)primCount];
+									[pm.enc setFragmentBuffer:pbC offset:0 atIndex:0];
+									[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+									                   indexCount:primCount
+									                    indexType:MTLIndexTypeUInt16
+									                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
+									            indexBufferOffset:(NSUInteger)startI * 2
+									                  instanceCount:1
+									                     baseVertex:0
+									                   baseInstance:0];
+								}
+								id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
+								const uint16_t* ix = ibB ? (const uint16_t*)ibB.contents : nullptr;
+								if (ix)
+								{
+									char xb[128];
+									int xo = 0;
+									for (int q = 0; q < 8; q++)
+										xo += snprintf(xb + xo, sizeof(xb) - xo, "%u ",
+										               ix[startI + q]);
+									Log("- p5 accix: ib=%p len=%llu startI=%u baseV=%u pc=%u "
+									    "idx=[%s]",
+									    (void*)ds.ib, (unsigned long long)[ibB length],
+									    (unsigned)startI, (unsigned)baseV, (unsigned)primCount,
+									    xb);
 								}
 							}
+							// launch279: magenta non-indexed variant PROVED the
+							// geometry+VS+CB+raster chain is alive (168k px in
+							// 279). Removed in 280 — it covered both indexed
+							// variants' verdict colors.
 							anyB = true;
 						}
 					}

@@ -5423,10 +5423,12 @@ namespace
 											static int s_privN = 0;
 											if (s_privN++ < 4)
 												Log("- p5 accpriv: drew idx+nonidx "
-												    "%s pc=%u vbBytes=%zu slot=%zu",
+												    "%s pc=%u vbBytes=%zu slot=%zu "
+												    "enc=%p",
 												    pair->name.c_str(),
 												    (unsigned)primCount, vbBytes,
-												    slotBytes);
+												    slotBytes,
+												    (__bridge void*)pm.enc);
 										}
 									}
 								}

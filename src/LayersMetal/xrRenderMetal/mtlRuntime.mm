@@ -4937,7 +4937,6 @@ namespace
 										const float* Pv = (const float*)pm.staging.data() + 96 / 4;
 										const float* VPv =
 									    (const float*)pm.staging.data() + 208 / 4;
-										char cb3[224];
 										snprintf(cb3, sizeof(cb3),
 										         " P[r2=(%.3f %.3f %.3f %.3f) r3=(%.3f %.3f %.3f %.3f)]"
 										         " VP[r0=(%.2f %.2f %.2f %.2f) r3=(%.2f %.2f %.2f %.2f)]",

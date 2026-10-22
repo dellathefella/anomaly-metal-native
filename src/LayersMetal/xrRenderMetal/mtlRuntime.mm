@@ -5038,134 +5038,83 @@ namespace
 									    xb, cb2, wc, cb3);
 								}
 							}
-							// launch279: magenta non-indexed variant PROVED the
-							// geometry+VS+CB+raster chain is alive (168k px in
-							// 279). Removed in 280 — it covered both indexed
-							// variants' verdict colors.
-							// launch283: synthetic VB+IB triangle — three known
-							// world-space corners near the camera, own buffers,
-							// own index buffer, same PSO/CB. Lands (green band
-							// lower half) => ds.vb/ds.ib GPU-side contents are
-							// the culprit (dynamic-buffer recycling/aliasing).
-							// Vanishes => defect is in this encoder layer.
+							// launch290: FULLY-PRIVATE cuboid canary — private
+							// VB (copy of primCount verts at baseV), private IB
+							// (raw indices: verts copied region-relative start
+							// at 0), private CB (setVertexBytes staging copy),
+							// fill PS MAGENTA. Zero dependency on dynamic-buffer
+							// lifetimes. Magenta lands (chx[5]=60 is unique to
+							// it) => shared ds.vb/ds.ib/ring contents differ at
+							// GPU exec time (aliasing/recycling). Vanishes even
+							// fully private => defect is PSO/vertex-descriptor
+							// level for this pair. (Replaces 283 synthetic: its
+							// hand-rolled inverse was row/col transposed — the
+							// "vanished" verdict was not evidence.)
 							{
-								static id<MTLBuffer> s_synVB = nil, s_synIB = nil;
-								const float* M = nullptr;
-								if (pm.vsSize >= 272 + 64 && pm.staging.size() >= 272 + 64)
-									M = (const float*)pm.staging.data() + 272 / 4;
-								if (M) // rebuild every visit — the camera moves
-								{
-									// Invert live m_WVP (row-vector layout) and
-									// place the triangle at world = ndc(0,0,.3,1)·M⁻¹
-									// so it is dead-center of the view.
-									float inv[16];
-									const float* m = M;
-									inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] -
-									         m[9] * m[6] * m[15] + m[9] * m[7] * m[14] +
-									         m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
-									inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] +
-									         m[8] * m[6] * m[15] - m[8] * m[7] * m[14] -
-									         m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
-									inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] -
-									         m[8] * m[5] * m[15] + m[8] * m[7] * m[13] +
-									         m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
-									inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] +
-									          m[8] * m[5] * m[14] - m[8] * m[6] * m[13] -
-									          m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
-									const float det = m[0] * inv[0] + m[1] * inv[4] +
-									                  m[2] * inv[8] + m[3] * inv[12];
-									if (fabsf(det) > 1e-9f)
-									{
-										for (int q = 0; q < 16; q++)
-											inv[q] /= det;
-										// remaining cofactors not needed: the
-										// point is on the view axis, compute
-										// world pos directly from inv columns
-										// touching z,w — but full inverse needs
-										// all 16; fill the rest:
-										inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] +
-									                 m[9] * m[2] * m[15] - m[9] * m[3] * m[14] -
-									                 m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
-										inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] -
-									                 m[8] * m[2] * m[15] + m[8] * m[3] * m[14] +
-									                 m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
-										inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] +
-									                 m[8] * m[1] * m[15] - m[8] * m[3] * m[13] -
-									                 m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
-										inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] -
-									                  m[8] * m[1] * m[14] + m[8] * m[2] * m[13] +
-									                  m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
-										inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] -
-									                 m[5] * m[2] * m[15] + m[5] * m[3] * m[14] +
-									                 m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
-										inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] +
-									                 m[4] * m[2] * m[15] - m[4] * m[3] * m[14] -
-									                 m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
-										inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] -
-									                  m[4] * m[1] * m[15] + m[4] * m[3] * m[13] +
-									                  m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
-										inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] +
-									                  m[4] * m[1] * m[14] - m[4] * m[2] * m[13] -
-									                  m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
-										inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] +
-									                 m[5] * m[2] * m[11] - m[5] * m[3] * m[10] -
-									                 m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
-										inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] -
-									                 m[4] * m[2] * m[11] + m[4] * m[3] * m[10] +
-									                 m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
-										inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] +
-									                  m[4] * m[1] * m[11] - m[4] * m[3] * m[9] -
-									                  m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
-										inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] -
-									                  m[4] * m[1] * m[10] + m[4] * m[2] * m[9] +
-									                  m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
-										// row-vector: world = clip · M⁻¹,
-										// inv[] is M⁻¹ row-major (adj/det).
-										const float c[4] = { 0.f, 0.f, 0.3f, 1.f };
-										float p[4];
-										for (int j = 0; j < 4; j++)
-										{
-											p[j] = 0.f;
-											for (int i = 0; i < 4; i++)
-												p[j] += c[i] * inv[i * 4 + j];
-										}
-										const float s = (fabsf(p[3]) > 1e-6f) ? 1.f / p[3] : 1.f;
-										float verts[3][4] = {
-										    { p[0] * s - 40.f, p[1] * s - 40.f, p[2] * s, 1.f },
-										    { p[0] * s + 40.f, p[1] * s - 40.f, p[2] * s, 1.f },
-										    { p[0] * s, p[1] * s + 40.f, p[2] * s, 1.f },
-										};
-										const uint16_t idx[3] = { 0, 1, 2 };
-										id<MTLDevice> dv =
-										        (__bridge id<MTLDevice>)pm.dev->Device();
-										s_synVB = [dv newBufferWithBytes:verts
-										                          length:sizeof(verts)
-										                        options:MTLResourceStorageModeShared];
-										s_synIB = [dv newBufferWithBytes:idx
-										                          length:sizeof(idx)
-										                        options:MTLResourceStorageModeShared];
-									}
-								}
-								if (s_synVB && s_synIB)
+								static id<MTLBuffer> s_pVB = nil, s_pIB = nil;
+								id<MTLBuffer> vbB2 = (__bridge id<MTLBuffer>)ds.vb;
+								id<MTLBuffer> ibB2 = (__bridge id<MTLBuffer>)ds.ib;
+								const uint8_t* vsrc =
+								    vbB2 ? (const uint8_t*)[vbB2 contents] : nullptr;
+								const uint16_t* isrc =
+								    ibB2 ? (const uint16_t*)[ibB2 contents] : nullptr;
+								const size_t vbBytes = (size_t)primCount * ds.vbStride;
+								const size_t slotBytes =
+								    (size_t)Align16(pm.vsSize) + Align16(pm.psSize);
+								if (vsrc && isrc && pm.vsSize && pm.psSize &&
+								    pm.staging.size() >= slotBytes &&
+								    (size_t)baseV * ds.vbStride + vbBytes <=
+								        [vbB2 length] &&
+								    ((size_t)startI + primCount) * 2 <= [ibB2 length])
 								{
 									id<MTLDevice> dv =
-									        (__bridge id<MTLDevice>)pm.dev->Device();
-									const float colS[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
-									id<MTLBuffer> pbS = [dv newBufferWithBytes:colS
-									                                   length:sizeof(colS)
-									                                 options:MTLResourceStorageModeShared];
-									if (pbS)
+									    (__bridge id<MTLDevice>)pm.dev->Device();
+									if (!s_pVB || [s_pVB length] < vbBytes)
+										s_pVB = [dv newBufferWithLength:
+										             (vbBytes < 65536 ? (NSUInteger)65536
+										                              : vbBytes * 2)
+										                       options:
+										                           MTLResourceStorageModeShared];
+									if (!s_pIB || [s_pIB length] < primCount * 2)
+										s_pIB = [dv newBufferWithLength:65536
+										                        options:
+										                            MTLResourceStorageModeShared];
+									if (s_pVB && s_pIB)
 									{
-										[pm.enc setVertexBuffer:s_synVB offset:0 atIndex:1];
-										[pm.enc setFragmentBuffer:pbS offset:0 atIndex:0];
-										[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
-										                   indexCount:3
-										                    indexType:MTLIndexTypeUInt16
-										                  indexBuffer:s_synIB
-										            indexBufferOffset:0
-										                  instanceCount:1
-										                     baseVertex:0
-										                   baseInstance:0];
+										memcpy([s_pVB contents],
+										       vsrc + (size_t)baseV * ds.vbStride, vbBytes);
+										memcpy([s_pIB contents], isrc + startI,
+										       primCount * 2);
+										const float colP[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
+										id<MTLBuffer> pbP =
+										    [dv newBufferWithBytes:colP
+										                    length:sizeof(colP)
+										                  options:
+										                      MTLResourceStorageModeShared];
+										if (pbP)
+										{
+											[pm.enc setVertexBytes:pm.staging.data()
+											                length:(NSUInteger)slotBytes
+											               atIndex:0];
+											[pm.enc setVertexBuffer:s_pVB
+											                   offset:0 atIndex:1];
+											[pm.enc setFragmentBuffer:pbP
+											                     offset:0 atIndex:0];
+											[pm.enc drawIndexedPrimitives:
+											    MTLPrimitiveTypeTriangle
+											                   indexCount:primCount
+											                    indexType:
+											                        MTLIndexTypeUInt16
+											                  indexBuffer:s_pIB
+											            indexBufferOffset:0
+											                instanceCount:1
+											                   baseVertex:0
+											                 baseInstance:0];
+											// restore shared VB binding for later draws
+											[pm.enc setVertexBuffer:
+											    (__bridge id<MTLBuffer>)ds.vb offset:0
+											                atIndex:1];
+										}
 									}
 								}
 							}

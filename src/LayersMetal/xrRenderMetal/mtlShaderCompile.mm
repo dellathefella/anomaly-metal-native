@@ -478,10 +478,15 @@ bool MtlShaderCompilerInit()
 // Only shaders that actually contain a proj-compare tap are converted;
 // shaders binding the sample result to a vector (r2/shadow.h FOURCC-PCF
 // style, accum_sun.ps channel math) are skipped wholesale and keep the old
-// raw-sample behaviour that their software compares expect. Idempotent:
+// raw-sample behaviour that their software compares expect. Restricted to the
+// sun shader family by name: spot/omni lights reuse the s_smap sampler name
+// bound to r2_RT_generic0, a COLOR texture whose software compares need the
+// raw form (a depth2d argument would fail binding validation). Idempotent:
 // patched text matches none of the patterns.
-static std::string MtlPatchShadowDref(const std::string& msl)
+static std::string MtlPatchShadowDref(const std::string& msl, const char* name)
 {
+	if (!name || !strstr(name, "accum_sun"))
+		return msl; // dref semantics only apply to the sun shadow map
 	if (msl.find("s_smap") == std::string::npos)
 		return msl;
 	static const std::regex projRe(
@@ -530,7 +535,7 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 		return false;
 	// launch264: restore the proj-sample reference depth before the MSL
 	// reaches the compiler, reflection, V2P patching or the disk cache.
-	res.msl = MtlPatchShadowDref(res.msl);
+	res.msl = MtlPatchShadowDref(res.msl, name);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -590,7 +595,7 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 {
 	// launch264: disk-cache entries compiled before the dref fix carry the
 	// z-dropped proj samples; patch idempotently like the realign below.
-	const std::string patched = MtlPatchShadowDref(msl);
+	const std::string patched = MtlPatchShadowDref(msl, name);
 	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)

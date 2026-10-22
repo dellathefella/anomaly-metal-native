@@ -4708,16 +4708,20 @@ namespace
 					}
 				}
 			}
-			[pm.enc drawIndexedPrimitives:pt
-			                   indexCount:primCount
-			                    indexType:MTLIndexTypeUInt16
-			                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
-			            indexBufferOffset:(NSUInteger)startI * 2
-			                  instanceCount:1
-			                     baseVertex:(NSInteger)baseV
-			                   baseInstance:0];
+			// launch298: debug-layer catch — the engine legitimately submits
+			// primCount 0 subdraws; indexed draw with indexCount 0 is a hard
+			// validation failure (UB in release). Skip like stride-0.
+			if (primCount)
+				[pm.enc drawIndexedPrimitives:pt
+				                   indexCount:primCount
+				                    indexType:MTLIndexTypeUInt16
+				                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
+				            indexBufferOffset:(NSUInteger)startI * 2
+				                  instanceCount:1
+				                     baseVertex:(NSInteger)baseV
+				                   baseInstance:0];
 		}
-		else
+		else if (primCount)
 			[pm.enc drawPrimitives:pt vertexStart:startV vertexCount:primCount];
 		// p5 launch256: combine-draw binding probe — is the accum RT actually
 		// bound to the combine PS, and to which slot? (postaccum proved writes

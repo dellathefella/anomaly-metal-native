@@ -4384,11 +4384,12 @@ namespace
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s/%p zb=%p bl=%d mask=%X zE=%d zF=%d "
-				    "vp=%.0fx%.0f scE=%d sc=(%u,%u,%u,%u)",
+				    "vp=(%.0f,%.0f,%.0fx%.0f) z=(%.2f %.2f) pt=%u cull=%d scE=%d sc=(%u,%u,%u,%u)",
 				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.rt[0],
 				    pm.zb,
 				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, (int)pm.depthEn,
-				    pm.depthFunc, pm.vpW, pm.vpH, (int)pm.scissorEn,
+				    pm.depthFunc, pm.vpX, pm.vpY, pm.vpW, pm.vpH, pm.vpMin, pm.vpMax,
+				    (unsigned)topology, pm.cull, (int)pm.scissorEn,
 				    (unsigned)pm.scL, (unsigned)pm.scT, (unsigned)pm.scR, (unsigned)pm.scB);
 				// launch245: what CB floats does the sun PS actually read?
 				if (psR && pm.psSize && !pm.staging.empty())

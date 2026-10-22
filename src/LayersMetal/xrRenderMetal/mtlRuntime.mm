@@ -4389,48 +4389,15 @@ namespace
 						}
 				}
 			}
-			// launch246: stencil plane of the accum DSV (previous committed
-			// frame) — did the mask quad write the light marker?
-			if ((s_adN >= 3 && s_adN <= 5) || s_adN == 241 || s_adN == 961)
+			// launch246: accum DSV identity check. Stencil-plane readback was
+			// attempted here (247-248) but Stencil8 views of Depth32Float_Stencil8
+			// abort on this GPU (texture-view validation assert) — and 246's
+			// NOSTENCIL+NODEPTH bypass already exonerated both state tests.
+			if (s_adN == 3 || s_adN == 241)
 			{
-				if (pm.zb)
-				{
-					id<MTLTexture> zt = (__bridge id<MTLTexture>)pm.zb;
-					if (zt.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
-					{
-						id<MTLTexture> sv =
-						    [zt newTextureViewWithPixelFormat:MTLPixelFormatStencil8];
-						if (!sv)
-							Log("! p5 strb: stencil view nil (fmt=%ld)", (long)zt.pixelFormat);
-						if (sv)
-						{
-							const uint32_t sw = (uint32_t)zt.width, sh = (uint32_t)zt.height;
-							std::vector<uint8_t> sb(size_t(sw) * sh);
-							std::string serr;
-							if (pm.dev->ReadbackSlice((__bridge void*)sv, sb.data(), sw, sw, sh, 0,
-							                          0, serr))
-							{
-								size_t snz = 0;
-								uint32_t hist[16] = { 0 };
-								for (size_t k = 0; k < sb.size(); k++)
-								{
-									if (sb[k])
-										snz++;
-									if (sb[k] < 16)
-										hist[sb[k]]++;
-								}
-								Log("- p5 strb: n=%d %ux%u nz=%zu/%zu h[1..7]=%u,%u,%u,%u,%u,%u,%u",
-								    s_adN, sw, sh, snz, sb.size(), hist[1], hist[2], hist[3],
-								    hist[4], hist[5], hist[6], hist[7]);
-							}
-							else
-								Log("! p5 strb: failed %s", serr.c_str());
-						}
-					}
-					else
-						Log("- p5 strb: n=%d zb fmt=%ld (no stencil plane)", s_adN,
-						    (long)zt.pixelFormat);
-				}
+				id<MTLTexture> zt = pm.zb ? (__bridge id<MTLTexture>)pm.zb : nil;
+				Log("- p5 strb: n=%d zb=%p fmt=%ld", s_adN, pm.zb,
+				    zt ? (long)zt.pixelFormat : -1L);
 			}
 		}
 		if (indexed)

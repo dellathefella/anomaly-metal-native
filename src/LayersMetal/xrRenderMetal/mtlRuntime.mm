@@ -46,6 +46,11 @@ struct Float4
 
 // p5 diag: draw-path counters (read via MtlDbgDrawStats from CHW::Present).
 static uint64_t g_dbgDrawOK = 0, g_dbgDrawNoShader = 0, g_dbgDrawNoPso = 0;
+static uint64_t g_lastSlotOff = 0; // p5 accgpu: ring slot of the last snapshot
+// p5 accgpu: post-commit ring-slot re-read (aliasing/wrap-overwrite probe)
+static void* g_accSlotRing = nullptr;
+static uint64_t g_accSlotOff = 0;
+static uint64_t g_accExpect0 = 0;
 // launch166: visibility-sample counters — DECISIVE fragment-presence probe.
 // g_visE13: samples rasterized by the S13 replay pass (dedicated CB, waited).
 // g_visLiveBuf: samples rasterized by the just-closed LIVE $user$position pass
@@ -569,6 +574,21 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					    bands[0], bands[1], bands[2], bands[3],
 					    g_visAccumBuf ? (unsigned long long)*(const uint64_t*)g_visAccumBuf.contents
 					                  : 0ull);
+				// p5 accgpu: POST commit+wait re-read of the sun draw's CB
+				// slot. If the bytes changed since encode, the ring slot was
+				// recycled/overwritten before the GPU executed => the VS read
+				// garbage m_WVP and everything legitimately clipped.
+				if (g_accSlotRing)
+				{
+					id<MTLBuffer> rb = (__bridge id<MTLBuffer>)g_accSlotRing;
+					const float* rp =
+					    (const float*)[rb contents] + (g_accSlotOff / 4) + 272 / 4;
+					const uint32_t got = *(const uint32_t*)&rp[0];
+					Log("- p5 accgpu2: ring@%llu r0=(%.4g %.4g %.4g %.4g) expect=%.8g %s",
+					    (unsigned long long)g_accSlotOff, rp[0], rp[1], rp[2], rp[3],
+					    (double)g_accExpect0,
+					    (uint64_t)got == g_accExpect0 ? "INTACT" : "OVERWRITTEN");
+				}
 				}
 				else
 					Log("! p5 postaccum: readback failed: %s", perr.c_str());
@@ -4257,6 +4277,7 @@ namespace
 			if (pm.ringOff + imgSize > kRingSize)
 				pm.ringOff = 0; // wrap (bounded by per-frame commit; v1 policy)
 			slotOff = pm.ringOff;
+			g_lastSlotOff = slotOff; // p5 accgpu: readable from the canary block
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;
 			std::memcpy(dst, pm.staging.data(), imgSize);
 			// p5 launch217: c_brightness canary for the PP pair — if the
@@ -4839,6 +4860,32 @@ namespace
 							[pm.enc setVertexBuffer:(__bridge id<MTLBuffer>)ds.vb
 							                   offset:0 atIndex:1];
 							[pm.enc setFragmentBuffer:pbM offset:0 atIndex:0];
+							// launch289: GPU-side CB probe — read the ring
+							// bytes the GPU actually binds for this draw
+							// (vsSize block, offset 272). If m_WVP is zero on
+							// the GPU side while staging is valid, the ring
+							// slot was recycled/overwritten before execution.
+							if (pm.ring && pm.vsSize >= 272 + 64)
+							{
+								static int s_gpuCbN = 0;
+								if (s_gpuCbN++ < 8)
+								{
+									const float* rb = (const float*)
+									    [pm.ring contents] + (g_lastSlotOff / 4) + 272 / 4;
+									const float* st =
+									    (const float*)pm.staging.data() + 272 / 4;
+									Log("- p5 accgpu: ring@%llu r0=(%.4g %.4g %.4g %.4g) "
+									    "r3=(%.4g %.4g %.4g %.4g) stg r0=(%.4g %.4g %.4g %.4g)",
+									    (unsigned long long)g_lastSlotOff, rb[0], rb[1], rb[2],
+									    rb[3], rb[12], rb[13], rb[14], rb[15], st[0], st[1], st[2],
+									    st[3]);
+									// Snapshot slot+value for the post-commit
+									// re-read in the postaccum probe.
+									g_accSlotRing = (__bridge void*)pm.ring;
+									g_accSlotOff = g_lastSlotOff;
+									g_accExpect0 = rb[0];
+								}
+							}
 							[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 							                   indexCount:primCount
 							                    indexType:MTLIndexTypeUInt16

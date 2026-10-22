@@ -4583,6 +4583,30 @@ namespace
 		}
 		else
 			[pm.enc drawPrimitives:pt vertexStart:startV vertexCount:primCount];
+		// p5 launch256: combine-draw binding probe — is the accum RT actually
+		// bound to the combine PS, and to which slot? (postaccum proved writes
+		// survive to combine entry; the black screenshot says combine drops them.)
+		if (pair && strstr(pair->name.c_str(), "combine"))
+		{
+			static int s_cbN = 0;
+			if (s_cbN++ < 6 || s_cbN % 240 == 0)
+			{
+				const char* rnC = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+				std::string texs;
+				for (uint32_t i = 0; i < kMaxStage && i < 8; i++)
+				{
+					if (!pm.stageTex[i])
+						continue;
+					const char* tn = MtlDbgRTGetName(pm.stageTex[i]);
+					char buf[96];
+					snprintf(buf, sizeof(buf), " %u:%p/%s", i, pm.stageTex[i], tn ? tn : "?");
+					texs += buf;
+				}
+				Log("- p5 cmbdraw: n=%d pair=%s rt0=%s/%p zb=%p vp=%.0fx%.0f bl=%d mask=%X texs=%s",
+				    s_cbN, pair->name.c_str(), rnC ? rnC : "?", pm.rt[0], pm.zb, pm.vpW, pm.vpH,
+				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, texs.c_str());
+			}
+		}
 		// p5 launch254: accum-pass canary, fires right after real sun draws in
 		// the SAME live pass. Per-pair real VS + builtin fill PS colors the
 		// geometry (mask=blue, near=red, far=green), then a builtin fullscreen

@@ -219,6 +219,15 @@ void CLight_DB::Update()
         sun->set_rotation(dir, _sun->right);
         sun->set_position(pos);
         sun->set_color(E.sun_color.x * ps_r2_sun_lumscale, E.sun_color.y * ps_r2_sun_lumscale, E.sun_color.z * ps_r2_sun_lumscale);
+        // p5 launch241: XR_P5_FORCE_SUN forces a clear-day sun color so the
+        // sun phase can be verified under black-sun weather (w_storm2 carries
+        // sun_color=(0,0,0) legitimately). Temporary, strip in t6.
+        {
+            static LPCSTR s_fsun = getenv("XR_P5_FORCE_SUN");
+            if (s_fsun && *s_fsun)
+                sun->set_color(0.855f * ps_r2_sun_lumscale, 0.719f * ps_r2_sun_lumscale,
+                    0.646f * ps_r2_sun_lumscale);
+        }
         sun->set_range(600.f);
         // p5 launch234: sun color pipeline — env value at calculate time.
         {

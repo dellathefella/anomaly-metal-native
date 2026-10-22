@@ -4795,7 +4795,19 @@ namespace
 						                                    options:MTLResourceStorageModeShared];
 						if (pbM)
 						{
+							// launch278: fully explicit bindings — the inherited
+							// ring/VB/cull produced zero fragments in 277 even
+							// with the fill PS. Rebind CB (staging copy with the
+							// proven-valid m_WVP), VB slot 1, cull NONE.
 							[pm.enc setRenderPipelineState:psoB];
+							[pm.enc setCullMode:MTLCullModeNone];
+							if (pm.vsSize || pm.psSize)
+								[pm.enc setVertexBytes:pm.staging.data()
+								                    length:(NSUInteger)(Align16(
+						                        pm.vsSize) + Align16(pm.psSize))
+						                       atIndex:0];
+							[pm.enc setVertexBuffer:(__bridge id<MTLBuffer>)ds.vb
+							                   offset:0 atIndex:1];
 							[pm.enc setFragmentBuffer:pbM offset:0 atIndex:0];
 							[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
 							                   indexCount:primCount

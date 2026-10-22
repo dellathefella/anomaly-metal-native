@@ -1,15 +1,126 @@
 // mtlBufferUtils.cpp — buffer classes + decl helpers on the Metal substrate
 // (mirror of glBufferUtils.cpp). Handles are borrowed id<MTLBuffer> void*s
 // owned by the device arena; Metal shared-storage buffers are CPU-mapped for
-// their lifetime, so Map() just returns contents+offset and Unmap() is a
-// no-op (no GL-style orphaning — the engine's ring discipline is the pass
-// manager's job for dynamic streams).
+// their lifetime, so Map() returns contents+offset and Unmap() is a no-op —
+// EXCEPT on dynamic stream buffers, which emulate DX9 dynamic-orphan
+// semantics by rotating backing storage on flush (see below).
 #include "stdafx.h"
 #include "Layers/xrRender/BufferUtils.h"
 
 #include <FlexibleVertexFormat.h>
 
+#include <unordered_map>
+#include <vector>
+
 #include "mtlHW.h" // CHW::MtlDev facade
+
+// launch302: DX9 dynamic-stream orphaning.
+//
+// _VertexStream/_IndexStream are single D3DUSAGE_DYNAMIC buffers that the
+// engine wraps (mPosition=0) on flush and rewrites while earlier frames are
+// still in flight. A DX9 driver silently orphans such a buffer on
+// Lock(DISCARD); Metal does not — the CPU overwrites data in-flight CBs are
+// reading, and release Metal responds by discarding the affected draws
+// (root cause of the black world: launch299/300/301 — draws landed only
+// under full GPU drain or the validation layer's implicit sync).
+//
+// Fix: on Map(flush=true) rotate to a backing buffer whose last CPU write is
+// older than any CB can still be in flight (kStreamLag frames; the present
+// path bounds the backlog to maximumDrawableCount+1). Geometry records bake
+// the stream's BASE handle at startup (hGeom.create(..., Vertex.Buffer())),
+// so the pass manager resolves base → current slot at encode time via
+// MtlStreamBufferCurrent(); rotation is invisible to cached handles.
+uint64_t g_mtlStreamFrameGen = 0; // bumped once per frame (MtlFrameBegin)
+
+namespace
+{
+using xray::render::RENDER_NAMESPACE::HW;
+
+struct MtlStreamSlot
+{
+    void* buf;
+    uint64_t gen; // frame gen of the most recent CPU write
+};
+
+struct MtlStreamRing
+{
+    void* base = nullptr; // stable handle (slot 0), registry key for binds
+    void* cur = nullptr;  // slot the CPU is currently writing
+    size_t size = 0;
+    std::vector<MtlStreamSlot> slots;
+};
+
+// In-flight CBs are bounded (present drains at cap); 8 frames is comfortably
+// beyond maximumDrawableCount+1+1, so a slot idle that long has no reader.
+constexpr uint64_t kStreamLag = 8;
+constexpr size_t kStreamMaxSlots = 16; // 16x4MB VB worst case — lazy, ~4 used
+
+std::unordered_map<const void*, MtlStreamRing>
+    g_streamRings;                                     // stream object -> ring
+std::unordered_map<void*, MtlStreamRing*> g_streamBase; // base handle -> ring
+
+void StreamRegister(const void* key, void* firstBuf, size_t size)
+{
+    MtlStreamRing& ring = g_streamRings[key];
+    ring.base = firstBuf;
+    ring.cur = firstBuf;
+    ring.size = size;
+    ring.slots.push_back({firstBuf, 0});
+    g_streamBase[firstBuf] = &ring;
+}
+
+void* StreamRotate(const void* key)
+{
+    auto it = g_streamRings.find(key);
+    if (it == g_streamRings.end())
+        return nullptr;
+    MtlStreamRing& ring = it->second;
+    const uint64_t gen = g_mtlStreamFrameGen;
+    MtlStreamSlot* best = nullptr;
+    for (MtlStreamSlot& s : ring.slots)
+        if (s.gen + kStreamLag <= gen && (!best || s.gen < best->gen))
+            best = &s;
+    if (!best && ring.slots.size() < kStreamMaxSlots)
+    {
+        void* b = HW.MtlDev.NewBuffer(static_cast<u32>(ring.size));
+        if (b)
+        {
+            ring.slots.push_back({b, 0});
+            best = &ring.slots.back();
+        }
+    }
+    if (!best) // pathological: every slot busy — oldest (old single-buffer behavior)
+        for (MtlStreamSlot& s : ring.slots)
+            if (!best || s.gen < best->gen)
+                best = &s;
+    if (!best)
+        return nullptr;
+    best->gen = gen;
+    ring.cur = best->buf;
+    return ring.cur;
+}
+
+void StreamUnregister(const void* key)
+{
+    auto it = g_streamRings.find(key);
+    if (it == g_streamRings.end())
+        return;
+    g_streamBase.erase(it->second.base);
+    for (MtlStreamSlot& s : it->second.slots)
+        HW.MtlDev.ReleaseResource(s.buf);
+    g_streamRings.erase(it);
+}
+} // namespace
+
+// Bind-time resolution for baked stream handles (mtlRuntime.mm EmitDraw).
+// Non-stream handles (static/staging buffers) pass through untouched.
+void* MtlStreamBufferCurrent(void* handle)
+{
+    if (!handle)
+        return handle;
+    auto it = g_streamBase.find(handle);
+    return it != g_streamBase.end() ? it->second->cur : handle;
+}
 
 namespace xray::render::RENDER_NAMESPACE
 {
@@ -217,18 +328,26 @@ VertexStreamBuffer::~VertexStreamBuffer()
 void VertexStreamBuffer::Create(size_t size)
 {
     m_DeviceBuffer = CreateMetalBuffer(nullptr, (u32)size);
+    if (m_DeviceBuffer)
+        StreamRegister(this, m_DeviceBuffer, size);
     AddRef();
 }
 
 void VertexStreamBuffer::Destroy()
 {
-    DestroyMetalBuffer(m_DeviceBuffer);
+    StreamUnregister(this); // frees every slot (slot 0 == m_DeviceBuffer)
+    m_DeviceBuffer = nullptr;
 }
 
 void* VertexStreamBuffer::Map(size_t offset, size_t size, bool flush /*= false*/)
 {
     VERIFY(m_DeviceBuffer);
-    (void)flush; // shared storage: no orphaning model
+    if (flush)
+    {
+        // DX9 DISCARD semantics: hand out storage no in-flight CB reads.
+        if (void* rotated = StreamRotate(this))
+            m_DeviceBuffer = rotated;
+    }
     u8* base = (u8*)HW.MtlDev.BufferContents(m_DeviceBuffer);
     VERIFY(offset + size <= HW.MtlDev.BufferSize(m_DeviceBuffer));
     return base + offset;
@@ -253,18 +372,25 @@ IndexStreamBuffer::~IndexStreamBuffer()
 void IndexStreamBuffer::Create(size_t size)
 {
     m_DeviceBuffer = CreateMetalBuffer(nullptr, (u32)size);
+    if (m_DeviceBuffer)
+        StreamRegister(this, m_DeviceBuffer, size);
     AddRef();
 }
 
 void IndexStreamBuffer::Destroy()
 {
-    DestroyMetalBuffer(m_DeviceBuffer);
+    StreamUnregister(this); // frees every slot (slot 0 == m_DeviceBuffer)
+    m_DeviceBuffer = nullptr;
 }
 
 void* IndexStreamBuffer::Map(size_t offset, size_t size, bool flush /*= false*/)
 {
     VERIFY(m_DeviceBuffer);
-    (void)flush;
+    if (flush)
+    {
+        if (void* rotated = StreamRotate(this))
+            m_DeviceBuffer = rotated;
+    }
     u8* base = (u8*)HW.MtlDev.BufferContents(m_DeviceBuffer);
     VERIFY(offset + size <= HW.MtlDev.BufferSize(m_DeviceBuffer));
     return base + offset;

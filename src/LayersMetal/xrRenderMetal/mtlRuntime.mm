@@ -44,6 +44,12 @@ struct Float4
 	float x, y, z, w;
 };
 
+// launch302: DX9 dynamic-stream orphaning (mtlBufferUtils.cpp). Frame gen
+// drives slot rotation on Map(flush); binds resolve the baked base handle
+// to the current slot so orphaning is invisible to cached geom records.
+extern uint64_t g_mtlStreamFrameGen;
+void* MtlStreamBufferCurrent(void* handle);
+
 // p5 diag: draw-path counters (read via MtlDbgDrawStats from CHW::Present).
 static uint64_t g_dbgDrawOK = 0, g_dbgDrawNoShader = 0, g_dbgDrawNoPso = 0;
 static uint64_t g_lastSlotOff = 0; // p5 accgpu: ring slot of the last snapshot
@@ -2657,7 +2663,14 @@ void MtlFrameBegin()
 	id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)pm.dev->Queue();
 	pm.cb = [q commandBuffer];
 	pm.touched.clear();
-	pm.ringOff = 0;
+	// launch302: the CB ring is now MONOTONIC (wrap only on exhaustion at
+	// the upload site). Resetting ringOff per frame let frame N+1's CPU
+	// writes land on frame N's slots while frame N's CB was still in
+	// flight (up to cap CBs) — constant buffers read garbage → transforms
+	// clip everything → black world. 64MB / ~2MB per frame = ~30-frame
+	// reuse period, far beyond the bounded CB backlog.
+	// pm.ringOff = 0;
+	++g_mtlStreamFrameGen; // dynamic stream orphaning gen (mtlBufferUtils)
 	pm.identityDirty = true;
 }
 
@@ -4102,10 +4115,15 @@ namespace
 		bindStage(true, psRefl);
 	}
 
-	bool EmitDraw(MtlPassManager& pm, const MtlDrawState& ds, uint32_t topology, uint32_t primCount,
+	bool EmitDraw(MtlPassManager& pm, MtlDrawState ds, uint32_t topology, uint32_t primCount,
 	              uint32_t startI, uint32_t baseV, uint32_t startV, bool indexed)
 	{
 		g_dbgDrawEnter++;
+		// launch302: vb/ib may be a dynamic stream's BASE handle (baked into
+		// geom records at startup); resolve to the slot this frame's Lock()
+		// wrote. Static/staging buffers pass through untouched.
+		ds.vb = MtlStreamBufferCurrent(ds.vb);
+		ds.ib = MtlStreamBufferCurrent(ds.ib);
 		if (topology < 8)
 			g_dbgTopoEnter[topology]++;
 		if (!pm.dev || !pm.cb)
@@ -4276,7 +4294,7 @@ namespace
 			const uint32_t psBase = Align16(pm.vsSize);
 			imgSize = psBase + Align16(pm.psSize);
 			if (pm.ringOff + imgSize > kRingSize)
-				pm.ringOff = 0; // wrap (bounded by per-frame commit; v1 policy)
+				pm.ringOff = 0; // launch302: wrap only here — reuse period ~30 frames ≫ CB backlog
 			slotOff = pm.ringOff;
 			g_lastSlotOff = slotOff; // p5 accgpu: readable from the canary block
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;

@@ -52,3 +52,40 @@ criterion.
 
 Status: design agreed with the p4 t5 task; implementation lands with the first
 successful launch (the screenshot path it drives only exists at runtime).
+
+## Live MCP run recipe (what actually drives runs today)
+
+`xr_3da -nointro -mcp` serves a line console on `127.0.0.1:27846`
+(`src/xrEngine/xr_mcp.cpp`). Sequence for a gameplay capture:
+
+1. `exec g_always_active 1` shortly after launch (keeps `b_is_Active` true —
+   macOS apps started detached never receive an activate event, and
+   `OnAppDeactivate` pauses the game at startup).
+2. `exec start server(player - autosave/single/alife/load) client(localhost)`
+   twice (~8 s apart; the first call can arrive before the menu accepts it).
+3. `key space` taps every ~15 s: the post-load story-text overlay ("Press any
+   key to continue") survives without dismissal and is harmless — the game
+   renders behind it. Key names come from the table in `xr_mcp.cpp` (`ESC`,
+   `SPACE`, `TAB`, `ENTER`, letters, raw DIK numbers); `escape` is NOT a name
+   and fails silently.
+4. **Unpause = `exec main_menu on` then `exec main_menu off`.** The load screen
+   leaves the game paused (`paused=1`); `pause_state` is not a registered
+   command (MCP answers "OK exec" even for unknown commands — trust the
+   `p5 render: frame=N paused=` probe line, not the MCP reply). `main_menu on`
+   hits the `li_pause_key` unpause branch; `main_menu off` deactivates the menu
+   and `mm_deactivate2` clears the pause manager for real.
+5. `exec screenshot <name>` → JPEG into `Anomaly/appdata/screenshots/`.
+
+## Storm-weather finding (launches 232–240)
+
+The autosave's weather is `w_storm2`; Anomaly's storm descriptors
+legitimately carry `sun_color=(0,0,0)` (hemi 0.32 / fog 0.35 stay alive).
+`CLight_DB::Update` derives the sun from that black env, the sun-phase init
+gate (`u_diffuse2s > EPS`) fails forever, and no sun accum quad is ever
+drawn — the dark world is data-correct storm weather plus the paused-game
+artifact above, not a Metal regression: the GL renderer renders the same
+dark storm (`appdata/screenshots/gl_world1/2.jpg` vs `m239_world.jpg`).
+The Lua weather manager re-forces `w_storm2` (forced=1) during gameplay and
+`sv_setweather` is not registered in this build, so sun-pipeline verification
+uses the temporary `XR_P5_FORCE_SUN` env override in `Light_DB.cpp`.
+

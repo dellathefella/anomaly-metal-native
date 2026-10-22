@@ -4918,6 +4918,26 @@ namespace
 									// result is behind the camera (w<=0) or
 									// outside z-range the cuboid legitimately
 									// clips away — a data bug, not a Metal bug.
+									// All 8 cuboid corners' clip-w: if every
+									// w<=0 the slab is legitimately behind the
+									// camera; mixed signs + zero fragments =>
+									// GPU-side data differs from CPU contents.
+									char wc[200];
+									wc[0] = 0;
+									if (vB && pm.staging.size() >= 272 + 64)
+									{
+										const float* MM =
+									    (const float*)pm.staging.data() + 272 / 4;
+										int wo = 0;
+										for (int c = 0; c < 8; c++)
+										{
+											const float* cv = vB + (size_t)c * (ds.vbStride / 4);
+											float cw = 0;
+											for (int i = 0; i < 4; i++)
+												cw += cv[i] * MM[i * 4 + 3];
+											wo += snprintf(wc + wo, sizeof(wc) - wo, "%.0f ", cw);
+										}
+									}
 									char cb2[288];
 									char cb3[640];
 									cb3[0] = 0;
@@ -4963,11 +4983,11 @@ namespace
 									         vAt ? vAt[0] : 0.f, vAt ? vAt[1] : 0.f,
 									         vAt ? vAt[2] : 0.f, vAt ? vAt[3] : 0.f);
 									Log("- p5 accix: ib=%p len=%llu startI=%u baseV=%u pc=%u "
-									    "idx=[%u %u %u %u] %s%s%s",
+									    "idx=[%u %u %u %u] %s%s w8=(%s)%s",
 									    (void*)ds.ib, (unsigned long long)[ibB length],
 									    (unsigned)startI, (unsigned)baseV, (unsigned)primCount,
 									    ix[startI], ix[startI + 1], ix[startI + 2], ix[startI + 3],
-									    xb, cb2, cb3);
+									    xb, cb2, wc, cb3);
 								}
 							}
 							// launch279: magenta non-indexed variant PROVED the

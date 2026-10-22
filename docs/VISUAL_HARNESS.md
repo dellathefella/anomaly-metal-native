@@ -89,3 +89,36 @@ The Lua weather manager re-forces `w_storm2` (forced=1) during gameplay and
 `sv_setweather` is not registered in this build, so sun-pipeline verification
 uses the temporary `XR_P5_FORCE_SUN` env override in `Light_DB.cpp`.
 
+## Readback ground truth (launches 241–264)
+
+Frame-content probes must respect Metal's async commit model:
+
+- **Never trust a zero from `rtscan`** (mid-frame registry scans). Its
+  `ReadbackSlice` runs on a dedicated command buffer that races the frame's
+  uncommitted CB: writes issued earlier in the frame may not have landed yet,
+  while the next frame's synchronous clear-color CB lands first and shows a
+  post-clear zero. Every "nothing was ever written" verdict from rtscan was a
+  measurement artifact.
+- **Ground truth = pass-end commit + waitUntilCompleted + readback** (the
+  `postaccum`/`postsmap` block in `ensureEncoder`): flush the CB at the
+  accumulator-phase boundary, wait, then scan. Same-window reads of
+  `$user$smap_depth` (`postsmap`) are settled too (the smap pass committed
+  earlier in the frame).
+- `postaccum` reads RGBA16Float as raw 8-bit little-endian: half 0.855 =
+  0x36DB → aliased R≈219, G≈54; half 1.0 = 0x3C00 → G=60 with R=0. A
+  `chmax=(0,60,0)` signature means "channel value 1.0", not green.
+
+Diagnostic knobs (all default-off): `XR_METAL_VIS` (p5 probes + render line),
+`XR_P5_FORCE_SUN` (day sun color against storm weather), `XR_P5_POSTACC`
+(pass-end accum+smap readback), `XR_P5_ACCFILL` (draw canaries + postaccum),
+`XR_METAL_NODEPTH` / `XR_P5_NOSTENCIL` / `XR_METAL_NOCULL` / `XR_P5_NOSCISSOR`
+(state-gate bypasses), `XR_P5_NOCMPSAMP` (drop depth-compare from recorded
+samplers → raw smap reads).
+
+## Flaky deaths
+
+xr_3da dies occasionally outside the renderer: the 257-era monster-AI FSM
+crash and an 11:20-era `BUG IN CLIENT OF LIBMALLOC: memory corruption of free
+block` inside `F_entity_Create`/luabind. If a run dies mid-load with no Metal
+validation error in the log and no new crash stack in the port, just rerun.
+

@@ -539,21 +539,73 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				{
 					size_t pnz = 0;
 					uint8_t chx[3] = { 0, 0, 0 };
+					size_t bands[4] = { 0, 0, 0, 0 };
 					for (size_t k = 0; k + 3 < pb.size(); k += 4)
 					{
 						if (pb[k] | pb[k + 1] | pb[k + 2])
+						{
 							pnz++;
+							const size_t px = k / 4;
+							bands[(px / pw) * 4 / ph]++;
+						}
 						for (int c = 0; c < 3; c++)
 							if (pb[k + c] > chx[c])
 								chx[c] = pb[k + c];
 					}
 					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 4;
-					Log("- p5 postaccum: %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u)",
+					Log("- p5 postaccum: %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u) "
+					    "bands=(%zu,%zu,%zu,%zu)",
 					    pw, ph, pnz, pb.size() / 4, chx[0], chx[1], chx[2], pb[pmid],
-					    pb[pmid + 1], pb[pmid + 2], pb[pmid + 3]);
+					    pb[pmid + 1], pb[pmid + 2], pb[pmid + 3], bands[0], bands[1], bands[2],
+					    bands[3]);
 				}
 				else
 					Log("! p5 postaccum: readback failed: %s", perr.c_str());
+				// p5 launch261: is the sun shadow map itself alive? If smap
+				// content is zero the LESS_EQUAL compare fails everywhere,
+				// s=0 and the sun PS outputs 0 even when fragments land.
+				// Same commit+wait window => settled contents.
+				if (std::vector<void*>* rts2 = MtlDbgRTs())
+					for (void* t2 : *rts2)
+					{
+						const char* nm2 = t2 ? MtlDbgRTGetName(t2) : nullptr;
+						if (!nm2 || !strstr(nm2, "smap_depth"))
+							continue;
+						id<MTLTexture> st = (__bridge id<MTLTexture>)t2;
+						const uint32_t sw = (uint32_t)st.width, sh = (uint32_t)st.height;
+						std::vector<uint8_t> sb(size_t(sw) * sh * 4);
+						std::string serr;
+						if (dev->ReadbackSlice(t2, sb.data(), sw * 4, sw, sh, 0, 0, serr))
+						{
+							size_t snz = 0;
+							uint8_t sch[4] = { 0, 0, 0, 0 };
+							float smin = 1e9f, smax = -1e9f;
+							for (size_t k = 0; k + 3 < sb.size(); k += 4)
+							{
+								if (sb[k] | sb[k + 1] | sb[k + 2] | sb[k + 3])
+									snz++;
+								for (int c = 0; c < 4; c++)
+									if (sb[k + c] > sch[c])
+										sch[c] = sb[k + c];
+								float f;
+								std::memcpy(&f, &sb[k], 4);
+								if (f > 0.f && f < 10.f)
+								{
+									if (f < smin)
+										smin = f;
+									if (f > smax)
+										smax = f;
+								}
+							}
+							Log("- p5 postsmap: %s %p %ux%u nz=%zu/%zu chmax=(%u,%u,%u,%u) "
+							    "fmin=%.4g fmax=%.4g",
+							    nm2, t2, sw, sh, snz, sb.size() / 4, sch[0], sch[1], sch[2],
+							    sch[3], smin > smax ? -1.f : smin, smax);
+						}
+						else
+							Log("! p5 postsmap: readback failed %s: %s", nm2, serr.c_str());
+						break;
+					}
 			}
 		}
 		if (pendingPostGeom && cb)

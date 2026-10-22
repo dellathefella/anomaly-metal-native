@@ -553,9 +553,9 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 								chx[c] = pb[k + c];
 					}
 					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 4;
-					Log("- p5 postaccum: %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u) "
+					Log("- p5 postaccum: %p %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u) "
 					    "bands=(%zu,%zu,%zu,%zu)",
-					    pw, ph, pnz, pb.size() / 4, chx[0], chx[1], chx[2], pb[pmid],
+					    pa, pw, ph, pnz, pb.size() / 4, chx[0], chx[1], chx[2], pb[pmid],
 					    pb[pmid + 1], pb[pmid + 2], pb[pmid + 3], bands[0], bands[1], bands[2],
 					    bands[3]);
 				}
@@ -4524,9 +4524,10 @@ namespace
 						{
 							const float* q = reinterpret_cast<const float*>(
 							    pm.staging.data() + u.offset);
-							Log("- p5 accvs: %s off=%u r0=(%.4g %.4g %.4g %.4g) r3=(%.4g %.4g %.4g %.4g)",
-							    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3], q[12], q[13],
-							    q[14], q[15]);
+							Log("- p5 accvs: %s off=%u r0=(%.4g %.4g %.4g %.4g) r1=(%.4g %.4g %.4g %.4g) "
+							    "r2=(%.4g %.4g %.4g %.4g) r3=(%.4g %.4g %.4g %.4g)",
+							    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3], q[4], q[5], q[6],
+							    q[7], q[8], q[9], q[10], q[11], q[12], q[13], q[14], q[15]);
 						}
 				}
 				// launch262: per-resource resolution — which stageTex entry

@@ -452,9 +452,15 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
             }
             FS.w_close(file);
         }
+        catch (const std::exception& ex)
+        {
+            // cache write failure is not fatal — launch267: but say why (the
+            // accum_sun recompile kept vanishing into a silent catch).
+            Msg("! Metal shader cache write failed for %s: %s", filename, ex.what());
+        }
         catch (...)
         {
-            // cache write failure is not fatal
+            Msg("! Metal shader cache write failed for %s: unknown exception", filename);
         }
     }
 

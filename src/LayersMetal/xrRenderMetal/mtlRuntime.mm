@@ -518,7 +518,8 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// p5 launch255: accum pass-end readback — do the sun writes exist at
 		// all before any later phase touches accum? nz>0 here + rtscan zero ==
 		// later-phase destruction; nz=0 here == writes never landed.
-		if (pendingAccum && cb)
+		static const int s_paOn = getenv("XR_P5_ACCFILL") ? atoi(getenv("XR_P5_ACCFILL")) : 0;
+		if (s_paOn && pendingAccum && cb)
 		{
 			static uint64_t s_paTick = 0;
 			const bool wantPa = (s_paTick++ % 120) == 0;
@@ -4628,8 +4629,9 @@ namespace
 		// green/red => cuboid VS rasterizes (real PS/blend is the killer);
 		// blue only => cuboid VS output vanishes; yellow only => pass-level
 		// loss; none => encoder/attachment is a mirage.
-		if (pair && strstr(pair->name.c_str(), "accum_sun") && indexed && ds.vb && ds.ib && vsR &&
-		    pm.rt[0])
+		static const int s_fillOn = getenv("XR_P5_ACCFILL") ? atoi(getenv("XR_P5_ACCFILL")) : 0;
+		if (s_fillOn && pair && strstr(pair->name.c_str(), "accum_sun") && indexed && ds.vb &&
+		    ds.ib && vsR && pm.rt[0])
 		{
 			static uint64_t s_accN = 0;
 			const uint64_t my = s_accN++;

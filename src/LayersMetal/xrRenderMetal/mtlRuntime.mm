@@ -4519,6 +4519,26 @@ namespace
 							    q[14], q[15]);
 						}
 				}
+				// launch262: per-resource resolution — which stageTex entry
+				// and which recorded sampler state each MSL PS resource gets.
+				// Decides the DX-register vs compacted-MSL-slot theory.
+				if (psR)
+					for (const auto& r : psR->resources)
+					{
+						uint32_t ss = r.samplerSlot;
+						if (ss == UINT32_MAX)
+							ss = r.textureSlot;
+						void* tx = r.textureSlot < kMaxStage ? pm.stageTex[r.textureSlot] : nullptr;
+						const char* tnx = tx ? MtlDbgRTGetName(tx) : nullptr;
+						mtlState::sSamplerState sst{};
+						if (pm.recorded && ss < 36)
+							sst = pm.recorded->SamplerState(ss);
+						Log("- p5 accres: %s tex=%u/%p/%s samp=%u valid=%d cmpEn=%u cmpFn=%u "
+						    "flt=%X",
+						    r.name.c_str(), r.textureSlot, tx, tnx ? tnx : "?", ss, (int)sst.valid,
+						    (unsigned)sst.CompareEnable, (unsigned)sst.CompareFunc,
+						    (unsigned)sst.Filter);
+					}
 				if (ds.vb && ds.vbStride && ds.ib)
 				{
 					id<MTLBuffer> vbB2 = (__bridge id<MTLBuffer>)ds.vb;

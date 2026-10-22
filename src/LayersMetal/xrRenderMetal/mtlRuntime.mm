@@ -4817,6 +4817,26 @@ namespace
 							                  instanceCount:1
 							                     baseVertex:(NSInteger)baseV
 							                   baseInstance:0];
+							// launch279: magenta non-indexed variant — cuboid VB
+							// is a 48-vert triangle list, so vertexStart/count is
+							// legal. Green channel in postaccum => the index
+							// buffer path is the killer; red-only => index path
+							// is fine and the defect is VS/descriptor level.
+							{
+								id<MTLDevice> mdevC =
+								        (__bridge id<MTLDevice>)pm.dev->Device();
+								const float colG[4] = { 1.0f, 0.0f, 1.0f, 1.0f };
+								id<MTLBuffer> pbG = [mdevC newBufferWithBytes:colG
+								                                      length:sizeof(colG)
+								                                    options:MTLResourceStorageModeShared];
+								if (pbG)
+								{
+									[pm.enc setFragmentBuffer:pbG offset:0 atIndex:0];
+									[pm.enc drawPrimitives:MTLPrimitiveTypeTriangle
+									            vertexStart:(NSUInteger)baseV
+									            vertexCount:(NSUInteger)primCount];
+								}
+							}
 							anyB = true;
 						}
 					}

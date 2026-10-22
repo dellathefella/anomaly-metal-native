@@ -4935,14 +4935,22 @@ namespace
 										         o[0], o[1], o[2], o[3], M[0], M[1], M[2], M[3],
 										         M[12], M[13], M[14], M[15]);
 										const float* Pv = (const float*)pm.staging.data() + 96 / 4;
-										const float* VPv =
-									    (const float*)pm.staging.data() + 208 / 4;
+										const float* Vv = (const float*)pm.staging.data() + 48 / 4;
+										char cb3[448];
 										snprintf(cb3, sizeof(cb3),
-										         " P[r2=(%.3f %.3f %.3f %.3f) r3=(%.3f %.3f %.3f %.3f)]"
-										         " VP[r0=(%.2f %.2f %.2f %.2f) r3=(%.2f %.2f %.2f %.2f)]",
+										         " P=[%.4g %.4g %.4g %.4g|%.4g %.4g %.4g %.4g|%.4g %.4g "
+										         "%.4g %.4g|%.4g %.4g %.4g %.4g]"
+										         " V=[%.4g %.4g %.4g %.4g|%.4g %.4g %.4g %.4g|%.4g %.4g "
+										         "%.4g %.4g|%.4g %.4g %.4g %.4g]"
+										         " WVP=[%.4g %.4g %.4g %.4g|%.4g %.4g %.4g %.4g|%.4g %.4g "
+										         "%.4g %.4g|%.4g %.4g %.4g %.4g]",
+										         Pv[0], Pv[1], Pv[2], Pv[3], Pv[4], Pv[5], Pv[6], Pv[7],
 										         Pv[8], Pv[9], Pv[10], Pv[11], Pv[12], Pv[13], Pv[14],
-										         Pv[15], VPv[0], VPv[1], VPv[2], VPv[3], VPv[12],
-										         VPv[13], VPv[14], VPv[15]);
+										         Pv[15], Vv[0], Vv[1], Vv[2], Vv[3], Vv[4], Vv[5], Vv[6],
+										         Vv[7], Vv[8], Vv[9], Vv[10], Vv[11], Vv[12], Vv[13],
+										         Vv[14], Vv[15], M[0], M[1], M[2], M[3], M[4], M[5], M[6],
+										         M[7], M[8], M[9], M[10], M[11], M[12], M[13], M[14],
+										         M[15]);
 									}
 									else
 										cb2[0] = 0;

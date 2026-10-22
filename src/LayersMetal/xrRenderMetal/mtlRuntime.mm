@@ -4539,6 +4539,114 @@ namespace
 		}
 		else
 			[pm.enc drawPrimitives:pt vertexStart:startV vertexCount:primCount];
+		// p5 launch254: accum-pass canary, fires right after real sun draws in
+		// the SAME live pass. Per-pair real VS + builtin fill PS colors the
+		// geometry (mask=blue, near=red, far=green), then a builtin fullscreen
+		// fill (yellow) tests pass/store persistence. rtscan mid verdict:
+		// green/red => cuboid VS rasterizes (real PS/blend is the killer);
+		// blue only => cuboid VS output vanishes; yellow only => pass-level
+		// loss; none => encoder/attachment is a mirage.
+		if (pair && strstr(pair->name.c_str(), "accum_sun") && indexed && ds.vb && ds.ib && vsR &&
+		    pm.rt[0])
+		{
+			static uint64_t s_accN = 0;
+			const uint64_t my = s_accN++;
+			const bool wantBlit = (my % 240) == 5; // occasional pass-persistence probe
+			{
+				const bool isFar = strstr(pair->name.c_str(), "far") != nullptr;
+				const bool isMask = strstr(pair->name.c_str(), "mask") != nullptr;
+				const float col[4] = { isMask ? 0.f : (isFar ? 0.f : 1.f),
+					                   isMask ? 0.f : (isFar ? 1.f : 0.f),
+					                   isMask ? 1.f : 0.f, 1.f };
+				[pm.enc setDepthStencilState:nil]; // canaries must survive any depth
+				pm.initBuiltins();
+				bool anyB = false, anyA = false;
+				if (!wantBlit && pm.fillPs)
+				{
+					PipelineDesc pdB;
+					pdB.vs = vsR->function;
+					pdB.ps = (__bridge void*)pm.fillPs;
+					pdB.stride = ds.vbStride;
+					pdB.vbSlot = 1;
+					DeclCursor curB{ pm.declElems, pm.declCount, {} };
+					for (uint32_t i = 0; i < 16; i++)
+						curB.next[i] = 0;
+					for (const auto& in : vsR->inputs)
+					{
+						uint32_t usage = 0, index = 0;
+						ParseSemantic(in.semantic, usage, index);
+						int e = curB.find(usage, index);
+						if (e < 0)
+							continue;
+						VertexAttr a;
+						a.index = in.attribute;
+						a.offset = pm.declElems[e].Offset;
+						a.format = MapDeclFormat(pm.declElems[e].Type);
+						pdB.attrs.push_back(a);
+					}
+					for (int i = 0; i < pm.attColorCount && i < 4; i++)
+						pdB.colorFormats.push_back(pm.attColorFmt[i]);
+					MtlPdDepthFromEncoder(pm, pdB); // RC#5: match live rpd
+					pdB.blend.enabled = false;
+					pdB.blend.writeMask = 0xF;
+					std::string errB;
+					id<MTLRenderPipelineState> psoB =
+					        (__bridge id<MTLRenderPipelineState>)pm.cache->Pipeline(
+					            pm.dev->Device(), pdB, errB);
+					if (psoB)
+					{
+						id<MTLDevice> mdev = (__bridge id<MTLDevice>)pm.dev->Device();
+						id<MTLBuffer> pbM = [mdev newBufferWithBytes:col
+						                                     length:sizeof(col)
+						                                    options:MTLResourceStorageModeShared];
+						if (pbM)
+						{
+							[pm.enc setRenderPipelineState:psoB];
+							[pm.enc setFragmentBuffer:pbM offset:0 atIndex:0];
+							[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+							                   indexCount:primCount
+							                    indexType:MTLIndexTypeUInt16
+							                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
+							            indexBufferOffset:(NSUInteger)startI * 2
+							                  instanceCount:1
+							                     baseVertex:(NSInteger)baseV
+							                   baseInstance:0];
+							anyB = true;
+						}
+					}
+					else
+						Log("! p5 acccanary: realVS+fillPS PSO failed: %s", errB.c_str());
+				}
+				if (wantBlit)
+				{
+					int fmtC = pm.dev->TextureFormat(pm.rt[0]);
+					id<MTLRenderPipelineState> bp =
+					        pm.blitPipeline((MTLPixelFormat)fmtC, true, false, pm.attDepthFmt);
+					static id<MTLBuffer> s_pbY = nil;
+					if (!s_pbY)
+					{
+						const float prm[4] = { 1.0f, 1.0f, 0.5f, 0.0f };
+						id<MTLDevice> mdev = (__bridge id<MTLDevice>)pm.dev->Device();
+						s_pbY = [mdev newBufferWithBytes:prm
+						                        length:sizeof(prm)
+						                       options:MTLResourceStorageModeShared];
+					}
+					if (bp && s_pbY)
+					{
+						[pm.enc setRenderPipelineState:bp];
+						[pm.enc setVertexBuffer:s_pbY offset:0 atIndex:0];
+						[pm.enc setFragmentBuffer:s_pbY offset:0 atIndex:0];
+						[pm.enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
+						            vertexCount:3];
+						anyA = true;
+					}
+				}
+				if (my < 6 || wantBlit)
+					Log("- p5 acccanary: pair=%s vsFill=%d blitFill=%d atts=%d fmt0=%d col=(%.0f,%.0f,%.0f)",
+					    pair->name.c_str(), (int)anyB, (int)anyA, pm.attColorCount,
+					    pm.attColorCount ? pm.attColorFmt[0] : -1, col[0], col[1], col[2]);
+			}
+		}
 		// p5 DIAG (launch100): fill canary — once, after a real draw that
 		// targeted $user$position, encode a builtin solid-color fullscreen fill
 		// into the SAME live pass. If the next rtscan sees it, the pass/store

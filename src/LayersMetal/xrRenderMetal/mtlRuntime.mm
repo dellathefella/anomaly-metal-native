@@ -17,6 +17,7 @@
 #import <Metal/Metal.h>
 #import <MetalFX/MetalFX.h>
 #import <QuartzCore/CAMetalLayer.h>
+#include <sys/stat.h> // launch166: S13 dump mkdir
 
 #include "mtlRuntime.h"
 #include "mtlShader.h"
@@ -44,6 +45,16 @@ struct Float4
 
 // p5 diag: draw-path counters (read via MtlDbgDrawStats from CHW::Present).
 static uint64_t g_dbgDrawOK = 0, g_dbgDrawNoShader = 0, g_dbgDrawNoPso = 0;
+// launch166: visibility-sample counters — DECISIVE fragment-presence probe.
+// g_visE13: samples rasterized by the S13 replay pass (dedicated CB, waited).
+// g_visLiveBuf: samples rasterized by the just-closed LIVE $user$position pass
+// (frame CB, committed+waited by the readback flush). Env XR_METAL_VIS=1.
+static id<MTLBuffer> g_visE13 = nil;
+static id<MTLBuffer> g_visLiveBuf = nil;
+// p5 diag: RT texture pointer -> creation name ("$user$position" etc.), so the
+// periodic content scan can attribute dead render targets to R2 phases.
+// (launch166: definition moved above MtlPassManager for the VIS gate.)
+static std::map<void*, std::string> g_mtlRtNames;
 // p5 diag: entry + silent-exit counters (EmitDraw returns false without these
 // counters on some paths; scene-draw starvation hunt).
 static uint64_t g_dbgDrawEnter = 0, g_dbgDrawNoCb = 0, g_dbgDrawNoEnc = 0, g_dbgDrawNoIb = 0;
@@ -81,6 +92,7 @@ struct MtlAppendCanary
 	id<MTLRenderPipelineState> s11Pso = nil; // launch149: S11 — z'=z-0.5w
 	id<MTLRenderPipelineState> s12Pso = nil; // launch149: S12 — z'=clamp(z,εw,(1-ε)w)
 	id<MTLRenderPipelineState> s13Pso = nil; // launch154: S13 — live VS + LIVE PS
+	std::string name; // launch166: pair name for the headless-replay dump
 	int sSlot = -1;                        // PS onto a clean scratch RT
 	bool valid = false;
 };
@@ -497,7 +509,8 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			// and the append block never ran (L=0 regression was an
 			// instrument artifact, not an engine change). One of gates
 			// 5/6 is always the main pass; deffer draws only happen there.
-			const int g5 = ++g_pgGate % 240;
+			const int s_pgPeriod = getenv("MTL_DEBUG_LAYER") ? 20 : 240;
+			const int g5 = ++g_pgGate % s_pgPeriod; // debug layer: 20 (slow frames)
 			if (g5 == 5 || g5 == 6) // launch131: 1 readback window/240 (was 7 —
 			{
 				// launch128/129: canaryI pass-end appends — after ALL engine
@@ -1249,6 +1262,15 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							sp13.colorAttachments[a13].storeAction = MTLStoreActionStore;
 							sp13.colorAttachments[a13].clearColor = MTLClearColorMake(0, 0, 0, 0);
 						}
+						// launch166: DECISIVE — did the replayed draws rasterize
+						// ANY fragments? samples>0 + texture zero => the writes
+						// are lost downstream; samples==0 => the live-PS pair
+						// with real data produces no fragments at all.
+						if (!g_visE13)
+							g_visE13 = [(__bridge id<MTLDevice>)dev->Device()
+							                newBufferWithLength:4
+							                            options:MTLResourceStorageModeShared];
+						sp13.visibilityResultBuffer = g_visE13;
 						id<MTLRenderCommandEncoder> e13 =
 						    [cb renderCommandEncoderWithDescriptor:sp13];
 						[e13 setViewport:(MTLViewport){0.0, 0.0, 1024.0, 1024.0, 0.0, 1.0}];
@@ -1283,6 +1305,66 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						}
 						[e13 endEncoding];
 						Log("- p5 S13: drew=%d of %zu", d13, s_appQ.size());
+						// launch166: one-shot headless-replay dump — the REAL
+						// captured bytes (CB/VB/IB) + binding inventory, so the
+						// dead draw can be replayed on /tmp tools forever after
+						// without another game window. Env XR_METAL_S13DUMP=1.
+						static const int s_s13Dump =
+						    getenv("XR_METAL_S13DUMP") ? atoi(getenv("XR_METAL_S13DUMP")) : 0;
+						static bool s_dumped = false;
+						if (s_s13Dump && !s_dumped)
+						{
+							s_dumped = true;
+							mkdir("/tmp/s13dump", 0755);
+							FILE* meta = fopen("/tmp/s13dump/meta.txt", "w");
+							int idx = 0;
+							for (const auto& ap : s_appQ)
+							{
+								char path[160];
+								snprintf(path, sizeof(path), "/tmp/s13dump/e%d_cb.bin", idx);
+								FILE* f = fopen(path, "wb");
+								if (f && ap.cb)
+								{ fwrite(ap.cb.contents, 1, ap.cb.length, f); fclose(f); }
+								snprintf(path, sizeof(path), "/tmp/s13dump/e%d_ib.bin", idx);
+								f = fopen(path, "wb");
+								if (f && ap.ib)
+								{ fwrite((const uint8_t*)ap.ib.contents + ap.ibOff, 1,
+								         ap.idxCount * 2, f); fclose(f); }
+								snprintf(path, sizeof(path), "/tmp/s13dump/e%d_vb.bin", idx);
+								f = fopen(path, "wb");
+								if (f && ap.vb)
+								{ size_t nvb = ap.vb.length > (size_t)(8u << 20)
+								                   ? (size_t)(8u << 20) : (size_t)ap.vb.length;
+								  fwrite(ap.vb.contents, 1, nvb, f); fclose(f); }
+								if (meta)
+								{
+									fprintf(meta,
+									    "e%d name=%s idxCount=%zu ibOff=%zu baseV=%ld stride=%u "
+									    "vbLen=%zu ibLen=%zu\n",
+									    idx, ap.name.c_str(), (size_t)ap.idxCount,
+									    (size_t)ap.ibOff, (long)ap.baseV, ap.stride,
+									    ap.vb ? (size_t)ap.vb.length : 0,
+									    ap.ib ? (size_t)ap.ib.length : 0);
+									for (int vi = 0; vi < 8; vi++)
+										if (ap.ptex[vi])
+											fprintf(meta,
+											    "  ptex[%d] fmt=%ld type=%ld %lux%lu mips=%lu "
+											    "usage=%ld%s\n",
+											    vi, (long)ap.ptex[vi].pixelFormat,
+											    (long)ap.ptex[vi].textureType,
+											    (unsigned long)ap.ptex[vi].width,
+											    (unsigned long)ap.ptex[vi].height,
+											    (unsigned long)ap.ptex[vi].mipmapLevelCount,
+											    (long)ap.ptex[vi].usage,
+											    (ap.ptex[vi].usage & MTLTextureUsageShaderRead)
+											        ? "" : " <-NO-SHADER-READ");
+								}
+								idx++;
+							}
+							if (meta)
+								fclose(meta);
+							Log("- p5 S13dump: %d entries -> /tmp/s13dump", idx);
+						}
 					}
 					else if (!s_appQ.empty())
 						Log("! p5 S13: pass skipped (scratch nil=%d)", s_s13Tex[0] == nil);
@@ -1328,9 +1410,9 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					}
 					const size_t mid = (size_t(h / 2) * w + w / 2) * 4;
 					Log("- p5 postgeom: position nz=%zu L=%zu V=%zu W=%zu X=%zu Z=%zu U=%zu "
-					    "T0=%zu T1=%zu mid=(%u,%u,%u,%u) tick=%d",
+					    "T0=%zu T1=%zu mid=(%u,%u,%u,%u) tick=%d pg=%p",
 					    nz, nL, nV, nW, nX, nZ, nU, nT0, nT1, px[mid], px[mid + 1], px[mid + 2],
-					    px[mid + 3], g_pgGate % 240);
+					    px[mid + 3], g_pgGate % s_pgPeriod, pg);
 				}
 				// launch138: S-draw readback — hit count + bbox on the 1024²
 				// scratch: where the pair draws projected with a clean,
@@ -1512,7 +1594,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 								c13++;
 						}
 					}
-					Log("- p5 canaryI: S13liveps real=%zu nan=%zu", c13, n13);
+					const uint32_t vis13 =
+					    g_visE13 ? *(const uint32_t*)g_visE13.contents : 0u;
+					const uint32_t visLive =
+					    g_visLiveBuf ? *(const uint32_t*)g_visLiveBuf.contents : 0u;
+					Log("- p5 canaryI: S13liveps real=%zu nan=%zu samples=%u livevis=%u "
+					    "nopso=%llu",
+					    c13, n13, vis13, visLive, (unsigned long long)g_dbgDrawNoPso);
 				}
 id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				cb = [q commandBuffer];
@@ -1577,6 +1665,23 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				attColorCount++;
 		}
 		attDepthFmt = rpd.depthAttachment.texture ? (int)rpd.depthAttachment.texture.pixelFormat : 0;
+		// launch166: XR_METAL_VIS=1 — per-pass sample counter on the LIVE
+		// position pass. The pass is committed+waited by the readback flush,
+		// so the count is CPU-readable in the SAME window as the texture
+		// scan: livevis>0 + postgeom flat => fragments exist, writes lost;
+		// livevis==0 => the live draws rasterize nothing.
+		{
+			static const int s_visLive =
+			    getenv("XR_METAL_VIS") ? atoi(getenv("XR_METAL_VIS")) : 0;
+			if (s_visLive && rt[0] && g_mtlRtNames.count(rt[0]) &&
+			    g_mtlRtNames[rt[0]] == "$user$position")
+			{
+				g_visLiveBuf = [(__bridge id<MTLDevice>)dev->Device()
+				                    newBufferWithLength:4
+				                                options:MTLResourceStorageModeShared];
+				rpd.visibilityResultBuffer = g_visLiveBuf;
+			}
+		}
 		MtlInstallValidationGuard(); // render-thread first encoder
 		enc = [cb renderCommandEncoderWithDescriptor:rpd];
 		g_dbgEncoders++;
@@ -1617,6 +1722,9 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		// draw). Cull mode maps from the recorded DX9 state alongside.
 		// p5 DIAG (launch104): env overrides to test the winding-cull theory
 		// on the live encoder without rebuilding per hypothesis.
+		// launch164 VERDICT: winding-cull theory DEAD — NOCULL=1 in-game still
+		// zero-writes (same as launch153), and headless same-pair tests land
+		// under every cull config with correct orientation. Keep CW mapping.
 		static const int s_frontCCW = getenv("XR_METAL_FRONT") ? atoi(getenv("XR_METAL_FRONT")) : 0;
 		static const int s_noCull = getenv("XR_METAL_NOCULL") ? atoi(getenv("XR_METAL_NOCULL")) : 0;
 		[enc setFrontFacingWinding:s_frontCCW ? MTLWindingCounterClockwise : MTLWindingClockwise]; // D3D convention
@@ -2075,7 +2183,7 @@ void MtlDbgClearRTs()
 
 // p5 diag: RT texture pointer -> creation name ("$user$position" etc.), so the
 // periodic content scan can attribute dead render targets to R2 phases.
-static std::map<void*, std::string> g_mtlRtNames;
+// (moved above MtlPassManager, launch166.)
 void MtlDbgRTName(void* tex, const char* name)
 {
 	if (tex && name)
@@ -4451,6 +4559,7 @@ namespace
 						ap.idxCount = primCount;
 						ap.baseV = baseV;
 						ap.stride = ds.vbStride; // launch134: V-draw
+						ap.name = pair ? pair->name : "stage"; // launch166 dump
 						ap.valid = true;
 						s_appQ.push_back(ap);
 					}

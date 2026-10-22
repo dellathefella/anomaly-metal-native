@@ -23,6 +23,8 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <regex>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -458,6 +460,27 @@ bool MtlShaderCompilerInit()
 	return g_init_ok.load();
 }
 
+// launch264: DX9 tex2Dproj onto a depth-comparison sampler compares the
+// raster depth against the smap texel — the reference depth rides in the
+// proj coord's z (c.z/c.w). SPIRV-Cross lowers proj samples to
+// `sample(s, (c.xy / float2(c.w)))` and drops z, so Metal's runtime depth-
+// compare (sampler compareFunction + depth texture, enabled by r_Sampler_cmp)
+// compares against a missing value and fails every tap: shadow() returns 0
+// everywhere and the direct sun never writes accum. Rewrite to
+// `sample(s, float3(c.xy, c.z) / c.w)` — MSL takes the compare reference
+// from coord.z, exactly DX9 semantics. Plain tex2D samples keep float2
+// coords, so the software-PCF paths in r2/shadow.h (raw smap reads) are
+// untouched; non-comparison samplers ignore a z component entirely.
+// Idempotent: patched text no longer matches the pattern.
+static std::string MtlPatchShadowDref(const std::string& msl)
+{
+	static const std::regex re(R"((\w+)\.sample\((\w+), \((\w+)\.xy / float2\(\3\.w\)\))");
+	// NB: the match ends one paren BEFORE the sample call's close (it
+	// consumes the proj-div group's close), so the template must NOT close
+	// the sample call — the original close survives right after the match.
+	return std::regex_replace(msl, re, "$1.sample($2, float3($3.xy, $3.z) / $3.w");
+}
+
 bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, const char* name,
                        const char* translatedHlsl, const char* entry, std::string& error)
 {
@@ -485,6 +508,9 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	std::vector<std::string> semantics = xray::metal::CollectInputSemantics(translatedHlsl, entry);
 	if (!xray::metal::ReflectSpirv(spirv, semantics, refl, error))
 		return false;
+	// launch264: restore the proj-sample reference depth before the MSL
+	// reaches the compiler, reflection, V2P patching or the disk cache.
+	res.msl = MtlPatchShadowDref(res.msl);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -542,11 +568,15 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* msl, const char* entry,
                              std::string& error)
 {
+	// launch264: disk-cache entries compiled before the dref fix carry the
+	// z-dropped proj samples; patch idempotently like the realign below.
+	const std::string patched = MtlPatchShadowDref(msl);
+	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)
 		return false;
 	out.function = (__bridge_retained void*)fn; // RC#4 — retain (see above)
-	out.msl = msl; // keep for per-pair V2P patching
+	out.msl = patched; // keep for per-pair V2P patching
 	out.entry = entry;
 	// launch167: disk-cache hits carry the reflection blob serialized at
 	// compile time — which predates the matrix-size fix (float3x4 was sized

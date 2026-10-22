@@ -518,7 +518,8 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// p5 launch255: accum pass-end readback — do the sun writes exist at
 		// all before any later phase touches accum? nz>0 here + rtscan zero ==
 		// later-phase destruction; nz=0 here == writes never landed.
-		static const int s_paOn = getenv("XR_P5_ACCFILL") ? atoi(getenv("XR_P5_ACCFILL")) : 0;
+		static const int s_paOn = getenv("XR_P5_POSTACC") ? atoi(getenv("XR_P5_POSTACC"))
+		                                                 : (getenv("XR_P5_ACCFILL") ? atoi(getenv("XR_P5_ACCFILL")) : 0);
 		if (s_paOn && pendingAccum && cb)
 		{
 			static uint64_t s_paTick = 0;

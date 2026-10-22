@@ -4366,7 +4366,8 @@ namespace
 		if (pair && strstr(pair->name.c_str(), "accum_sun"))
 		{
 			static int s_adN = 0;
-			if (s_adN++ < 12)
+			s_adN++;
+			if (s_adN <= 12)
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s zb=%p bl=%d mask=%X zE=%d zF=%d "
@@ -4387,15 +4388,20 @@ namespace
 							    u.offset, q[0], q[1], q[2], q[3]);
 						}
 				}
-				// launch246: stencil plane of the accum DSV (previous committed
-				// frame) — did the mask quad write the light marker?
-				if (s_adN >= 3 && s_adN <= 5 && pm.zb)
+			}
+			// launch246: stencil plane of the accum DSV (previous committed
+			// frame) — did the mask quad write the light marker?
+			if ((s_adN >= 3 && s_adN <= 5) || s_adN == 241 || s_adN == 961)
+			{
+				if (pm.zb)
 				{
 					id<MTLTexture> zt = (__bridge id<MTLTexture>)pm.zb;
 					if (zt.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
 					{
 						id<MTLTexture> sv =
 						    [zt newTextureViewWithPixelFormat:MTLPixelFormatStencil8];
+						if (!sv)
+							Log("! p5 strb: stencil view nil (fmt=%ld)", (long)zt.pixelFormat);
 						if (sv)
 						{
 							const uint32_t sw = (uint32_t)zt.width, sh = (uint32_t)zt.height;

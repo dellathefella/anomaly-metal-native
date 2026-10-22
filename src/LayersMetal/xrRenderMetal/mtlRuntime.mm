@@ -4402,6 +4402,42 @@ namespace
 							    u.offset, q[0], q[1], q[2], q[3]);
 						}
 				}
+				// launch250: VS-side CB + raw vertex bytes — the cuboid VS is
+				// hpos=mul(m_WVP,P); a never-written VS-side m_WVP means
+				// hpos=0, w=0, nothing rasterizes while every state is correct.
+				if (vsR && pm.vsSize && !pm.staging.empty())
+				{
+					for (const auto& u : vsR->uniforms)
+						if ((u.name == "m_WVP" || u.name == "m_P" || u.name == "m_V" ||
+						     u.name == "m_W" || u.name == "m_texgen") &&
+						    u.offset + 64 <= pm.vsSize)
+						{
+							const float* q = reinterpret_cast<const float*>(
+							    pm.staging.data() + u.offset);
+							Log("- p5 accvs: %s off=%u r0=(%.4g %.4g %.4g %.4g) r3=(%.4g %.4g %.4g %.4g)",
+							    u.name.c_str(), u.offset, q[0], q[1], q[2], q[3], q[12], q[13],
+							    q[14], q[15]);
+						}
+				}
+				if (ds.vb && ds.vbStride && ds.ib)
+				{
+					id<MTLBuffer> vbB2 = (__bridge id<MTLBuffer>)ds.vb;
+					id<MTLBuffer> ibB2 = (__bridge id<MTLBuffer>)ds.ib;
+					const uint8_t* vbP = (const uint8_t*)[vbB2 contents];
+					const uint16_t* ii = (const uint16_t*)[ibB2 contents];
+					const uint32_t i0 = startI + baseV, i1 = startI + baseV + 1,
+					               i2 = startI + baseV + 2;
+					const float* v0 = (const float*)(vbP + (size_t)i0 * ds.vbStride);
+					const float* v1 = (const float*)(vbP + (size_t)i1 * ds.vbStride);
+					const float* v2 = (const float*)(vbP + (size_t)i2 * ds.vbStride);
+					Log("- p5 accvb: n=%d vbLen=%lu stride=%u ibLen=%lu startI=%u baseV=%u pc=%u "
+					    "idx=[%u %u %u] v0=(%.3g %.3g %.3g %.3g) v1=(%.3g %.3g %.3g %.3g) "
+					    "v2=(%.3g %.3g %.3g %.3g)",
+					    s_adN, (unsigned long)[vbB2 length], ds.vbStride,
+					    (unsigned long)[ibB2 length], startI, baseV, primCount, i0, i1, i2,
+					    v0[0], v0[1], v0[2], v0[3], v1[0], v1[1], v1[2], v1[3], v2[0], v2[1],
+					    v2[2], v2[3]);
+				}
 			}
 			// launch246: accum DSV identity check. Stencil-plane readback was
 			// attempted here (247-248) but Stencil8 views of Depth32Float_Stencil8

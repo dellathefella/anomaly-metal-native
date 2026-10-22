@@ -460,7 +460,7 @@ bool MtlShaderCompilerInit()
 	return g_init_ok.load();
 }
 
-// launch264/266: DX9 tex2Dproj onto a depth-comparison sampler compares the
+// launch264-268: DX9 tex2Dproj onto a depth-comparison sampler compares the
 // raster depth against the smap texel — the reference depth rides in the
 // proj coord's z (c.z/c.w). SPIRV-Cross lowers proj samples to
 // `sample(s, (c.xy / float2(c.w)))` and drops z, so Metal's runtime depth-
@@ -468,32 +468,36 @@ bool MtlShaderCompilerInit()
 // compares against a missing value and fails every tap: shadow() returns 0
 // everywhere and the direct sun never writes accum.
 //
-// Rewrite the shadow-sampler convention texture (s_smap) to MSL's depth-texture
-// form, where float3 coords carry the reference in z and samples return a
-// scalar (DX9's compare result):
-//   a) s_smap.sample(S, (X.xy / float2(X.w))).x -> s_smap.sample(S, float3(X.xy, X.z) / X.w)
-//   b) s_smap.sample(S, ARGS).x                 -> s_smap.sample(S, ARGS)   (raw/lod taps)
-//   c) texture2d<float> s_smap [[texture(N)]]   -> texture2d_depth s_smap [[texture(N)]]
-// Shaders that bind the sample result to a vector (r2/shadow.h's
-// shadowtest_sun: `r = tex2Dproj(...)` for DX9 FOURCC-PCF raw math) would
-// break under the scalar form — those are skipped wholesale and keep the old
-// raw-sample behaviour. Idempotent: patched text matches none of the patterns.
+// Rewrite the shadow-sampler convention texture (s_smap) to this runtime's
+// depth-texture form (macOS 26 metal_stdlib: `depth2d<float>` with explicit-
+// dref `sample_compare(sampler, float2, float)` — sampler_compare/texture2d_depth/
+// float3-coord forms do NOT exist in its stdlib, verified empirically):
+//   a) s_smap.sample(S, (X.xy / float2(X.w))).x -> s_smap.sample_compare(S, X.xy / float2(X.w), X.z / X.w)
+//   b) s_smap.sample(S, ARGS).x                 -> s_smap.sample(S, ARGS)   (raw/lod taps: depth2d returns the scalar directly)
+//   c) texture2d<float> s_smap [[texture(N)]]   -> depth2d<float> s_smap [[texture(N)]]
+// Only shaders that actually contain a proj-compare tap are converted;
+// shaders binding the sample result to a vector (r2/shadow.h FOURCC-PCF
+// style, accum_sun.ps channel math) are skipped wholesale and keep the old
+// raw-sample behaviour that their software compares expect. Idempotent:
+// patched text matches none of the patterns.
 static std::string MtlPatchShadowDref(const std::string& msl)
 {
 	if (msl.find("s_smap") == std::string::npos)
 		return msl;
-	// Vector-assigned sample results (volumetric FOURCC-PCF style) — leave be.
+	static const std::regex projRe(
+	    R"(s_smap\.sample\((\w+), \((\w+)\.xy / float2\(\2\.w\)\)\)\.x)");
+	if (!std::regex_search(msl, projRe))
+		return msl; // no hardware-compare tap — leave raw form alone
+	// Vector-assigned sample results (FOURCC-PCF raw math) — leave be.
 	static const std::regex assignRe(R"(=\s*s_smap\.sample\()");
 	if (std::regex_search(msl, assignRe))
 		return msl;
 	std::string out = msl;
-	static const std::regex projRe(
-	    R"(s_smap\.sample\((\w+), \((\w+)\.xy / float2\(\2\.w\)\)\)\.x)");
-	out = std::regex_replace(out, projRe, "s_smap.sample($1, float3($2.xy, $2.z) / $2.w)");
+	out = std::regex_replace(out, projRe, "s_smap.sample_compare($1, $2.xy / float2($2.w), $2.z / $2.w)");
 	static const std::regex tapRe(R"(s_smap\.sample\((\w+), ([^;]*?)\)\.x(?![\w]))");
 	out = std::regex_replace(out, tapRe, "s_smap.sample($1, $2)");
 	static const std::regex declRe(R"(texture2d<float> s_smap(?=[ \t]*\[\[texture\())");
-	out = std::regex_replace(out, declRe, "texture2d_depth s_smap");
+	out = std::regex_replace(out, declRe, "depth2d<float> s_smap");
 	return out;
 }
 

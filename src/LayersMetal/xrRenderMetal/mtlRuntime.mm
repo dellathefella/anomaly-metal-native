@@ -2096,10 +2096,23 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			return;
 		const MTLViewport vp{ vpX, vpY, vpW, vpH, vpMin, vpMax };
 		[enc setViewport:vp];
-		if (scissorEn)
+		// p5 launch250: XR_P5_NOSCISSOR=1 skips the rect entirely (a stale
+		// small rect from an earlier phase, left because scissor-disable has
+		// no Metal equivalent, silently culls every fragment).
+		static const int s_noScis = getenv("XR_P5_NOSCISSOR") ? atoi(getenv("XR_P5_NOSCISSOR")) : 0;
+		if (scissorEn && !s_noScis)
 		{
 			const MTLScissorRect r{ (NSUInteger)scL, (NSUInteger)scT, (NSUInteger)(scR - scL),
 				                    (NSUInteger)(scB - scT) };
+			[enc setScissorRect:r];
+		}
+		else if (s_noScis)
+		{
+			uint32_t rw = 0, rh = 0;
+			if (rt[0] && dev)
+				dev->TextureDims(rt[0], &rw, &rh);
+			const MTLScissorRect r{ 0, 0, rw ? rw : (NSUInteger)vpW,
+				                    rh ? rh : (NSUInteger)vpH };
 			[enc setScissorRect:r];
 		}
 		DepthStencilDesc ds;
@@ -4371,10 +4384,11 @@ namespace
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				Log("- p5 accdraw: n=%d pair=%s idx=%d pc=%u rt0=%s zb=%p bl=%d mask=%X zE=%d zF=%d "
-				    "vp=%.0fx%.0f",
+				    "vp=%.0fx%.0f scE=%d sc=(%u,%u,%u,%u)",
 				    s_adN, pair->name.c_str(), (int)indexed, primCount, rn ? rn : "?", pm.zb,
 				    (int)pm.blend.enabled, (unsigned)pm.blend.writeMask, (int)pm.depthEn,
-				    pm.depthFunc, pm.vpW, pm.vpH);
+				    pm.depthFunc, pm.vpW, pm.vpH, (int)pm.scissorEn,
+				    (unsigned)pm.scL, (unsigned)pm.scT, (unsigned)pm.scR, (unsigned)pm.scB);
 				// launch245: what CB floats does the sun PS actually read?
 				if (psR && pm.psSize && !pm.staging.empty())
 				{

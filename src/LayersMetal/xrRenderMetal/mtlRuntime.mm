@@ -5147,6 +5147,181 @@ namespace
 													              vertexCount:primCount];
 												}
 											}
+											// launch293: synthetic INDEXED
+											// triangle at a KNOWN centered
+											// screen position. Solves w·WVP=ndc
+											// for w (row-vector convention,
+											// Gaussian elimination — no inverse
+											// transpose trap). chx[1]=60 (with
+											// red proven dead 15 launches) =>
+											// indexed path ALIVE and cuboid
+											// coverage was legitimately zero
+											// (sun off-screen). chx[1]=0 with
+											// green alive => indexed path dead
+											// in this pass, mechanism unknown.
+											{
+												static id<MTLBuffer> s_sVB = nil,
+												                     s_sIB = nil;
+												const float* M = nullptr;
+												if (pm.vsSize >= 272 + 64 &&
+												    pm.staging.size() >= 272 + 64)
+													M = (const float*)
+									                            pm.staging.data() +
+									                                272 / 4;
+												float verts[12];
+												bool ok = M != nullptr;
+												const float ndc[3][4] = {
+													{ -0.5f, -0.5f, 0.3f, 1.f },
+													{ 0.5f, -0.5f, 0.3f, 1.f },
+													{ 0.f, 0.5f, 0.3f, 1.f }
+												};
+												for (int v = 0; ok && v < 3; ++v)
+												{
+													float A[4][5];
+													for (int j = 0; j < 4; ++j)
+													{
+														for (int i = 0; i < 4; ++i)
+															A[j][i] =
+															    M[i * 4 + j];
+														A[j][4] = ndc[v][j];
+													}
+													for (int col = 0;
+													     col < 4 && ok; ++col)
+													{
+														int piv = col;
+														float best =
+														    fabsf(A[col][col]);
+														for (int r = col + 1;
+														     r < 4; ++r)
+															if (fabsf(A[r][col]) >
+															    best)
+															{
+																best =
+																    fabsf(
+																        A[r][col]);
+																piv = r;
+															}
+														if (best < 1e-9f)
+														{
+															ok = false;
+															break;
+														}
+														if (piv != col)
+															for (int k = col;
+															     k < 5; ++k)
+															{
+																float t =
+																    A[col][k];
+																A[col][k] =
+																    A[piv][k];
+																A[piv][k] = t;
+															}
+														for (int r = 0; r < 4; ++r)
+														{
+															if (r == col)
+																continue;
+															const float f =
+															    A[r][col] /
+															    A[col][col];
+															for (int k = col;
+															     k < 5; ++k)
+																A[r][k] -=
+																    f *
+																    A[col][k];
+														}
+													}
+													if (!ok)
+														break;
+													for (int i = 0; i < 4; ++i)
+														verts[v * 4 + i] =
+														    A[i][4] / A[i][i];
+												}
+												if (ok)
+												{
+													id<MTLDevice> dv3 =
+													    (__bridge
+													         id<MTLDevice>)
+													        pm.dev->Device();
+													if (!s_sVB)
+														s_sVB = [dv3
+													            newBufferWithLength:256
+													                        options:
+													                            MTLResourceStorageModeShared];
+													if (!s_sIB)
+													{
+														const uint16_t tri[3] = {
+															0, 1, 2
+														};
+														s_sIB = [dv3
+													            newBufferWithBytes:tri
+													                        length:
+													                            sizeof(tri)
+													                      options:
+													                          MTLResourceStorageModeShared];
+													}
+													if (s_sVB && s_sIB)
+													{
+														memcpy([s_sVB contents],
+														       verts,
+														       sizeof(verts));
+														const float colM2[4] = {
+															1.0f, 0.5f, 0.0f,
+															1.0f
+														};
+														id<MTLBuffer> pbM2 =
+														    [dv3 newBufferWithBytes:
+						                                                                colM2
+						                                                     length:
+						                                                         sizeof(
+						                                                             colM2)
+						                                                   options:
+						                                                       MTLResourceStorageModeShared];
+														if (pbM2)
+														{
+															[pm.enc
+															    setVertexBuffer:
+															        s_sVB
+																	 offset:0
+																	atIndex:1];
+															[pm.enc
+															    setFragmentBuffer:
+															        pbM2
+																	 offset:0
+																	atIndex:0];
+															[pm.enc
+															    drawIndexedPrimitives:
+															        MTLPrimitiveTypeTriangle
+																	   indexCount:3
+																	    indexType:
+																	        MTLIndexTypeUInt16
+																	  indexBuffer:
+																	      s_sIB
+															    indexBufferOffset:0
+															        instanceCount:1
+															           baseVertex:0
+															         baseInstance:0];
+															static int s_synLog = 0;
+															if (s_synLog++ < 2)
+																Log("- p5 accsyn: "
+																    "idx tri "
+																    "w0=(%.1f "
+																    "%.1f %.1f "
+																    "%.3f) "
+																    "w2=(%.1f "
+																    "%.1f %.1f "
+																    "%.3f)",
+																    verts[0],
+																    verts[1],
+																    verts[2],
+																    verts[3],
+																    verts[8],
+																    verts[9],
+																    verts[10],
+																    verts[11]);
+														}
+													}
+												}
+											}
 											// restore shared VB binding for later draws
 											[pm.enc setVertexBuffer:
 											    (__bridge id<MTLBuffer>)ds.vb offset:0

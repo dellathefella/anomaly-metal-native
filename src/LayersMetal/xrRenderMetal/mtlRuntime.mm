@@ -533,31 +533,38 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
 				id<MTLTexture> pt = (__bridge id<MTLTexture>)pa;
 				const uint32_t pw = (uint32_t)pt.width, ph = (uint32_t)pt.height;
-				std::vector<uint8_t> pb(size_t(pw) * ph * 4);
+				// launch273: full 8-byte RGBA16Float pixels — the old pw*4
+				// readback only ever exposed the R and G halves.
+				std::vector<uint8_t> pb(size_t(pw) * ph * 8);
 				std::string perr;
-				if (dev->ReadbackSlice(pa, pb.data(), pw * 4, pw, ph, 0, 0, perr))
+				if (dev->ReadbackSlice(pa, pb.data(), pw * 8, pw, ph, 0, 0, perr))
 				{
 					size_t pnz = 0;
-					uint8_t chx[3] = { 0, 0, 0 };
+					uint8_t chx[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 					size_t bands[4] = { 0, 0, 0, 0 };
-					for (size_t k = 0; k + 3 < pb.size(); k += 4)
+					for (size_t k = 0; k + 7 < pb.size(); k += 8)
 					{
-						if (pb[k] | pb[k + 1] | pb[k + 2])
+						uint8_t any = 0;
+						for (int c = 0; c < 8; c++)
 						{
-							pnz++;
-							const size_t px = k / 4;
-							bands[(px / pw) * 4 / ph]++;
-						}
-						for (int c = 0; c < 3; c++)
+							any |= pb[k + c];
 							if (pb[k + c] > chx[c])
 								chx[c] = pb[k + c];
+						}
+						if (any)
+						{
+							pnz++;
+							const size_t px = k / 8;
+							bands[(px / pw) * 4 / ph]++;
+						}
 					}
-					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 4;
-					Log("- p5 postaccum: %p %ux%u nz=%zu/%zu chmax=(%u,%u,%u) mid=(%u,%u,%u,%u) "
-					    "bands=(%zu,%zu,%zu,%zu)",
-					    pa, pw, ph, pnz, pb.size() / 4, chx[0], chx[1], chx[2], pb[pmid],
-					    pb[pmid + 1], pb[pmid + 2], pb[pmid + 3], bands[0], bands[1], bands[2],
-					    bands[3]);
+					const size_t pmid = (size_t(ph / 2) * pw + pw / 2) * 8;
+					Log("- p5 postaccum: %p %ux%u nz=%zu/%zu chmax=(%u,%u,%u,%u,%u,%u,%u,%u) "
+					    "mid=(%u,%u,%u,%u,%u,%u,%u,%u) bands=(%zu,%zu,%zu,%zu)",
+					    pa, pw, ph, pnz, pb.size() / 8, chx[0], chx[1], chx[2], chx[3], chx[4],
+					    chx[5], chx[6], chx[7], pb[pmid], pb[pmid + 1], pb[pmid + 2],
+					    pb[pmid + 3], pb[pmid + 4], pb[pmid + 5], pb[pmid + 6], pb[pmid + 7],
+					    bands[0], bands[1], bands[2], bands[3]);
 				}
 				else
 					Log("! p5 postaccum: readback failed: %s", perr.c_str());

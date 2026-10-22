@@ -371,7 +371,52 @@ namespace
 			    "%u offsets moved)\n",
 			    sname.c_str(), refl.cbufferSize, changed);
 	}
+void* g_ppVar[4] = {nullptr, nullptr, nullptr, nullptr};
 } // namespace (anon)
+
+// p5 launch218: postprocess PS term-bisect variants. Patch the final
+// out.out_var_SV_TARGET assignment to isolate formula terms; EmitDraw
+// cycles modes per frame-era (0=black 1=scene(_68) 2=gray(_78)
+// 3=noc0(mix without the *C0 mult)). Defined outside the anon namespace
+// (declared in mtlRuntime.h); CreateFunction/g_ppVar stay anon-visible.
+void MtlBuildPpVariants(const std::string& msl, const char* entry)
+{
+	static const char* kExprs[4] = {
+		"float4(0.0, 0.0, 0.0, 1.0)",
+		"float4(_68, 1.0)",
+		"float4(_78, 1.0)",
+		"float4(mix((_78 * float3(s_noise.sample(s_noise_smplr, in.in_var_TEXCOORD2).xyz)) * "
+		"2.0, _78, float3(in.in_var_TEXCOORD10.w)), 1.0)",
+	};
+	const std::string needle = "out.out_var_SV_TARGET = ";
+	size_t b = msl.rfind(needle);
+	size_t semi = b == std::string::npos ? std::string::npos : msl.find(';', b);
+	if (b == std::string::npos || semi == std::string::npos)
+	{
+		fprintf(stderr, "! xrMetal ppVariants: output stmt not found\n");
+		return;
+	}
+	for (int m = 0; m < 4; m++)
+	{
+		if (g_ppVar[m])
+			continue;
+		const std::string patch = msl.substr(0, b + needle.size()) + kExprs[m] + msl.substr(semi);
+		std::string e2;
+		id<MTLFunction> vf = CreateFunction([NSString stringWithUTF8String:patch.c_str()], entry,
+		                                   "ppVar", e2);
+		if (vf)
+			g_ppVar[m] = (__bridge_retained void*)vf;
+		else
+			fprintf(stderr, "! xrMetal ppVariant %d failed: %s\n", m, e2.c_str());
+	}
+	fprintf(stderr, "- xrMetal ppVariants: %d%d%d%d compiled\n", !!g_ppVar[0], !!g_ppVar[1],
+	        !!g_ppVar[2], !!g_ppVar[3]);
+}
+
+void* MtlPpVariantFn(int mode)
+{
+	return (mode >= 0 && mode < 4) ? g_ppVar[mode] : nullptr;
+}
 
 // launch151: exposed for MtlRawIntScaledVS (mtlRuntime.mm) — raw-int masked
 // VS variants compile via newLibraryWithSource directly and bypass
@@ -449,6 +494,13 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	if (!fn)
 		return false;
 
+	// p5 launch218: postprocess PS term bisect — compile patched variants of
+	// the final output statement; EmitDraw cycles them per-frame era (black/
+	// scene/gray/noc0) so ONE run isolates which formula term paints the
+	// steady-state solid yellow.
+	if (getenv("XR_METAL_PS_REWRITE") && name && strstr(name, "postprocess"))
+		MtlBuildPpVariants(res.msl, entry);
+
 	// ROOT CAUSE #4: MTLFunction handles stored in MtlStageRefl.function must
 	// be RETAINED — plain (__bridge void*) let ARC dealloc the function when
 	// the local went away, leaving every shader pair with a dangling handle.
@@ -458,6 +510,21 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	MtlAlignReflToMslLayout(out, res.msl); // DXC offsets != MSL native layout
 	out.msl = res.msl; // keep for per-pair V2P patching
 	out.entry = entry;
+	// p5 launch211: raw MSL text for targeted shader hunts (postprocess etc.).
+	if (getenv("XR_METAL_DUMPMSL") && name &&
+	    (strstr(name, "postprocess") || strstr(name, "combine") || strstr(name, "ffp_vs")))
+	{
+		std::string dp = std::string("/tmp/msldump_") + name + (target == 'v' ? ".vs" : ".ps") +
+		                 ".msl";
+		for (size_t i = 13; i < dp.size(); i++)
+			if (!(isalnum(dp[i]) || dp[i] == '.' || dp[i] == '_' || dp[i] == '-'))
+				dp[i] = '_';
+		if (FILE* fp = fopen(dp.c_str(), "wb"))
+		{
+			fwrite(res.msl.data(), 1, res.msl.size(), fp);
+			fclose(fp);
+		}
+	}
 	if (outMsl)
 		*outMsl = std::move(res.msl);
 	return true;
@@ -479,6 +546,10 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 	// for already-correct blobs, repairs every stale cache entry without a
 	// cache-version bump (m_WVP must land at 272, not the SPIR-V 320).
 	MtlAlignReflToMslLayout(out, out.msl);
+	// p5 launch218: variants must also build when postprocess.ps is a
+	// disk-cache hit (MetalCompileStage never runs then).
+	if (getenv("XR_METAL_PS_REWRITE") && name && strstr(name, "postprocess"))
+		MtlBuildPpVariants(out.msl, out.entry.c_str());
 	return true;
 }
 
@@ -517,21 +588,26 @@ namespace
 		static const char* kTypes[5] = {"float", "float", "float2", "float3", "float4"};
 
 		std::string s;
-		s += "float4 screen_res;\nstruct FFV_In {\n\tfloat4 ffvPos : POSITION;\n";
+		// p5 launch218: SV_Position MUST be declared LAST in both structs.
+		// DXC numbers user locns by declaration order and defers SV_Position
+		// to the tail — the PS inputs (TEXCOORD10->locn0) follow that rule,
+		// but a position-first struct shifted every VS locn +1 (PP read
+		// COLOR0 from an unbound locn0 -> 0*garbage -> NaN -> solid yellow).
+		s += "float4 screen_res;\nstruct FFV_In {\n";
 		for (size_t i = 0; i < psInputs.size(); i++)
 		{
 			const auto& in = psInputs[i];
 			s += "\t" + std::string(kTypes[in.components <= 4 ? in.components : 4]) + " ffvI" + std::to_string(i) +
 			     " : " + MapFfpInputSemantic(in.semantic) + ";\n";
 		}
-		s += "};\nstruct FFV_Out {\n\tfloat4 ffvPos : SV_Position;\n";
+		s += "\tfloat4 ffvPos : POSITION;\n};\nstruct FFV_Out {\n";
 		for (size_t i = 0; i < psInputs.size(); i++)
 		{
 			const auto& in = psInputs[i];
 			s += "\t" + std::string(kTypes[in.components <= 4 ? in.components : 4]) + " ffvO" + std::to_string(i) +
 			     " : " + MapFfpInputSemantic(in.semantic) + ";\n";
 		}
-		s += "};\nFFV_Out main(FFV_In I)\n{\n\tFFV_Out O;\n";
+		s += "\tfloat4 ffvPos : SV_Position;\n};\nFFV_Out main(FFV_In I)\n{\n\tFFV_Out O;\n";
 		s += "\tI.ffvPos.xy += 0.5;\n";
 		s += "\tO.ffvPos.x = I.ffvPos.x * screen_res.z * 2.0 - 1.0;\n";
 		s += "\tO.ffvPos.y = 1.0 - I.ffvPos.y * screen_res.w * 2.0;\n";
@@ -1014,7 +1090,7 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	                 vs.name.find("_d") != std::string::npos;
 	if (getenv("XR_METAL_DUMPMSL") &&
 	    ((isD && s_dumpD < 40) || (!isD && s_dumpN < 40)) &&
-	    ps.name.find("deffer") != std::string::npos)
+	    (ps.name.find("deffer") != std::string::npos || ps.name.find("postprocess") != std::string::npos))
 	{
 		if (isD)
 			s_dumpD++;

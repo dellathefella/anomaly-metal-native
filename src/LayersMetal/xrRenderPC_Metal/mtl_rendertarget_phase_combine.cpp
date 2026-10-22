@@ -7,6 +7,7 @@
 #include "xrEngine/IGame_Persistent.h"
 #include "xrEngine/Environment.h"
 #include "Layers/xrRender/dxEnvironmentRender.h"
+#include "Layers/xrRenderMetal/mtlRuntime.h" // p5: MtlBlit (rt_Color→generic0)
 
 #define STENCIL_CULL 0
 
@@ -312,7 +313,15 @@ void CRenderTarget::phase_combine()
     else
     {
         if (PP_Complex)
-            u_setrt(RCache, rt_Color, nullptr, nullptr, rt_Base_Depth); // LDR RT
+        {
+            // p5: was rt_Color — but combine_2 (s_image) and PP (s_base0) both
+            // sample the combined image out of the generic buffers (as the msaa
+            // branch does via the MSAA resolve). !msaa has no producer for
+            // $user$generic0 (combine_2's s_image), so copy combine_1's output
+            // into it, and target rt_Generic — the buffer PP (s_base0) reads.
+            MtlBlitConvert(rt_Color->pRT, rt_Generic_0->pRT);
+            u_setrt(RCache, rt_Generic, nullptr, nullptr, rt_Base_Depth); // LDR RT
+        }
         else
             u_setrt(RCache, Device.dwWidth, Device.dwHeight, get_base_rt(), 0, 0, get_base_zb());
     }

@@ -10,6 +10,7 @@
 #include "mtlState.h"
 #include "mtlRuntime.h"
 #include "mtlShader.h"
+#include <execinfo.h> // p9 albedobt
 
 namespace xray::render::RENDER_NAMESPACE
 {
@@ -36,6 +37,48 @@ IC void CBackend::set_RT(void* RT, u32 ID)
     if (RT != pRT[ID])
     {
         PGO(Msg("MTL:setRT[%d]", ID));
+        // p5 launch185/189: trace every secondary color-attachment bind — the
+        // g-buffer MRT sequence (albedo must appear as slot 1 or 2).
+        // launch189: in-game trace of EVERY bind (all slots) of albedo/position:
+        // names the pass that rebinds and overwrites the g-buffer after
+        // geometry (the wipe culprit).
+        {
+            extern unsigned long long MtlDbgDrawCount();
+            const char* bn = RT ? MtlDbgRTGetName(RT) : "-";
+            bool hot = bn && (strstr(bn, "albedo") || strstr(bn, "position"));
+            static int s_srtN = 0;
+            // p5 launch190: the albedo-alone slot-0 bind right after geometry
+            // is the wipe culprit — backtrace names the function that makes it.
+            if (hot && ID == 0 && strstr(bn, "albedo") && MtlDbgDrawCount() > 60000)
+            {
+                static int s_btN = 0;
+                if (s_btN++ < 8)
+                {
+                    void* frames[14];
+                    int nbt = backtrace(frames, 14);
+                    char** syms = backtrace_symbols(frames, nbt);
+                    std::string s;
+                    for (int i = 1; i < nbt && i < 10; i++)
+                    {
+                        s += syms[i] ? syms[i] : "?";
+                        s += "\n          ";
+                    }
+                    Msg("- p9 albedobt draws=%llu:\n          %s", MtlDbgDrawCount(),
+                        s.c_str());
+                    if (syms)
+                        free(syms);
+                }
+            }
+            if (hot && MtlDbgDrawCount() > 60000 && s_srtN++ < 60)
+                Msg("- p9 setrt: ctx=%d slot=%u rt=%p name=%s draws=%llu", (int)context_id, ID,
+                    RT, bn, MtlDbgDrawCount());
+            else if (ID > 0 && ID < 4)
+            {
+                static int s_srtN2 = 0;
+                if (s_srtN2++ < 8)
+                    Msg("- p5 setrt: ctx=%d slot=%u rt=%p name=%s", (int)context_id, ID, RT, bn);
+            }
+        }
         stat.target_rt++;
         pRT[ID] = RT;
         MtlTargetsChanged(pRT, pZB);

@@ -213,21 +213,33 @@ void CBackend::set_Textures(STextureList* textures_list)
 #ifdef XR_PLATFORM_WEB
             usedPS |= 1u << load_id;
 #endif
-            if (textures_ps[load_id] != load_surf || (load_surf && (load_surf->last_slice != load_surf->curr_slice)))
-            {
-                textures_ps[load_id] = load_surf;
-                stat.textures++;
+            // p5 launch202: ALWAYS bind — the pointer-equality skip is wrong
+            // for Metal: RT recreation (resize) keeps the CTexture pointer but
+            // swaps its pSurface; the stale skip left the pass manager's stage
+            // table pointing at a freed texture whose memory had been recycled
+            // (PP sampled the recycled albedo → solid-yellow frames). GL's
+            // global slot state hid this; recording a bind is a pointer write.
+            textures_ps[load_id] = load_surf;
+            stat.textures++;
 
-                if (load_surf)
-                {
-                    PGO(Msg("PGO:tex%d:%s", load_id, load_surf->cName.c_str()));
-                    load_surf->bind(*this, load_id);
-                    //load_surf->Apply(load_id);
-                    load_surf->last_slice = load_surf->curr_slice;
+            // p5 launch205: did the PP pass's list even contain generic?
+            if (load_surf && load_id < 8 && 0 == xr_strcmp(load_surf->cName.c_str(), "$user$generic"))
+            {
+                static int s_gt = 0;
+                if (s_gt++ < 10)
+                    Msg("- Metal setTex GENERIC->stage %u surf=%p", load_id,
+                        load_surf->surface_get());
+            }
+
+            if (load_surf)
+            {
+                PGO(Msg("PGO:tex%d:%s", load_id, load_surf->cName.c_str()));
+                load_surf->bind(*this, load_id);
+                //load_surf->Apply(load_id);
+                load_surf->last_slice = load_surf->curr_slice;
 #ifdef XR_PLATFORM_WEB
-                    occupied_texture_units |= 1u << load_id;
+                occupied_texture_units |= 1u << load_id;
 #endif
-                }
             }
         }
         else
@@ -245,20 +257,18 @@ void CBackend::set_Textures(STextureList* textures_list)
 #ifdef XR_PLATFORM_WEB
             usedVS |= 1u << load_id_remapped;
 #endif
-            if (textures_vs[load_id_remapped] != load_surf)
-            {
-                textures_vs[load_id_remapped] = load_surf;
-                stat.textures++;
+            // p5 launch202: always bind (see PS-branch note above).
+            textures_vs[load_id_remapped] = load_surf;
+            stat.textures++;
 
-                if (load_surf)
-                {
-                    PGO(Msg("PGO:tex%d:%s", load_id, load_surf->cName.c_str()));
-                    load_surf->bind(*this, load_id);
-                    //load_surf->Apply(load_id);
+            if (load_surf)
+            {
+                PGO(Msg("PGO:tex%d:%s", load_id, load_surf->cName.c_str()));
+                load_surf->bind(*this, load_id);
+                //load_surf->Apply(load_id);
 #ifdef XR_PLATFORM_WEB
-                    occupied_texture_units |= 1u << load_id;
+                occupied_texture_units |= 1u << load_id;
 #endif
-                }
             }
         }
 #if defined(USE_DX11)

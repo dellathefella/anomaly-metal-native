@@ -775,8 +775,27 @@ namespace xray::metal
 			error = "no command queue";
 			return false;
 		}
-		const NSUInteger srcBpr = (NSUInteger)w * TextureBpp(texture);
-		const NSUInteger sliceBytes = srcBpr * h;
+		// p5 launch181: BC-compressed textures need block-aligned srcBpr —
+		// w*TextureBpp is wrong for them (BC1 = 0.5 B/px) and produced
+		// garbage reads (the S13tex "96% black" artifact).
+		NSUInteger blockBytes = 0;
+		switch (tex.pixelFormat)
+		{
+		case MTLPixelFormatBC1_RGBA: case MTLPixelFormatBC1_RGBA_sRGB:
+		case MTLPixelFormatBC4_RUnorm: case MTLPixelFormatBC4_RSnorm:
+			blockBytes = 8; break;
+		case MTLPixelFormatBC2_RGBA: case MTLPixelFormatBC2_RGBA_sRGB:
+		case MTLPixelFormatBC3_RGBA: case MTLPixelFormatBC3_RGBA_sRGB:
+		case MTLPixelFormatBC5_RGUnorm: case MTLPixelFormatBC5_RGSnorm:
+		case MTLPixelFormatBC6H_RGBUfloat: case MTLPixelFormatBC6H_RGBFloat:
+		case MTLPixelFormatBC7_RGBAUnorm: case MTLPixelFormatBC7_RGBAUnorm_sRGB:
+			blockBytes = 16; break;
+		default: break;
+		}
+		const NSUInteger srcBpr = blockBytes ? (((w + 3) / 4) * blockBytes)
+		                                     : ((NSUInteger)w * TextureBpp(texture));
+		const NSUInteger sliceBytes =
+		    blockBytes ? srcBpr * ((h + 3) / 4) : srcBpr * h;
 		void* stagingHandle = NewBuffer(sliceBytes ? sliceBytes : 1);
 		id<MTLBuffer> staging = (__bridge id<MTLBuffer>)stagingHandle;
 		if (!staging)
@@ -807,7 +826,9 @@ namespace xray::metal
 		[cb waitUntilCompleted];
 		const uint8_t* src = (const uint8_t*)[staging contents];
 		const NSUInteger copyBpr = bytesPerRow < (uint32_t)srcBpr ? bytesPerRow : (uint32_t)srcBpr;
-		for (NSUInteger r = 0; r < (NSUInteger)h; ++r)
+		// BC rows are 4px tall — looping `h` rows overran dst by 4x (181 crash).
+		const NSUInteger copyRows = blockBytes ? ((h + 3) / 4) : (NSUInteger)h;
+		for (NSUInteger r = 0; r < copyRows; ++r)
 			std::memcpy((uint8_t*)dst + (size_t)r * bytesPerRow, src + (size_t)r * srcBpr, copyBpr);
 		ReleaseResource(stagingHandle);
 		return true;

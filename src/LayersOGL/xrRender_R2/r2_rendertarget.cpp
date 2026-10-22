@@ -681,7 +681,12 @@ CRenderTarget::CRenderTarget()
     build_textures();
 
     // PP
-    s_postprocess.create("postprocess");
+    // p5 launch208: the script-compiled PP element binds its base samplers to
+    // the shader's texture list (lua `normal(C, t_0, t_1, ...)`). With an empty
+    // list both arrive as "$null" -> no-op binds -> s_base0 samples whatever
+    // was last bound (stale albedo => solid yellow). DX9's C++ postprocess
+    // blender binds r2_RT_generic; feed it through the texture list instead.
+    s_postprocess.create("postprocess", r2_RT_generic "," r2_RT_generic);
     g_postprocess.create(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_SPECULAR | D3DFVF_TEX3,
         RImplementation.Vertex.Buffer(), RImplementation.QuadIB);
     if (!options.msaa)

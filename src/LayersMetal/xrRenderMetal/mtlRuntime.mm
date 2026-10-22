@@ -29,6 +29,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <ctime> // p5 launch219: wall-clock era switch
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -416,6 +417,19 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		// Stage tables (written by CTexture apply paths via MtlRecordTextureStage)
 		void* stageTex[kMaxStage] = {};
 
+		// p5 launch196: screen dimensions for VS screen_res fallback = max
+		// viewport seen (passes render smaller RTs; the backbuffer pass is the
+		// screen).
+		float screenW = 0, screenH = 0;
+
+		// p5 launch191: DX9/GL semantics let a pass sample the very RT it
+		// renders to (combine_1 reads s_diffuse=rt_Color while rendering to
+		// rt_Color). Immediate-mode APIs read the pre-pass content; Metal TBDR
+		// gives undefined results (observed: black). Before opening an encoder,
+		// any attachment texture that is also bound for sampling is copied to a
+		// scratch and the sample remapped — GL's read-old semantics.
+		std::map<void*, void*> fbRemap;
+
 		// Constants
 		std::vector<uint8_t> staging;
 		uint32_t vsSize = 0, psSize = 0, psBase = 0;
@@ -427,6 +441,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 
 		// p5 DIAG (launch102): position RT whose pass just ended (postgeom readback)
 		void* pendingPostGeom = nullptr;
+		void* pendingPostGeomAlb = nullptr; // p5 launch184: albedo at same pass-end
 
 		// Built-ins
 		id<MTLFunction> blitVs = nil, blitPs = nil, fillPs = nil;
@@ -499,7 +514,9 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		if (pendingPostGeom && cb)
 		{
 			void* pg = pendingPostGeom;
+			void* pgAlb = pendingPostGeomAlb;
 			pendingPostGeom = nullptr;
+			pendingPostGeomAlb = nullptr;
 			// launch139: window covers TWO consecutive position pass-ends
 			// (5 and 6). launch138 verdict: the frame runs the position pass
 			// twice (main model + rain) and the main/rain PARITY flips with
@@ -511,7 +528,12 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			// 5/6 is always the main pass; deffer draws only happen there.
 			const int s_pgPeriod = getenv("MTL_DEBUG_LAYER") ? 20 : 240;
 			const int g5 = ++g_pgGate % s_pgPeriod; // debug layer: 20 (slow frames)
-			if (g5 == 5 || g5 == 6) // launch131: 1 readback window/240 (was 7 —
+			static int s_paForce = 0; // p5 launch187: force window on albedo stashes
+			// p5 launch197: window DISABLED — the S13/canary replay probes inside
+			// it read captured dynamic-VB state after the engine ring wrapped
+			// (use-after-overwrite SIGSEGV in ensureEncoder, fonts trigger it).
+			// Its verdicts are recorded; the black-frame fixes are in.
+			if (false && (g5 == 5 || g5 == 6 || (pgAlb && g_dbgDrawOK > 60000 && s_paForce++ < 40))) // launch131: 1 readback window/240 (was 7 —
 			{
 				// launch128/129: canaryI pass-end appends — after ALL engine
 				// draws of this pass, so nothing can overwrite them before the
@@ -1268,7 +1290,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						// with real data produces no fragments at all.
 						if (!g_visE13)
 							g_visE13 = [(__bridge id<MTLDevice>)dev->Device()
-							                newBufferWithLength:4
+							                newBufferWithLength:16
 							                            options:MTLResourceStorageModeShared];
 						sp13.visibilityResultBuffer = g_visE13;
 						id<MTLRenderCommandEncoder> e13 =
@@ -1362,6 +1384,82 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 											    (ap.ptex[vi].usage & MTLTextureUsageShaderRead)
 											        ? "" : " <-NO-SHADER-READ");
 								}
+								// p5 launch178: CONTENT check of the PS textures bound to
+								// the captured geometry draws. Chain probe: position
+								// output (VS-only) lands, texture-derived outputs
+								// (o1/o2 = s_base.sample) are zero -> is the bound
+								// texture itself black (broken BC upload)?
+								// p5 launch181: BC-correct per-mip content dump
+								// of the PS texture bound to the captured
+								// geometry draw. Decoded offline: if mip0 has
+								// content but mip4 is empty, the mip chain is
+								// the black-albedo culprit.
+								if (idx == 0 && ap.ptex[0])
+								{
+									id<MTLTexture> t0 = ap.ptex[0];
+									const uint32_t tw = (uint32_t)t0.width,
+									               th = (uint32_t)t0.height;
+									NSUInteger bb = 0;
+									switch (t0.pixelFormat)
+									{
+									case MTLPixelFormatBC1_RGBA:
+									case MTLPixelFormatBC1_RGBA_sRGB:
+										bb = 8; break;
+									case MTLPixelFormatBC3_RGBA:
+									case MTLPixelFormatBC3_RGBA_sRGB:
+									case MTLPixelFormatBC2_RGBA:
+									case MTLPixelFormatBC2_RGBA_sRGB:
+									case MTLPixelFormatBC7_RGBAUnorm:
+									case MTLPixelFormatBC7_RGBAUnorm_sRGB:
+										bb = 16; break;
+									default: break;
+									}
+									const uint32_t linBpp =
+									    dev->TextureBpp((__bridge void*)t0);
+									const uint32_t mipsToTry[2] = { 0, 4 };
+									for (int mi = 0; mi < 2; mi++)
+									{
+										const uint32_t m = mipsToTry[mi];
+										if (m >= (uint32_t)t0.mipmapLevelCount)
+											continue;
+										const uint32_t mw = (tw >> m) ? (tw >> m) : 1,
+										               mh = (th >> m) ? (th >> m) : 1;
+										const uint32_t bpr = bb
+										                       ? ((mw + 3) / 4) * (uint32_t)bb
+										                       : mw * linBpp;
+										const uint32_t rows = bb ? ((mh + 3) / 4) : mh;
+										if (!bpr)
+											continue;
+										std::vector<uint8_t> tp(size_t(bpr) * rows);
+										std::string terr;
+										if (!dev->ReadbackSlice((__bridge void*)t0,
+										                        tp.data(), bpr, mw, mh,
+										                        0, m, terr))
+										{
+											Log("! p5 S13tex: mip%u readback failed: %s",
+											    m, terr.c_str());
+											continue;
+										}
+										size_t tnz = 0;
+										for (size_t k = 0; k < tp.size(); k += 16)
+											if (tp[k])
+												tnz++;
+										char path[128];
+										snprintf(path, sizeof path,
+										         "/tmp/s13dump/t0_mip%u.bin", m);
+										FILE* tf = fopen(path, "wb");
+										if (tf)
+										{
+											fwrite(tp.data(), 1, tp.size(), tf);
+											fclose(tf);
+										}
+										Log("- p5 S13tex: fmt=%ld mips=%ld mip%u %ux%u "
+										    "bpr=%u nz=%zu/%zu -> %s",
+										    (long)t0.pixelFormat,
+										    (long)t0.mipmapLevelCount, m, mw, mh, bpr,
+										    tnz, tp.size() / 16, path);
+									}
+								}
 								idx++;
 							}
 							if (meta)
@@ -1417,6 +1515,51 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 					    nz, nL, nV, nW, nX, nZ, nU, nT0, nT1, px[mid], px[mid + 1], px[mid + 2],
 					    px[mid + 3], g_pgGate % s_pgPeriod, pg);
 				}
+				// p5 launch187: standalone gate — the position block can bail
+				// before this line (readback failure / nil pg), so postalb needs
+				// its own counter. Answers: does albedo ever hold pixels?
+				{
+					static uint64_t s_paTick = 0;
+					void* pa = (s_paTick++ % 240 == 7) ? pgAlb : nullptr;
+					if (pa && PM().dev)
+					{
+						id<MTLTexture> at = (__bridge id<MTLTexture>)pa;
+						const uint32_t aw = (uint32_t)at.width, ah = (uint32_t)at.height;
+						const uint32_t abpp = PM().dev->TextureBpp(pa);
+						if (abpp)
+						{
+							std::vector<uint8_t> ap(size_t(aw) * ah * abpp);
+							std::string aerr;
+							if (PM().dev->ReadbackSlice(pa, ap.data(), aw * abpp, aw, ah, 0, 0,
+							                            aerr))
+							{
+								size_t anz = 0, b0 = 0, b1 = 0, b2 = 0;
+								for (size_t k = 0; k + 3 < ap.size(); k += 64)
+								{
+									if (ap[k] | ap[k + 1] | ap[k + 2])
+										anz++;
+									if (ap[k])
+										b0++;
+									if (ap[k + 1])
+										b1++;
+									if (ap[k + 2])
+										b2++;
+								}
+								const size_t amid = (size_t(ah / 2) * aw + aw / 2) * abpp;
+								Log("- p5 postalb: %s %ux%u bpp=%u nz=%zu B=%zu G=%zu R=%zu "
+								    "mid=(%u,%u,%u,%u)",
+								    MtlDbgRTGetName(pa), aw, ah, abpp, anz, b0, b1, b2, ap[amid],
+								    ap[amid + 1], ap[amid + 2], ap[amid + 3]);
+							}
+							else
+								Log("! p5 postalb: readback failed: %s", aerr.c_str());
+						}
+					}
+				}
+				// p5 launch184 postalb block REMOVED (launch195): it read
+				// RGBA16F albedo (8 bpp) with a 4-bpp buffer — heap overflow
+				// → SIGSEGV in ensureEncoder seconds after entering game.
+				// The standalone block above (TextureBpp-based) supersedes it.
 				// launch138: S-draw readback — hit count + bbox on the 1024²
 				// scratch: where the pair draws projected with a clean,
 				// depth-free target. bbox centered ~ (512,512) = on-screen.
@@ -1659,6 +1802,70 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				satt.storeAction = MTLStoreActionStore;
 			}
 		}
+		// p5 launch191: feedback guard — copy any attachment that is also
+		// bound for sampling (see fbRemap declaration).
+		fbRemap.clear();
+		{
+			static std::map<void*, id<MTLTexture>> s_fbScratch;
+			id<MTLTexture> atts[5];
+			int natt = 0;
+			for (int i = 0; i < 4; i++)
+				if (rpd.colorAttachments[i].texture)
+					atts[natt++] = rpd.colorAttachments[i].texture;
+			if (rpd.depthAttachment.texture)
+				atts[natt++] = rpd.depthAttachment.texture;
+			std::vector<std::pair<id<MTLTexture>, id<MTLTexture>>> copies; // src,dst
+			for (int s = 0; s < kMaxStage; s++)
+			{
+				id<MTLTexture> st = (__bridge id<MTLTexture>)stageTex[s];
+				if (!st)
+					continue;
+				for (int a = 0; a < natt; a++)
+				{
+					if (st != atts[a])
+						continue;
+					void* key = (__bridge void*)atts[a];
+					if (fbRemap.count(key))
+						continue;
+					id<MTLTexture> sc = s_fbScratch[key];
+					if (!sc || sc.width != atts[a].width || sc.height != atts[a].height ||
+					    sc.pixelFormat != atts[a].pixelFormat)
+					{
+						MTLTextureDescriptor* fd = [MTLTextureDescriptor
+						    texture2DDescriptorWithPixelFormat:atts[a].pixelFormat
+														width:atts[a].width
+													   height:atts[a].height
+													mipmapped:NO];
+						fd.usage = MTLTextureUsageShaderRead | MTLTextureUsageRenderTarget;
+						sc = [(__bridge id<MTLDevice>)dev->Device() newTextureWithDescriptor:fd];
+						s_fbScratch[key] = sc;
+					}
+					if (sc)
+					{
+						copies.push_back({atts[a], sc});
+						fbRemap[key] = (__bridge void*)sc;
+					}
+				}
+			}
+			if (!copies.empty() && cb)
+			{
+				id<MTLBlitCommandEncoder> be = [cb blitCommandEncoder];
+				for (auto& cp : copies)
+				{
+					MTLSize sz = MTLSizeMake(cp.first.width, cp.first.height, 1);
+					[be copyFromTexture:cp.first
+							 sourceSlice:0
+							 sourceLevel:0
+							sourceOrigin:MTLOriginMake(0, 0, 0)
+								sourceSize:sz
+							  toTexture:cp.second
+					   destinationSlice:0
+					   destinationLevel:0
+					  destinationOrigin:MTLOriginMake(0, 0, 0)];
+				}
+				[be endEncoding];
+			}
+		}
 		attColorCount = 0;
 		for (int i = 0; i < 4; i++)
 		{
@@ -1681,7 +1888,7 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			    g_mtlRtNames[rt[0]] == "$user$position")
 			{
 				g_visLiveBuf = [(__bridge id<MTLDevice>)dev->Device()
-				                    newBufferWithLength:4
+				                    newBufferWithLength:16
 				                                options:MTLResourceStorageModeShared];
 				rpd.visibilityResultBuffer = g_visLiveBuf;
 				visAttached = YES;
@@ -2148,7 +2355,19 @@ void MtlTargetsChanged(void* const* rts, const void* zb)
 	{
 		const char* on0 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 		if (pm.enc && on0 && strstr(on0, "position"))
+		{
 			pm.pendingPostGeom = pm.rt[0];
+			// p5 launch188: a clear (endEncoder, no draw) between two stashes
+			// means the fetch (next draw) only sees the LAST stash — the alb
+			// pair was being clobbered by a later null-alb switch. Keep the
+			// albedo pointer across switches until it is consumed.
+			if (pm.rt[1])
+				pm.pendingPostGeomAlb = pm.rt[1];
+			static int s_psN = 0;
+			if (g_dbgDrawOK > 60000 && s_psN++ < 40)
+				Log("- p5 pstash: alb=%p name=%s rt2=%p", pm.rt[1],
+				    pm.rt[1] ? MtlDbgRTGetName(pm.rt[1]) : "-", pm.rt[2]);
+		}
 	}
 	for (int i = 0; i < 4; i++)
 		pm.rt[i] = rts ? rts[i] : nullptr;
@@ -2196,10 +2415,32 @@ void MtlDbgRTName(void* tex, const char* name)
 	if (tex && name)
 		g_mtlRtNames[tex] = name;
 }
+// p5 launch219: canary draws (white fills into live gbuffer RTs) are now
+// contamination + death suspects — opt-in only.
+static bool MtlCanaryOn()
+{
+	static const bool v = !!getenv("XR_METAL_CANARY");
+	return v;
+}
+
+// p5 launch218: current PS rewrite era (0=black 1=scene 2=gray 3=noc0 4=off,
+// 99=no PP seen yet). Stamped onto rtscan bursts so base_0 colors map to the
+// postprocess PS variant that produced them.
+int g_ppEra = 99;
+int MtlPpEra()
+{
+	return g_ppEra;
+}
+
 const char* MtlDbgRTGetName(void* tex)
 {
 	auto it = g_mtlRtNames.find(tex);
 	return it != g_mtlRtNames.end() ? it->second.c_str() : "?";
+}
+
+unsigned long long MtlDbgDrawCount()
+{
+	return g_dbgDrawOK;
 }
 
 // p5 diag: per-shader-pair draw histogram (which passes actually draw).
@@ -2234,6 +2475,12 @@ void MtlDbgDumpPairs()
 //      pass destroys even the clear => other.
 void MtlDbgBisectProbe(void* rt, void* rt2, void* zb)
 {
+	// p5 launch219: canaries paint into LIVE gbuffer RTs (white position /
+	// albedo fills) — legitimate contamination + death suspects now that the
+	// scene renders. Off by default; opt back in with XR_METAL_CANARY=1.
+	static const bool s_canary = !!getenv("XR_METAL_CANARY");
+	if (!s_canary)
+		return;
 	// Debug-layer runs skip this legacy probe: its synthetic PSO/formats were
 	// never declared (verdict closed in launch103) and MTL_DEBUG_LAYER aborts
 	// on the mismatch before marsh (launch160).
@@ -2430,11 +2677,13 @@ void MtlClearColor(void* rt, float r, float g, float b, float a)
 	if (rt)
 	{
 		const char* cn = MtlDbgRTGetName(rt);
-		if (cn && (strstr(cn, "position") || strstr(cn, "albedo") || strstr(cn, "accum")))
+		if (cn && (strstr(cn, "position") || strstr(cn, "albedo") || strstr(cn, "accum") ||
+		          strstr(cn, "base_0")))
 		{
 			static std::map<std::string, int> s_ccN;
-			if (s_ccN[cn]++ < 8)
-				Log("- p5 clearcolor: %s (%g,%g,%g,%g)", cn, r, g, b, a);
+			if (s_ccN[cn]++ < 40)
+				Log("- p5 clearcolor: %s (%g,%g,%g,%g) draws=%llu pg=%d", cn, r, g, b, a,
+				    (unsigned long long)g_dbgDrawOK, g_pgGate);
 		}
 	}
 	if (!pm.cb || !rt)
@@ -2488,6 +2737,18 @@ void MtlClearDepth(void* zb, float depth, int stencil)
 bool MtlClearColorRect(void* rt, float r, float g, float b, float a, uint32_t numRects, const int32_t* rects)
 {
 	MtlPassManager& pm = PM();
+	// p5 launch189: name the rect-clear culprit if it touches the g-buffer.
+	{
+		const char* cn = rt ? MtlDbgRTGetName(rt) : nullptr;
+		if (cn && (strstr(cn, "position") || strstr(cn, "albedo") || strstr(cn, "accum") ||
+		          strstr(cn, "base_0")))
+		{
+			static int s_crcN = 0;
+			if (g_dbgDrawOK > 60000 && s_crcN++ < 24)
+				Log("- p9 clearrect: %s (%g,%g,%g,%g) nrect=%u draws=%llu", cn, r, g, b, a,
+				    numRects, (unsigned long long)g_dbgDrawOK);
+		}
+	}
 	if (!pm.cb || !rt || !pm.blitVs)
 		return false;
 	pm.endEncoder();
@@ -2572,6 +2833,42 @@ void MtlBlit(void* srcTex, void* dstTex)
 		return;
 	pm.endEncoder();
 	pm.dev->BlitTexture((__bridge void*)pm.cb, srcTex, dstTex);
+	pm.touched.insert(dstTex);
+	pm.identityDirty = true;
+}
+
+// p5 launch199: format-converting copy (e.g. RGBA16F rt_Color → BGRA8
+// generic0). Blit encoders require identical pixel formats; this uses the
+// FS-triangle blit pipeline (like MtlBlitFromBackBuffer) instead.
+void MtlBlitConvert(void* srcTex, void* dstTex)
+{
+	MtlPassManager& pm = PM();
+	if (!pm.cb || !srcTex || !dstTex)
+		return;
+	pm.endEncoder();
+	id<MTLTexture> src = (__bridge id<MTLTexture>)srcTex;
+	id<MTLTexture> dst = (__bridge id<MTLTexture>)dstTex;
+	const uint32_t fmt = (uint32_t)dst.pixelFormat;
+	id<MTLRenderPipelineState> pso = pm.blitPipeline((MTLPixelFormat)fmt, false, false);
+	if (!pso)
+		return;
+	MTLRenderPassDescriptor* rpd = [MTLRenderPassDescriptor new];
+	rpd.colorAttachments[0].texture = dst;
+	rpd.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+	rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+	id<MTLRenderCommandEncoder> e = [pm.cb renderCommandEncoderWithDescriptor:rpd];
+	const uint32_t w = src.width < dst.width ? (uint32_t)src.width : (uint32_t)dst.width;
+	const uint32_t h = src.height < dst.height ? (uint32_t)src.height : (uint32_t)dst.height;
+	const MTLViewport vp{ 0, 0, w, h, 0, 1 };
+	[e setViewport:vp];
+	[e setRenderPipelineState:pso];
+	[e setCullMode:MTLCullModeNone];
+	[e setFrontFacingWinding:MTLWindingClockwise];
+	const Float4 params{ 1.f, 1.f, 0.f, 0.f };
+	[e setVertexBytes:&params length:sizeof(params) atIndex:0];
+	[e setFragmentTexture:src atIndex:0];
+	[e drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+	[e endEncoding];
 	pm.touched.insert(dstTex);
 	pm.identityDirty = true;
 }
@@ -2697,6 +2994,10 @@ void MtlSetViewport(float x, float y, float w, float h, float minD, float maxD)
 	pm.vpH = h;
 	pm.vpMin = minD;
 	pm.vpMax = maxD;
+	if (w > pm.screenW)
+		pm.screenW = w; // p5 launch196: screen_res fallback source
+	if (h > pm.screenH)
+		pm.screenH = h;
 	if (pm.enc)
 	{
 		const MTLViewport vp{ x, y, w, h, minD, maxD };
@@ -2878,6 +3179,17 @@ void MtlConstWrite(uint32_t stage, uint32_t offset, uint32_t size, const void* d
 // --- texture stages ---------------------------------------------------------------
 void MtlRecordTextureStage(uint32_t stage, void* texture)
 {
+	// p5 launch203: who writes stage 0? (PP s_base0 stale-albedo hunt)
+	if (stage == 0)
+	{
+		const char* n0 = texture ? MtlDbgRTGetName(texture) : nullptr;
+		std::string key = texture
+		    ? std::string(n0 ? n0 : "unnamed") + "@" + std::to_string((size_t)(uintptr_t)texture % 1048576)
+		    : std::string("null");
+		static std::map<std::string, int> s_s0;
+		if (s_s0[key]++ < 6)
+			Log("* p5 s0rec: %s (%s)", key.c_str(), texture ? "tex" : "NULL");
+	}
 	if (stage < kMaxStage)
 		PM().stageTex[stage] = texture;
 }
@@ -2988,6 +3300,29 @@ namespace
 					a.format = MapDeclFormat(pm.declElems[0].Type);
 					pd.attrs.push_back(a);
 				}
+			}
+		}
+
+		// p5 launch217: PP-draw vertex layout dump — NaN hunt (COLOR0/1
+		// read as float32 would reinterpret 0xFF7F7F7F as NaN bits).
+		if (pairName && strstr(pairName->name.c_str(), "postprocess"))
+		{
+			static int s_vlN = 0;
+			if (s_vlN++ < 3)
+			{
+				std::string vsi, dl, at;
+				for (const auto& in : vsRefl.inputs)
+					vsi += in.semantic + "@" + std::to_string(in.attribute) + " ";
+				for (uint32_t i = 0; i < pm.declCount && i < 8; i++)
+					dl += std::to_string(pm.declElems[i].Usage) + ":" +
+					      std::to_string(pm.declElems[i].UsageIndex) + ":t" +
+					      std::to_string(pm.declElems[i].Type) + ":o" +
+					      std::to_string(pm.declElems[i].Offset) + " ";
+				for (const auto& a : pd.attrs)
+					at += "loc" + std::to_string(a.index) + "/o" + std::to_string(a.offset) +
+					      "/f" + std::to_string((int)a.format) + " ";
+				Log("* p5 ppVL: stride=%u vsin=[%s] decl=[%s] attrs=[%s]", stride, vsi.c_str(),
+				    dl.c_str(), at.c_str());
 			}
 		}
 
@@ -3223,6 +3558,45 @@ namespace
 				if (tex)
 				{
 					id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
+					// p5 launch191: same-target sample → pre-pass scratch copy.
+					if (fragment)
+					{
+						auto fit = pm.fbRemap.find((__bridge void*)t);
+						if (fit != pm.fbRemap.end())
+							t = (__bridge id<MTLTexture>)fit->second;
+						// p5 launch193: the luminance-adaptation chain feeds
+						// combine_1's tonemap multiplier (tm_scale). Its source
+						// (bloom1<-generic1 threshold) is legitimately black at
+						// night with stubbed sun, so adaptation sits at 0 and
+						// multiplies the entire scene to black. Until the
+						// luminance chain gets real inputs (t5), sample 1.0
+						// instead: tm_scale = neutral.
+						auto nit = g_mtlRtNames.find((__bridge void*)t);
+						if (nit != g_mtlRtNames.end() &&
+						    (strstr(nit->second.c_str(), "luminance_cur") ||
+						     strstr(nit->second.c_str(), "luminance_src")))
+						{
+							static id<MTLTexture> s_tmWhite = nil;
+							if (!s_tmWhite)
+							{
+								MTLTextureDescriptor* td = [MTLTextureDescriptor
+								    texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float
+																 width:1
+																height:1
+															 mipmapped:NO];
+								td.usage = MTLTextureUsageShaderRead;
+								s_tmWhite = [(__bridge id<MTLDevice>)pm.dev->Device()
+								    newTextureWithDescriptor:td];
+								const float one[4] = { 1.f, 1.f, 1.f, 1.f };
+								[s_tmWhite replaceRegion:MTLRegionMake2D(0, 0, 1, 1)
+											   mipmapLevel:0
+												 withBytes:one
+											   bytesPerRow:16];
+							}
+							if (s_tmWhite)
+								t = s_tmWhite;
+						}
+					}
 					const uint8_t kind = slot < 8 ? kinds[slot] : kTex2D;
 					bool mismatch = false;
 					switch (kind)
@@ -3246,6 +3620,18 @@ namespace
 						[e setFragmentTexture:t atIndex:slot];
 					else
 						[e setVertexTexture:t atIndex:slot];
+				}
+				else if (fragment)
+				{
+					// p5 launch196: Metal drops the ENTIRE draw when a PS
+					// sample slot is unbound (combine_1's s_normal on a gbuffer
+					// variant with no normal RT) — silently, no error without
+					// the debug layer. Bind the zero-filled kind dummy so the
+					// draw survives; the missing input reads black.
+					id<MTLTexture> d = MtlKindDummy((__bridge id<MTLDevice>)pm.dev->Device(),
+					                                slot < 8 ? kinds[slot] : kTex2D);
+					if (d)
+						[e setFragmentTexture:d atIndex:slot];
 				}
 				uint32_t ss = r.samplerSlot;
 				if (ss == UINT32_MAX)
@@ -3320,6 +3706,75 @@ namespace
 				    psR ? psR->name.c_str() : (pair ? pair->name.c_str() : "?"));
 			return false;
 		}
+		// p5 launch215: is the pipeline's PS really postprocess? BEFORE the
+		// killswitch (which returns early and hid this probe in 214).
+		if (pair && strstr(pair->name.c_str(), "postprocess"))
+		{
+			static int s_ppPso = 0;
+			if (s_ppPso++ < 6)
+			{
+				const void* psf = psR ? psR->function : nullptr;
+				const void* vsf = vsR ? vsR->function : nullptr;
+				const char* psn = psR ? psR->name.c_str() : "?";
+				const char* vsn = vsR ? vsR->name.c_str() : "?";
+				Log("* p5 ppPSO2: pair=%s vs=%s@%p ps=%s@%p", pair->name.c_str(), vsn, vsf, psn,
+				    psf);
+			}
+		}
+		// p5 launch219: PS term-bisect era — WALL-CLOCK eras anchored to the
+		// first PP draw (world entry): pre-gate (t<65s) uses the original PS,
+		// then 30s eras black/scene/gray/noc0/off. Draw-count eras were
+		// consumed entirely by the ~200s paused era before the MCP gate.
+		static const bool s_rw = !!getenv("XR_METAL_PS_REWRITE");
+		MtlStageRefl psRw;
+		if (s_rw && pair && psR && strstr(pair->name.c_str(), "postprocess"))
+		{
+			static time_t s_ppT0 = 0;
+			static int s_lastEra = -2;
+			const time_t nowT = time(nullptr);
+			if (!s_ppT0)
+				s_ppT0 = nowT;
+			const long el = (long)(nowT - s_ppT0) - 65;
+			const int era = el < 0 ? -1 : (el / 30 > 4 ? 4 : (int)(el / 30));
+			if (era != s_lastEra)
+			{
+				static const char* const kNm[] = {"black", "scene", "gray", "noc0", "off"};
+				Log("* p5 eraSwitch: mode=%s t=%lds", era < 0 ? "pre" : kNm[era],
+				    (long)(nowT - s_ppT0));
+				s_lastEra = era;
+				g_ppEra = era;
+			}
+			if (era >= 0 && era < 4)
+			{
+				void* vf = MtlPpVariantFn(era);
+				if (vf)
+				{
+					psRw = *psR;
+					psRw.function = vf;
+					psR = &psRw;
+				}
+				else
+					Log("! p5 eraSwitch: variant %d missing", era);
+			}
+		}
+		// p5 launch200: env kill-switches for color-chain bisection (yellow
+		// seed hunt on base ping-pong). Temporary diagnostics.
+		{
+			static const bool s_skipDistort = !!getenv("XR_METAL_SKIP_DISTORT");
+			static const bool s_skipPP = !!getenv("XR_METAL_SKIP_PP");
+			if (pair && (s_skipDistort || s_skipPP))
+			{
+				const char* nm = pair->name.c_str();
+				if ((s_skipDistort && strstr(nm, "distort")) ||
+				    (s_skipPP && strstr(nm, "postprocess")))
+				{
+					static int s_ks = 0;
+					if (s_ks++ < 3)
+						Log("* p5 killswitch: dropped pair=%s", nm);
+					return false;
+				}
+			}
+		}
 
 		pm.ensureEncoder();
 		if (!pm.enc)
@@ -3352,6 +3807,40 @@ namespace
 			slotOff = pm.ringOff;
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;
 			std::memcpy(dst, pm.staging.data(), imgSize);
+			// p5 launch217: c_brightness canary for the PP pair — if the
+			// screen turns RED the GPU-side CB layout is correct and the
+			// yellow must be NaN (interpolants/noise); if still YELLOW
+			// the shader reads c_brightness from a different offset.
+			static const bool s_cbrTest = !!getenv("XR_METAL_CBR_TEST");
+			if (s_cbrTest && pair && psR && strstr(pair->name.c_str(), "postprocess"))
+				for (const auto& u : psR->uniforms)
+					if (u.name == "c_brightness" && u.offset + 16 <= pm.psSize)
+					{
+						const float v[4] = { 0.25f, 0.f, 0.f, 1.f };
+						std::memcpy(dst + psBase + u.offset, v, 16);
+						static int s_ct = 0;
+						if (s_ct++ < 2)
+							Log("* p5 cbrTest: forced (0.25,0,0,1) at off=%u", u.offset);
+					}
+			// p5 launch196: pixel-space quad VSes (postprocess stub) declare
+			// screen_res but the pass ctable never supplies it (read as junk
+			// at offset 0 → projection to a degenerate point → every PP/bloom
+			// quad vanishes). Only fill when clearly bogus (x<=0 or z<=0) so
+			// ctable-supplied values (bloom: 3024x1666) are left untouched.
+			if (vsR && !vsR->uniforms.empty() && pm.vsSize)
+				for (const auto& u : vsR->uniforms)
+					if (u.name == "screen_res" && u.offset + 16 <= pm.vsSize)
+					{
+						float cur[4];
+						std::memcpy(cur, dst + u.offset, 16);
+						if (!(cur[0] > 0.f) || !(cur[2] > 0.f))
+						{
+							const float w = pm.screenW ? pm.screenW : 1.f;
+							const float h = pm.screenH ? pm.screenH : 1.f;
+							const float v4[4] = { w, h, 1.f / w, 1.f / h };
+							std::memcpy(dst + u.offset, v4, 16);
+						}
+					}
 			pm.ringOff = slotOff + Align256(imgSize);
 		}
 
@@ -3586,7 +4075,7 @@ namespace
 				// tick==3 forever (tick3 pass follows tick2 one frame later,
 				// ~440 draws < 50K), so H3 never fired in launch107/109.
 				static uint64_t s_lastH2 = 0, s_lastH3 = 0;
-				if (rtNcH && strstr(rtNcH, "position") &&
+				if (rtNcH && MtlCanaryOn() && strstr(rtNcH, "position") &&
 				    ((tickH == 2 && g_dbgDrawOK - s_lastH2 > 50000ull) ||
 				     (tickH == 3 && g_dbgDrawOK - s_lastH3 > 50000ull)))
 				{
@@ -3667,7 +4156,7 @@ namespace
 		{
 			const char* rtNc = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 			static uint64_t s_lastCanaryDraw = 0;
-			if (rtNc && strstr(rtNc, "position") && (g_pgGate + 1) % 240 == 0 &&
+			if (rtNc && MtlCanaryOn() && strstr(rtNc, "position") && (g_pgGate + 1) % 240 == 0 &&
 			    g_dbgDrawOK - s_lastCanaryDraw > 50000ull)
 			{
 				s_lastCanaryDraw = g_dbgDrawOK;
@@ -3707,7 +4196,7 @@ namespace
 		{
 			static uint64_t s_lastVsCanary = 0;
 			const char* rtNc = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
-			if (rtNc && strstr(rtNc, "position") && indexed && ds.vb && ds.ib &&
+			if (rtNc && MtlCanaryOn() && strstr(rtNc, "position") && indexed && ds.vb && ds.ib &&
 			    (g_pgGate + 1) % 240 == 1 && g_dbgDrawOK - s_lastVsCanary > 50000ull)
 			{
 				s_lastVsCanary = g_dbgDrawOK;
@@ -3782,6 +4271,106 @@ namespace
 				}
 				else
 					Log("! p5 vscanary: fillPs nil");
+			}
+		}
+		// p5 DIAG (launch183): S14 SAMPLER probe — real VS + probe PS that samples
+		// texture(0)@sampler(0) (the real draw's bindings, still bound in this
+		// encoder) and writes BOTH geometry attachments:
+		//   o0 -> position = sample*8 + 0.0625 (black sample => half 0.0625,
+		//        hi byte 48 = postgeom X flag)
+		//   o1 -> albedo   = sample + (0.5,0.25,0.125) (ANY sample => nonzero px)
+		// Verdict: rtscan albedo nz jumps => live sampling+write OK, real PS is
+		// the culprit. position X-flagged but albedo still 0 => probe drew and
+		// sampled BLACK => binding/sampler is the culprit. Neither => probe died.
+		{
+			static uint64_t s_lastS14 = 0;
+			static int s_s14Budget = 6;
+			static id<MTLFunction> s_probeFn = nil;
+			static bool s_probeTried = false;
+			const char* rtNcP = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+			const char* rtNcA = pm.rt[1] ? MtlDbgRTGetName(pm.rt[1]) : nullptr;
+			if (rtNcP && strstr(rtNcP, "position") && rtNcA &&
+			    strstr(rtNcA, "albedo") && indexed && ds.vb && ds.ib && vsR &&
+			    g_dbgDrawOK - s_lastS14 > 20000ull && s_s14Budget > 0)
+			{
+				if (!s_probeTried)
+				{
+					s_probeTried = true;
+					static const char* s14src = R"metal(
+#include <metal_stdlib>
+using namespace metal;
+struct S14Out { float4 p [[color(0)]]; float4 a [[color(1)]]; };
+fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
+                           texture2d<float> t0 [[texture(0)]],
+                           sampler s0 [[sampler(0)]])
+{
+    float3 c = t0.sample(s0, float2(0.30f, 0.35f)).rgb;
+    S14Out o;
+    o.p = float4(c * 8.0 + 0.0625, 1.0);
+    o.a = float4(c + float3(0.5f, 0.25f, 0.125f), 1.0);
+    return o;
+}
+)metal";
+					id<MTLDevice> mdev = (__bridge id<MTLDevice>)pm.dev->Device();
+					NSError* e14 = nil;
+					id<MTLLibrary> lib =
+					    [mdev newLibraryWithSource:@(s14src) options:nil error:&e14];
+					if (lib)
+						s_probeFn = [lib newFunctionWithName:@"xrprobe_ps"];
+					Log("- p5 S14: probe fn=%d err=%s", s_probeFn != nil,
+					    e14.localizedDescription.UTF8String ?: "-");
+				}
+				if (s_probeFn)
+				{
+					s_lastS14 = g_dbgDrawOK;
+					s_s14Budget--;
+					PipelineDesc pdP;
+					pdP.vs = vsR->function;
+					pdP.ps = (__bridge void*)s_probeFn;
+					pdP.stride = ds.vbStride;
+					pdP.vbSlot = 1;
+					DeclCursor curP{ pm.declElems, pm.declCount, {} };
+					for (uint32_t i = 0; i < 16; i++)
+						curP.next[i] = 0;
+					for (const auto& in : vsR->inputs)
+					{
+						uint32_t usage = 0, index = 0;
+						ParseSemantic(in.semantic, usage, index);
+						int e = curP.find(usage, index);
+						if (e < 0)
+							continue;
+						VertexAttr a;
+						a.index = in.attribute;
+						a.offset = pm.declElems[e].Offset;
+						a.format = MapDeclFormat(pm.declElems[e].Type);
+						pdP.attrs.push_back(a);
+					}
+					pdP.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[0]));
+					pdP.colorFormats.push_back(pm.dev->TextureFormat(pm.rt[1]));
+					MtlPdDepthFromEncoder(pm, pdP);
+					pdP.blend.enabled = false;
+					pdP.blend.writeMask = 0xF;
+					std::string errP;
+					id<MTLRenderPipelineState> psoP =
+						(__bridge id<MTLRenderPipelineState>)pm.cache->Pipeline(pm.dev->Device(),
+						                                                        pdP, errP);
+					if (psoP)
+					{
+						[pm.enc setRenderPipelineState:psoP];
+						[pm.enc drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+						                   indexCount:primCount
+						                    indexType:MTLIndexTypeUInt16
+						                  indexBuffer:(__bridge id<MTLBuffer>)ds.ib
+						            indexBufferOffset:(NSUInteger)startI * 2
+						                  instanceCount:1
+						                     baseVertex:(NSInteger)baseV
+						                   baseInstance:0];
+						Log("- p5 S14: sampler probe drew pair=%s idx=%u",
+						    pair ? pair->name.c_str() : "?", primCount);
+					}
+					else
+						Log("! p5 S14: PSO failed: %s", errP.c_str());
+				}
 			}
 		}
 		// p5 DIAG (launch110): canaryI — REAL VS + builtin PS that RETURNS the
@@ -4591,8 +5180,233 @@ namespace
 			if (!n0 && pm.zb && g_mtlRtNames.count(pm.zb)) // zfill (depth-only) draws too
 				n0 = g_mtlRtNames[pm.zb].c_str();
 			static std::map<std::string, int> s_scLogged;
-			if (n0 && s_scLogged[pn]++ < 6)
+			// p5 launch216: postprocess bypasses the 6-draw budget
+			// periodically — old budget-3 sampling only saw the first
+			// post-load (still-black pop-in) frames, never steady state.
+			static int s_ppPass = 0;
+			const bool ppPeriodic =
+			    pn && (strstr(pn, "postprocess") || strstr(pn, "combine_1")) &&
+			    (s_ppPass++ % 240) < 1;
+			if (n0 && (s_scLogged[pn]++ < 6 || ppPeriodic))
 			{
+				// p5 launch194: what screen_res do the pixel-space quad VSes
+				// actually receive? (0 => VS projects to a degenerate point.)
+				bool srFound = false;
+				for (const auto& u : vsR->uniforms)
+				{
+					if (u.name == "screen_res" && u.offset + 16 <= pm.vsSize)
+					{
+						float srq[4];
+						std::memcpy(srq, pm.staging.data() + u.offset, 16);
+						Log("* p5 scres: pair=%s off=%u sr=(%.2f %.2f %.6f %.6f)", pn,
+						    u.offset, srq[0], srq[1], srq[2], srq[3]);
+						srFound = true;
+						break;
+					}
+				}
+				if (!srFound)
+				{
+					std::string un;
+					for (size_t ui = 0; ui < vsR->uniforms.size() && ui < 12; ui++)
+					{
+						un += vsR->uniforms[ui].name;
+						un += ",";
+					}
+					Log("* p5 scres: pair=%s NO screen_res uniforms=[%s]", pn, un.c_str());
+				}
+				// p5 launch199: is set_c("c_brightness") landing in the PS CB?
+				// (PP paints solid yellow when this offset holds junk.)
+				for (const auto& u : psR->uniforms)
+				{
+					if (u.name == "c_brightness" && u.offset + 16 <= pm.psSize)
+					{
+						float cbq[4];
+						std::memcpy(cbq, pm.staging.data() + Align16(pm.vsSize) + u.offset, 16);
+						Log("* p5 cbr: pair=%s off=%u val=(%.3f %.3f %.3f %.3f)", pn, u.offset,
+						    cbq[0], cbq[1], cbq[2], cbq[3]);
+						break;
+					}
+				}
+				// p5 launch201: PP paints yellow — dump which TEXTURE each
+				// fragment stage slot actually resolves to for this draw.
+				if (strstr(pn, "postprocess") || strstr(pn, "combine_1"))
+				{
+					std::string sl;
+					for (int si = 0; si < 8; si++)
+					{
+						if (!pm.stageTex[si])
+						{
+							sl += std::to_string(si) + ":null ";
+							continue;
+						}
+						const char* tn = MtlDbgRTGetName(pm.stageTex[si]);
+						id<MTLTexture> tt = (__bridge id<MTLTexture>)pm.stageTex[si];
+						sl += std::to_string(si) + ":" + (tn ? tn : "?") +
+						      " " + std::to_string(tt.width) + "x" + std::to_string(tt.height) +
+						      " f" + std::to_string((int)tt.pixelFormat) + " ";
+					}
+					Log("* p5 ppslots: pair=%s [%s]", pn, sl.c_str());					// p5 launch209: yellow = real (1,1,0) values — dump raw
+					// half-float content of slot 0 + every PS CB float so the
+					// Inf-scene vs junk-constant theory splits cleanly.
+					static int s_ppRaw = 0;
+					// p5 launch219: fires every gated pass (s_ppPass %240) —
+					// launch216's inner %480 double-counter meant this NEVER
+					// ran at steady state (advanced only 2/480 draws).
+					if (s_ppRaw++ < 200)
+					{
+						// Read whichever slot holds the scene HDR RT
+						// ($user$albedo): PP slot0 / combine_1 s_diffuse.
+						void* rawTex = nullptr;
+						for (int si = 0; si < 8; si++)
+						{
+							const char* sn = MtlDbgRTGetName(pm.stageTex[si]);
+							if (pm.stageTex[si] && sn && !strcmp(sn, "$user$albedo"))
+							{
+								rawTex = pm.stageTex[si];
+								break;
+							}
+						}
+						if (rawTex)
+						{
+						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rawTex;
+						const uint32_t rw = t0.width, rh = t0.height;
+						const uint32_t fmt = (uint32_t)t0.pixelFormat;
+						// launch219 enum fix: 80=BGRA8 (NOT half!). Half RTs
+						// are 115 (RGBA16Float) / 125 (RGBA32Float).
+						const uint32_t bpp = (fmt == 115u) ? 8u : (fmt == 125u) ? 16u : 4u;
+						const size_t bpr = size_t(rw) * bpp, sz = bpr * rh;
+						std::vector<uint8_t> px(sz);
+						id<MTLDevice> mdev = (__bridge id<MTLDevice>)MtlSharedDevice();
+						id<MTLBuffer> rb = mdev ? [mdev newBufferWithLength:sz
+						                                          options:MTLResourceStorageModeShared]
+						                        : nil;
+						id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)pm.dev->Queue();
+						id<MTLCommandBuffer> cb = q ? [q commandBuffer] : nil;
+						bool got = false;
+						if (rb && cb)
+						{
+							id<MTLBlitCommandEncoder> be = [cb blitCommandEncoder];
+							[be copyFromTexture:t0
+							          sourceSlice:0
+							          sourceLevel:0
+							         sourceOrigin:MTLOriginMake(0, 0, 0)
+							           sourceSize:MTLSizeMake(rw, rh, 1)
+							             toBuffer:rb
+							      destinationOffset:0
+							 destinationBytesPerRow:bpr
+							destinationBytesPerImage:sz];
+							[be endEncoding];
+							[cb commit];
+							[cb waitUntilCompleted];
+							memcpy(px.data(), rb.contents, sz);
+							got = true;
+						}
+						if (got)
+						{
+							size_t nanCnt = 0, infCnt = 0, bigCnt = 0, n = 0, nzCnt = 0;
+							float mn = 1e30f, mx = -1e30f;
+							float chMax[3] = { -1e30f, -1e30f, -1e30f };
+							float midv[3] = { 0, 0, 0 };
+							if (bpp == 8)
+							{
+								const _Float16* hp = (const _Float16*)px.data();
+								for (size_t k = 0; k < size_t(rw) * rh; k += 37)
+								{
+									bool anynz = false;
+									for (int c = 0; c < 3; c++)
+									{
+										float f = (float)hp[k * 4 + c];
+										if (std::isnan(f))
+										{
+											nanCnt++;
+											continue;
+										}
+										if (std::isinf(f))
+										{
+											infCnt++;
+											continue;
+										}
+										if (std::fabs(f) > 1000.f)
+											bigCnt++;
+										if (f > chMax[c])
+											chMax[c] = f;
+										if (f < mn)
+											mn = f;
+										if (f > mx)
+											mx = f;
+										if (f != 0.f)
+											anynz = true;
+									}
+									if (anynz)
+										nzCnt++;
+									n++;
+								}
+								size_t mp = (size_t(rh / 2) * rw + rw / 2) * 4;
+								midv[0] = (float)hp[mp];
+								midv[1] = (float)hp[mp + 1];
+								midv[2] = (float)hp[mp + 2];
+							}
+							else if (bpp == 4)
+							{
+								const uint8_t* bp2 = px.data();
+								for (size_t k = 0; k < size_t(rw) * rh; k += 37)
+								{
+									bool anynz = false;
+									for (int c = 0; c < 3; c++)
+									{
+										const float f = bp2[k * 4 + c] / 255.f;
+										if (f > chMax[c])
+											chMax[c] = f;
+										if (f < mn)
+											mn = f;
+										if (f > mx)
+											mx = f;
+										if (f != 0.f)
+											anynz = true;
+									}
+									if (anynz)
+										nzCnt++;
+									n++;
+								}
+								size_t mp = (size_t(rh / 2) * rw + rw / 2) * 4;
+								midv[0] = bp2[mp] / 255.f;
+								midv[1] = bp2[mp + 1] / 255.f;
+								midv[2] = bp2[mp + 2] / 255.f;
+							}
+							Log("* p5 ppraw: pair=%s era=%d slot0 f%u %ux%u n=%zu nz=%zu nan=%zu inf=%zu big=%zu "
+							    "rng=[%.4g,%.4g] chmax=(%.4g,%.4g,%.4g) mid=(%.5g,%.5g,%.5g)",
+							    pn, g_ppEra,
+							    (unsigned)t0.pixelFormat, rw, rh, n, nzCnt, nanCnt, infCnt, bigCnt, mn, mx,
+							    chMax[0], chMax[1], chMax[2], midv[0], midv[1], midv[2]);
+						}
+						else
+							Log("* p5 ppraw: readback failed");
+						}
+						if (psR)
+							for (const auto& u : psR->uniforms)
+								if (u.offset + 16 <= pm.psSize)
+								{
+									float q[4];
+									std::memcpy(q, pm.staging.data() + Align16(pm.vsSize) + u.offset,
+									    16);
+									Log("* p5 ppcb: %s off=%u (%.4g %.4g %.4g %.4g)", u.name.c_str(),
+									    u.offset, q[0], q[1], q[2], q[3]);
+								}
+					}
+				}
+				// p5 launch212: every draw whose color attachment 0 is base_0 —
+				// catch the writer of the solid-yellow backbuffer.
+				if (pm.rt[0])
+				{
+					const char* rtn = MtlDbgRTGetName(pm.rt[0]);
+					if (rtn && 0 == strcmp(rtn, "$user$base_0"))
+					{
+						static std::map<std::string, int> s_b0;
+						std::string k = pn ? pn : "?";
+						if (s_b0[k]++ < 5)
+							Log("* p5 b0draw: pair=%s idx=%u n=%u", k.c_str(), 0u, 0u);
+					}
+				}
 				int cfCount = 0;
 				for (int i = 0; i < 4; i++)
 					if (pm.rt[i])
@@ -4693,12 +5507,15 @@ void MtlEndOcclusionQuery(void*) { }
 
 int32_t MtlGetQueryDataStatus(void* query, void* data, uint32_t dataSize)
 {
-	// v1: always pending -> callers treat as "occluded unknown" and DRAW
-	// (QueryHelper contract: S_FALSE = not ready). Real MTLCounterSampleBuffer
-	// resolution lands with p5 t3.
+	// launch177 post-mortem: returning S_FALSE forever made r__occlusion's
+	// GetData loop spin 500 ms per query; smapvis flushoccq issues hundreds
+	// per frame -> multi-minute stall -> engine exception termination
+	// (~1 min after level load, launches 175/177). Answer READY with 1
+	// fragment = nothing occlusion-culled (conservative, same intent as the
+	// v1 stub). Real MTLCounterSampleBuffer resolution still lands with p5 t3.
 	if (!query || !data || dataSize < 4)
 		return 2; // E_FAIL
 	*(uint32_t*)data = 1;
-	return 1; // S_FALSE
+	return 0; // S_OK — data ready
 }
 } // namespace xray::render::RENDER_NAMESPACE

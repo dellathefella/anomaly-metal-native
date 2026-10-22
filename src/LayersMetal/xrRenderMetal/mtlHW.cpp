@@ -335,6 +335,7 @@ void CHW::Present()
                 MtlDbgDrawStats(5), MtlDbgDrawStats(6), MtlDbgDrawStats(10), MtlDbgDrawStats(11),
                 MtlDbgDrawStats(12), MtlDbgDrawStats(13), MtlDbgDrawStats(14),
                 MtlDbgDrawStats(15));
+            Msg("- p5 eraNow: %u", MtlPpEra());
             // p5 diag: scan content of every color RT bound since last scan —
             // which render targets actually receive pixels (frozen-RT hunt).
             if (std::vector<void*>* rts = MtlDbgRTs())

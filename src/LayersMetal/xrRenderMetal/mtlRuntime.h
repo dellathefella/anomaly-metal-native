@@ -41,8 +41,14 @@ std::vector<void*>* MtlDbgRTs();
 void MtlDbgClearRTs();
 void MtlDbgRTName(void* tex, const char* name);
 const char* MtlDbgRTGetName(void* tex);
+unsigned long long MtlDbgDrawCount();
 // p5 diag: top-15 per-shader-pair cumulative draw histogram to the log.
 void MtlDbgDumpPairs();
+// p5 launch218: postprocess PS term-bisect variants (mtlShaderCompile.mm);
+// modes 0=black 1=scene 2=gray 3=noc0, nullptr when not compiled.
+void* MtlPpVariantFn(int mode);
+void MtlBuildPpVariants(const std::string& msl, const char* entry);
+int MtlPpEra();
 
 // p5 diag: draw-path counters — 0 = successful draws, 1 = skipped (null
 // shader), 2 = skipped (PSO creation failed).
@@ -65,6 +71,8 @@ bool MtlClearDepthRect(void* zb, float depth, uint32_t numRects, const int32_t* 
 
 // Copy a whole texture (same format/size) — RT blits (menu composite etc.).
 void MtlBlit(void* srcTex, void* dstTex);
+// Format-converting copy via FS-triangle (e.g. RGBA16F → BGRA8).
+void MtlBlitConvert(void* srcTex, void* dstTex);
 // Blit the current swapchain drawable into a target texture (scaled to fit).
 void MtlBlitFromBackBuffer(void* dstTex, uint32_t width, uint32_t height);
 

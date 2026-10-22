@@ -453,7 +453,12 @@ void CRender::create()
         }
     }
 
-    o.gbuffer_opt = ps_r2_ls_flags.test(R3FLAG_GBUFFER_OPT);
+    // p5 launch199: forced OFF on Metal — the shipped DXBC r2 shaders were
+    // compiled WITHOUT GBUFFER_OPTIMIZATION (combine_1 samples a real
+    // s_normal RT). With the packed 2-attachment gbuffer, rt_Normal was
+    // never created/written: combine_1's hemi (ambient) read black → the
+    // whole scene sat unlit.
+    o.gbuffer_opt = false;
 
     o.minmax_sm = ps_r3_minmax_sm;
     o.minmax_sm_screenarea_threshold = 1600 * 1200;

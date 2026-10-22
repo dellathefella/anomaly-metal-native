@@ -42,6 +42,13 @@ public:
 
     adopt_sampler& _texture(LPCSTR texture)
     {
+        // p5 launch207: PP s_base0 hunt — does the script chain a texture bind?
+        {
+            static int s_at = 0;
+            if (s_at++ < 80)
+                Msg("- Metal adoptTex: stage=%u tex='%s' bound=%d", stage, texture ? texture : "?",
+                    C ? 1 : 0);
+        }
         if (C) C->i_Texture(stage, texture);
         return *this;
     }
@@ -454,6 +461,9 @@ BOOL CResourceManager::_lua_HasShader(LPCSTR s_shader)
 
 Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 {
+    // p5 launch207: which shaders take the script-compile path (PP hunt).
+    if (d_shader && strstr(d_shader, "post"))
+        Msg("- Metal _lua_Create: '%s' textures='%s'", d_shader, s_textures ? s_textures : "NULL");
     CBlender_Compile C;
     Shader S;
 

@@ -112,7 +112,19 @@ u32 CBlender_Compile::i_Sampler(LPCSTR _name) const
 void CBlender_Compile::i_Texture(u32 s, LPCSTR name)
 {
     if (name)
-        passTextures.emplace_back(s, ref_texture(RImplementation.Resources->_CreateTexture(name)));
+    {
+        CTexture* t = RImplementation.Resources->_CreateTexture(name);
+        // p5 launch205: exact-name probe for the PP s_base0 hunt (unbounded,
+        // rare name) + every $user$ bind with headroom.
+        static int s_itN = 0;
+        if (0 == xr_strcmp(name, "$user$generic"))
+            Msg("- Metal iTexture GENERIC: stage=%u tex=%p surf=%p", s, (void*)t,
+                t ? t->surface_get() : nullptr);
+        else if (name[0] == '$' && s_itN++ < 400)
+            Msg("- Metal iTexture: '%s' stage=%u surf=%p", name, s,
+                t ? t->surface_get() : nullptr);
+        passTextures.emplace_back(s, ref_texture(t));
+    }
 }
 
 void CBlender_Compile::i_Projective(u32 s, bool b)
@@ -149,6 +161,21 @@ u32 CBlender_Compile::r_Sampler(
     LPCSTR _name, LPCSTR texture, bool b_ps1x_ProjectiveDivide, u32 address, u32 fmin, u32 fmip, u32 fmag)
 {
     dwStage = i_Sampler(_name);
+    // p5 launch206: entry trace for the PP s_base0 hunt.
+    if (0 == xr_strcmp(_name, "s_base0"))
+    {
+        static int s_b0 = 0;
+        if (s_b0++ < 20)
+            Msg("- Metal rSampler s_base0: tex='%s' stage=%d", texture ? texture : "?",
+                (int)dwStage);
+    }
+    if (u32(-1) == dwStage)
+    {
+        // p5 launch204: silent-drop probe (PP's s_base0 vanished without trace).
+        static int s_missN = 0;
+        if (s_missN++ < 60)
+            Msg("- Metal i_Sampler MISS: '%s'", _name);
+    }
     if (u32(-1) != dwStage)
     {
 #if defined(USE_DX11)

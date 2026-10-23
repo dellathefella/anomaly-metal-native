@@ -583,6 +583,16 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 							if (pb && s_alwaysDss)
 							{
 								s_frtN++;
+								// Own the viewport/scissor: the engine's last
+								// per-draw viewport may be a sub-rect, which
+								// would squeeze this NDC-space fill too.
+								id<MTLTexture> t0 =
+								    (__bridge id<MTLTexture>)rt[0];
+								[enc setViewport:(MTLViewport){ 0.0, 0.0,
+								    (double)t0.width, (double)t0.height, 0.0,
+								    1.0 }];
+								[enc setScissorRect:(MTLScissorRect){ 0, 0,
+								    t0.width, t0.height }];
 								[enc setDepthStencilState:s_alwaysDss];
 								[enc setCullMode:MTLCullModeNone];
 								[enc setRenderPipelineState:pso];
@@ -590,9 +600,10 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 								[enc setFragmentBuffer:pb offset:0 atIndex:0];
 								[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
 								         vertexCount:3];
-								if (s_frtN <= 3)
-									Log("- p6 fillrt: pass=%s atts=%d drawn #%d", rn,
-									    attColorCount, s_frtN);
+								if (s_frtN <= 3 || s_frtN % 300 == 0)
+									Log("- p6 fillrt: pass=%s atts=%d drawn #%d "
+									    "engvp=%.0fx%.0f",
+									    rn, attColorCount, s_frtN, vpW, vpH);
 							}
 						}
 					}

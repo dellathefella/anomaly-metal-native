@@ -383,6 +383,16 @@ fragment float4 xrblit_ps(BlitOut in [[stage_in]], texture2d<float> t [[texture(
 fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]]) {
     return params;
 }
+// p6: MRT variants — the probe pipeline must output EVERY attachment of the
+// pass it draws into (a 1-RT pipeline into a 3-RT pass = silently rejected draw).
+fragment void xrfill2_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
+    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]]) { c0 = params; c1 = params; }
+fragment void xrfill3_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
+    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]], out float4 c2 [[color(2)]])
+    { c0 = params; c1 = params; c2 = params; }
+fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
+    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]], out float4 c2 [[color(2)]],
+    out float4 c3 [[color(3)]]) { c0 = params; c1 = params; c2 = params; c3 = params; }
 )metal";
 
 	struct MtlPassManager
@@ -462,6 +472,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 
 		// Built-ins
 		id<MTLFunction> blitVs = nil, blitPs = nil, fillPs = nil;
+		id<MTLLibrary> blitLib = nil; // p6: kept for MRT fill entries
 		std::map<uint32_t, id<MTLRenderPipelineState>> blitPso; // key: (dstFmt<<1|fill)
 		std::map<uint32_t, id<MTLRenderPipelineState>> fillZPso; // depth-rect fills
 
@@ -472,6 +483,10 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		void markTouched();
 		id<MTLRenderPipelineState> blitPipeline(MTLPixelFormat fmt, bool fillMode, bool depthPass,
 	                                        int dfmt = 0);
+		// p6 band-hunt: fill pipeline matching the CURRENT pass's attachment set
+		// (XR_METAL_FILLRT probe); keyed by the format vector.
+		id<MTLRenderPipelineState> fillPipelineMRT();
+		std::map<std::vector<int>, id<MTLRenderPipelineState>> fillMrtPso;
 	};
 
 	MtlPassManager& PM()
@@ -498,6 +513,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 		blitVs = [lib newFunctionWithName:@"xrblit_vs"];
 		blitPs = [lib newFunctionWithName:@"xrblit_ps"];
 		fillPs = [lib newFunctionWithName:@"xrfill_ps"];
+		blitLib = lib;
 	}
 
 	void MtlPassManager::endEncoder()
@@ -531,6 +547,54 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 						 zt ? (unsigned long)zt.height : 0UL, vpW, vpH];
 						if (s_rv2Seen.insert(line.UTF8String).second)
 							Log("%s", line.UTF8String);
+					}
+				}
+			}
+			// p6 band-hunt: XR_METAL_FILLRT=<substr> — coverage truth: draw a
+			// fullscreen red fill (MRT-matching pipeline, depth Always+no-write,
+			// cull off) as the LAST op of a pass whose color0 matches substr.
+			// rtdump then shows how far that pass's raster actually reaches.
+			// (First fill attempt used a 1-RT pipeline => rejected in the 3-RT
+			// gbuffer pass, and Never depth => both silently dropped.)
+			{
+				static const char* s_frt = getenv("XR_METAL_FILLRT");
+				static int s_frtN = 0;
+				static id<MTLDepthStencilState> s_alwaysDss = nil;
+				if (s_frt && s_frtN < 30000 && rt[0] && dev && g_dbgEncoders > 2000)
+				{
+					const char* rn = MtlDbgRTGetName(rt[0]);
+					if (rn && strstr(rn, s_frt))
+					{
+						id<MTLRenderPipelineState> pso = fillPipelineMRT();
+						if (pso)
+						{
+							const float params[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+							id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
+							if (!s_alwaysDss)
+							{
+								MTLDepthStencilDescriptor* dd = [MTLDepthStencilDescriptor new];
+								dd.depthCompareFunction = MTLCompareFunctionAlways;
+								dd.depthWriteEnabled = false;
+								s_alwaysDss = [mdev newDepthStencilStateWithDescriptor:dd];
+							}
+							id<MTLBuffer> pb = [mdev newBufferWithBytes:params
+							                                   length:sizeof(params)
+							                                 options:MTLResourceStorageModeShared];
+							if (pb && s_alwaysDss)
+							{
+								s_frtN++;
+								[enc setDepthStencilState:s_alwaysDss];
+								[enc setCullMode:MTLCullModeNone];
+								[enc setRenderPipelineState:pso];
+								[enc setVertexBuffer:pb offset:0 atIndex:0];
+								[enc setFragmentBuffer:pb offset:0 atIndex:0];
+								[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
+								         vertexCount:3];
+								if (s_frtN <= 3)
+									Log("- p6 fillrt: pass=%s atts=%d drawn #%d", rn,
+									    attColorCount, s_frtN);
+							}
+						}
 					}
 				}
 			}
@@ -2468,6 +2532,48 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			Log("! xrRenderMetal: builtin pipeline failed: %s", error.c_str());
 		else
 			blitPso[key] = pso;
+		return pso;
+	}
+
+	id<MTLRenderPipelineState> MtlPassManager::fillPipelineMRT()
+	{
+		initBuiltins();
+		if (!blitVs || !attColorCount)
+			return nil;
+		std::vector<int> key;
+		key.insert(key.end(), attColorFmt, attColorFmt + attColorCount);
+		key.push_back(attDepthFmt);
+		auto it = fillMrtPso.find(key);
+		if (it != fillMrtPso.end())
+			return it->second;
+		const char* fn = attColorCount == 1 ? "xrfill_ps"
+		              : attColorCount == 2 ? "xrfill2_ps"
+		              : attColorCount == 3 ? "xrfill3_ps"
+		                                   : "xrfill4_ps";
+		id<MTLFunction> psF = [blitLib newFunctionWithName:
+		                                                     @(fn)];
+		if (!psF)
+			return nil;
+		PipelineDesc pd;
+		pd.vs = (__bridge void*)blitVs;
+		pd.ps = (__bridge void*)psF;
+		pd.attrs.clear(); // vertex-id VS
+		pd.colorFormats = std::vector<int>(attColorFmt, attColorFmt + attColorCount);
+		if (attDepthFmt)
+		{
+			pd.depthFormat = attDepthFmt;
+			if (attDepthFmt == (int)MTLPixelFormatDepth32Float_Stencil8)
+				pd.stencilFormat = attDepthFmt;
+		}
+		pd.depthEnabled = false; // pipeline-side: always + no write
+		pd.blend.enabled = false;
+		std::string error;
+		id<MTLRenderPipelineState> pso =
+			(__bridge id<MTLRenderPipelineState>)cache->Pipeline(dev->Device(), pd, error);
+		if (!pso)
+			Log("! p6 fillMRT: pipeline failed (%d atts): %s", attColorCount, error.c_str());
+		else
+			fillMrtPso[key] = pso;
 		return pso;
 	}
 

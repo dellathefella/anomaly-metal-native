@@ -920,9 +920,10 @@ fragment Fill4 xrred4_ps()
 									    &row[size_t(100) * bpp];
 									const uint8_t* d3k =
 									    &row[size_t(3000) * bpp];
-									Log("- p6 dprobe: fbz=%.3f ok=%d y%u "
+									Log("- p6 dprobe: encN=%llu fbz=%.3f ok=%d y%u "
 									    "lastred=%u x100:%02x%02x x3000:%02x%02x",
-									    fbz, (int)ok, ym, lastred, d100[0],
+									    (unsigned long long)g_dbgEncoders, fbz,
+									    (int)ok, ym, lastred, d100[0],
 									    d100[1], d3k[0], d3k[1]);
 								}
 							}

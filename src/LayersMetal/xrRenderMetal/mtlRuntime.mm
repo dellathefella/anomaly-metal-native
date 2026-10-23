@@ -637,15 +637,19 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 							[cb commit];
 							[cb waitUntilCompleted];
 							cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
-							uint8_t buf[64] = { 0 };
+							// ReadbackSlice reads from ORIGIN only (slice/mip
+							// args, not x/y): take the full top row.
+							std::vector<uint8_t> buf(size_t(t0.width) * bpp);
 							std::string derr;
-							uint32_t y = (uint32_t)t0.height / 2;
-							bool ok = dev->ReadbackSlice(rt[0], buf, bpp, 4, 1, 3000, y,
+							bool ok = dev->ReadbackSlice(rt[0], buf.data(),
+							                             t0.width * bpp, t0.width, 1, 0, 0,
 							                             derr);
-							Log("- p6 fillverify: %s ok=%d y=%u px3000: "
-								"%02x %02x %02x %02x %02x %02x %02x %02x",
-								rn2, (int)ok, y, buf[0], buf[1], buf[2], buf[3],
-								buf[4], buf[5], buf[6], buf[7]);
+							const uint8_t* px = &buf[size_t(3000) * bpp];
+							const uint8_t* p0 = &buf[size_t(100) * bpp];
+							Log("- p6 fillverify: %s ok=%d y0 x100: %02x %02x %02x %02x "
+								"x3000: %02x %02x %02x %02x",
+								rn2, (int)ok, p0[0], p0[1], p0[2], p0[3], px[0], px[1],
+								px[2], px[3]);
 						}
 					}
 				}

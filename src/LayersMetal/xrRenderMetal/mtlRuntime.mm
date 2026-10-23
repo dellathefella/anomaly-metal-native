@@ -797,8 +797,10 @@ fragment Fill4 xrred4_ps()
 				// Stair-step the fires across the encoder-count timeline so
 				// sweeps land in load AND gameplay; log the counter.
 				static const uint64_t s_dpStairs[] = { 3000, 20000, 40000,
-					                                   60000, 80000, 100000 };
-				if (s_dp && rt[0] && zb && dev && cb && s_dpN < 6 &&
+					                                   60000, 80000, 100000,
+					                                   130000, 160000, 190000,
+					                                   220000, 250000, 280000 };
+				if (s_dp && rt[0] && zb && dev && cb && s_dpN < 12 &&
 				    g_dbgEncoders > s_dpStairs[s_dpN])
 				{
 					const char* rn4 = MtlDbgRTGetName(rt[0]);

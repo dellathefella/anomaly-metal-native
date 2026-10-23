@@ -69,6 +69,11 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount /*= 1*/
         Msg("! Metal CRT '%s': texture create failed (%ux%u fmt %u)", Name, w, h, mtlFmt);
         return;
     }
+    // p6 leakbeat: RT creation telemetry — hunt for per-frame recreation of
+    // named r2 targets (the unbounded liveTexMB growth).
+    static int s_crtN = 0;
+    if (++s_crtN <= 200 || s_crtN % 50 == 0)
+        Msg("- p6 crtdbg: #%d '%s' %ux%u fmt %u", s_crtN, Name, w, h, mtlFmt);
     // Metal doesn't differentiate color/depth texture handles at this level.
     pZRT = pRT;
     target = 0; // mtd2D

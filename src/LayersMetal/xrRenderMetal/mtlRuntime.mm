@@ -4646,13 +4646,61 @@ namespace
 		if (pm.ring && (pm.vsSize || pm.psSize))
 		{
 			const uint32_t psBase = Align16(pm.vsSize);
-			imgSize = psBase + Align16(pm.psSize);
+			const size_t copySize = psBase + Align16(pm.psSize);
+			imgSize = copySize;
+			// p6 (debug-layer find): SPIRV-Cross pads _Globals past the
+			// DXBC-derived cb sizes; Metal validates argument LENGTH against
+			// the ring buffer, so a slot near the 64 MB tail was silently
+			// rejected (draw vanished; with MTL_DEBUG_LAYER it aborts).
+			// Size the slot by the real function requirements instead
+			// (argument-encoder length = _Globals struct size; cached).
+			static std::map<const void*, NSUInteger> s_fnCBSize;
+			auto fnCBSize = [](void* fn) -> NSUInteger {
+				auto it = s_fnCBSize.find(fn);
+				if (it != s_fnCBSize.end())
+					return it->second;
+				NSUInteger n = 0;
+				if (fn)
+				{
+					// maxTotalBoundConstantsSize (macOS 14+): call through the
+					// runtime so older systems degrade to the old sizing.
+					id<MTLFunction> f = (__bridge id<MTLFunction>)fn;
+					SEL sel = NSSelectorFromString(@"maxTotalBoundConstantsSize");
+					if ([(id)f respondsToSelector:sel])
+					{
+						NSMethodSignature* sig = [(id)f methodSignatureForSelector:sel];
+						if (sig.numberOfArguments == 2)
+						{
+							NSInvocation* inv =
+							    [NSInvocation invocationWithMethodSignature:sig];
+							inv.selector = sel;
+							inv.target = f;
+							[inv invoke];
+							[inv getReturnValue:&n];
+						}
+					}
+				}
+				s_fnCBSize[fn] = n;
+				return n;
+			};
+			if (vsR && vsR->function)
+			{
+				const NSUInteger need = fnCBSize(vsR->function);
+				if (need > imgSize)
+					imgSize = need;
+			}
+			if (psR && psR->function)
+			{
+				const NSUInteger need = (NSUInteger)psBase + fnCBSize(psR->function);
+				if (need > imgSize)
+					imgSize = need;
+			}
 			if (pm.ringOff + imgSize > kRingSize)
 				pm.ringOff = 0; // launch302: wrap only here — reuse period ~30 frames ≫ CB backlog
 			slotOff = pm.ringOff;
 			g_lastSlotOff = slotOff; // p5 accgpu: readable from the canary block
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;
-			std::memcpy(dst, pm.staging.data(), imgSize);
+			std::memcpy(dst, pm.staging.data(), copySize);
 			// p5 launch217: c_brightness canary for the PP pair — if the
 			// screen turns RED the GPU-side CB layout is correct and the
 			// yellow must be NaN (interpolants/noise); if still YELLOW

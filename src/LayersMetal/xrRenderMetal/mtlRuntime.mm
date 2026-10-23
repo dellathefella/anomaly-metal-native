@@ -434,6 +434,7 @@ fragment Fill4 xrred4_ps()
 	uint32_t g_rpStride = 0, g_rpStartI = 0, g_rpBaseV = 0, g_rpPrimCnt = 0;
 	uint8_t g_rpWvp[64] = {};
 	bool g_rpOk = false;
+	bool g_rpDrew = false;
 
 	struct MtlPassManager
 	{
@@ -730,8 +731,8 @@ fragment Fill4 xrred4_ps()
 							                length:sizeof(RpU)
 							               options:MTLResourceStorageModeShared];
 							uint32_t nIdx = g_rpPrimCnt * 3;
-							if (nIdx > 900)
-								nIdx = 900;
+							if (nIdx > 600000)
+								nIdx = 600000;
 							id<MTLBuffer> ibc = [mdev
 							    newBufferWithLength:nIdx * 2
 							                options:MTLResourceStorageModeShared];
@@ -763,6 +764,48 @@ fragment Fill4 xrred4_ps()
 							[enc drawPrimitives:MTLPrimitiveTypeTriangle
 							        vertexStart:0
 							        vertexCount:nIdx];
+							g_rpDrew = true;
+							// CPU clip sim over the exact replay inputs: where are
+							// these triangles supposed to land?
+							{
+								const float* m = (const float*)g_rpWvp;
+								const uint8_t* vbB = (const uint8_t*)
+								    [(__bridge id<MTLBuffer>)g_rpVb contents];
+								const uint16_t* ii = (const uint16_t*)[ibc contents];
+								unsigned nFront = 0, nBand = 0, nOut = 0;
+								double maxNx = -9.9;
+								for (uint32_t k = 0; k < nIdx; k += 3)
+								{
+									bool anyFront = false;
+									for (int c = 0; c < 3; c++)
+									{
+										uint32_t vi =
+										    (uint32_t)ii[k + c] + g_rpBaseV;
+										const float* q =
+										    (const float*)(vbB +
+										                 size_t(vi) * g_rpStride);
+										float cw = q[0] * m[3] + q[1] * m[7] +
+										         q[2] * m[11] + m[15];
+										if (cw <= 0.01f)
+											continue;
+										anyFront = true;
+										float cx = q[0] * m[0] + q[1] * m[4] +
+										         q[2] * m[8] + m[12];
+										double nx = cx / cw;
+										if (nx > maxNx)
+											maxNx = nx;
+										if (nx > 0.524)
+											nBand++;
+										else if (nx < -1.0 || nx > 1.0)
+											nOut++;
+									}
+									if (anyFront)
+										nFront++;
+								}
+								Log("- p6 replaycpu: tris=%u front=%u bandVerts=%u "
+								    "outVerts=%u maxNdcX=%.3f",
+								    nIdx / 3, nFront, nBand, nOut, maxNx);
+							}
 							const float* wf = (const float*)g_rpWvp;
 							Log("- p6 replay: drew nIdx=%u stride=%u baseV=%u "
 							    "startI=%u primCnt=%u wrow=(%.4f %.4f %.4f %.4f)",
@@ -775,6 +818,51 @@ fragment Fill4 xrred4_ps()
 			[enc endEncoding];
 			enc = nil;
 			markTouched();
+			// p6: replay readback — commit+wait, scan the middle row of the
+			// position color0 for the exact probe-red pattern (float16
+			// R=1,G=0,B=0 => bytes 00 3c 00 00). Decisive: red pixels in the
+			// band => engine pipeline state was the killer; none => the
+			// matrix output itself dies at the line.
+			if (g_rpDrew && rt[0] && dev)
+			{
+				g_rpDrew = false;
+				[cb commit];
+				[cb waitUntilCompleted];
+				cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+				id<MTLTexture> a0r = rpdAtt0 ? rpdAtt0
+				                             : (__bridge id<MTLTexture>)rt[0];
+				uint32_t bppR = dev->TextureBpp(rt[0]);
+				if (bppR && bppR <= 8)
+				{
+					uint32_t Wr = (uint32_t)a0r.width, Yr = (uint32_t)a0r.height / 2;
+					std::vector<uint8_t> rb(size_t(Wr) * bppR);
+					std::string rerr;
+					bool okR = dev->ReadbackSlice((void*)(__bridge void*)a0r,
+					                              rb.data(), Wr * bppR, Wr, 1, 0, Yr,
+					                              rerr);
+					int first = -1, last = -1, n = 0;
+					for (uint32_t x = 0; x < Wr; x++)
+					{
+						const uint8_t* p = &rb[size_t(x) * bppR];
+						if (p[0] == 0x00 && p[1] == 0x3c && p[2] == 0x00 &&
+						    p[3] == 0x00)
+						{
+							n++;
+							if (first < 0)
+								first = (int)x;
+							last = (int)x;
+						}
+					}
+					const uint8_t* q1 = &rb[size_t(100) * bppR];
+					const uint8_t* q2 = &rb[size_t(2600) * bppR];
+					Log("- p6 replayrb: ok=%d y=%u bpp=%u redN=%d x=[%d..%d] "
+					    "px100=%02x%02x%02x%02x px2600=%02x%02x%02x%02x",
+					    (int)okR, Yr, bppR, n, first, last, q1[0], q1[1], q1[2],
+					    q1[3], q2[0], q2[1], q2[2], q2[3]);
+				}
+				else
+					Log("- p6 replayrb: bpp=%u unsupported", bppR);
+			}
 			// p6: XR_METAL_FILLTEST — standalone probe pass on the same
 			// color0+depth as the position pass: fresh rpd, Load/Store, my
 			// own pipeline + draw, commit, wait, readback. Separates

@@ -443,6 +443,9 @@ fragment Fill4 xrred4_ps()
 		bool depthEn = true;
 		int depthFunc = 4; // D3DCMP_LESSEQUAL
 		bool depthWrite = true;
+		// p6 diag: last DSS/encoder bound by applyEncoderState (drawZ match).
+		void* dbgLastDss = nullptr;
+		void* dbgLastEnc = nullptr;
 		bool stencilEn = false;
 		uint32_t stRef = 0, stMask = 0xff, stWMask = 0xff;
 		int stFunc = 8, stFail = 1, stPass = 1, stZFail = 1; // KEEP
@@ -2871,15 +2874,20 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		ds.passOp = stPass;
 		ds.zFailOp = stZFail;
 		id<MTLDepthStencilState> dss = (__bridge id<MTLDepthStencilState>)cache->DepthStateFull(dev->Device(), ds);
-		// p6: pair the created DSS pointer with the drawZ log.
+		// p6: pair the created DSS + encoder pointers with the drawZ log —
+		// if drawZ sees a different enc pointer, draws run on an encoder
+		// applyEncoderState never configured (=> default DSS: Always/no-write).
 		{
 			static int s_dg2 = 0;
 			const char* rnP = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
 			if (s_dg2 < 12 && rnP && strstr(rnP, "position"))
 			{
 				s_dg2++;
-				Log("- p6 dssgPtr: dss=%p zE=%d zF=%d zW=%d sE=%d", (void*)dss,
-				    (int)depthEn, depthFunc, (int)depthWrite, (int)stencilEn);
+				dbgLastDss = (__bridge void*)dss;
+				dbgLastEnc = (__bridge void*)enc;
+				Log("- p6 dssgPtr: enc=%p dss=%p zE=%d zF=%d zW=%d sE=%d",
+				    (__bridge void*)enc, (__bridge void*)dss, (int)depthEn,
+				    depthFunc, (int)depthWrite, (int)stencilEn);
 			}
 		}
 		if (dss)
@@ -5021,11 +5029,10 @@ namespace
 			if (s_dzLog < 8 && rnZ2 && strstr(rnZ2, "position"))
 			{
 				s_dzLog++;
-				Log("- p6 drawZ: pair=%s dss=%p rpdZb=%p pmZb=%p attFmt=%d",
+				Log("- p6 drawZ: pair=%s enc=%p lastDss=%p pmZb=%p attFmt=%d",
 				    pair ? pair->name.c_str() : "?",
-				    (void*)pm.enc.depthStencilState,
-				    (void*)pm.enc.renderPassDescriptor.depthAttachment.texture,
-				    pm.zb, pm.attDepthFmt);
+				    (__bridge void*)pm.enc, pm.dbgLastDss, pm.zb,
+				    pm.attDepthFmt);
 			}
 		}
 

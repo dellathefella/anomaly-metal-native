@@ -2274,14 +2274,20 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				                      ((scR - scL) < (long)(rw * 0.95) || (scB - scT) < (long)(rh * 0.95));
 				if (vpOff || scNarrow)
 				{
-					static int s_rectN = 0;
-					if (s_rectN < 60)
+					// dedupe by signature: repeated sunmask tiles must not
+					// starve the budget — every UNIQUE rect gets logged.
+					static std::unordered_map<std::string, int> s_seen;
+					char sig[192];
+					snprintf(sig, sizeof(sig), "%s|%u|%u|%.0f|%.0f|%.0f|%.0f|%d|%d|%d|%d|%d",
+					         rt[0] ? "?" : "null", rw, rh, vpX, vpY, vpW, vpH,
+					         (int)scissorEn, scL, scT, scR, scB);
+					int& n = s_seen[sig];
+					if (n++ == 0 && s_seen.size() <= 48)
 					{
 						const char* rnC = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
 						Log("- p6 rectdbg #%d: rt=%s %ux%u vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d)",
-						    s_rectN, rnC ? rnC : "?", rw, rh, vpX, vpY, vpW, vpH, (int)scissorEn,
-						    scL, scT, scR, scB);
-						s_rectN++;
+						    (int)s_seen.size(), rnC ? rnC : "?", rw, rh, vpX, vpY, vpW, vpH,
+						    (int)scissorEn, scL, scT, scR, scB);
 					}
 				}
 			}
@@ -4183,6 +4189,24 @@ namespace
 		{
 			vsR = (const MtlStageRefl*)ds.vs;
 			psR = (const MtlStageRefl*)ds.ps;
+		}
+		// p6 band-hunt: XR_METAL_STOPAFTER=<substr> halts all further draws
+		// once a matching shader pair has been emitted (paint-order bisection:
+		// whatever covers the right band disappears when the culprit is cut).
+		{
+			static const char* s_stop = getenv("XR_METAL_STOPAFTER");
+			static bool s_stopped = false;
+			if (s_stop)
+			{
+				if (s_stopped)
+					return true;
+				const char* nm = pair ? pair->name.c_str() : (psR ? psR->name.c_str() : "");
+				if (nm && strstr(nm, s_stop))
+				{
+					s_stopped = true;
+					Log("- p6 stopafter: halted draws after pair '%s'", nm);
+				}
+			}
 		}
 		if (!vsR || !psR || !vsR->function || (!psR->function && !(pair && pair->depthOnly)))
 		{

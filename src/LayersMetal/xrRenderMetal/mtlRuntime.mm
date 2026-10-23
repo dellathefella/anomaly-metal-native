@@ -420,6 +420,9 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 		// every draw; launch111 debug-layer stencil assert).
 		int attColorFmt[4] = { 0, 0, 0, 0 };
 		int attColorCount = 0;
+		// p6: the ACTUAL texture bound as color0 of the live rpd (may differ
+		// from rt[0] if a view/alias is attached) — probes read this.
+		id<MTLTexture> rpdAtt0 = nil;
 		int attDepthFmt = 0;
 
 		// Pass identity (borrowed id<MTLTexture> handles)
@@ -630,8 +633,11 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 					if (rn2 && strstr(rn2, s_frt2))
 					{
 						s_fvCnt++;
-						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
-						const uint32_t bpp = dev->TextureBpp(rt[0]);
+						// Read the framebuffer's ACTUAL color0 (rpdAtt0), not
+						// just the manager's rt[0] — exposes any alias/view.
+						id<MTLTexture> t0 = rpdAtt0 ? rpdAtt0
+						                            : (__bridge id<MTLTexture>)rt[0];
+						const uint32_t bpp = dev->TextureBpp((void*)(__bridge void*)t0);
 						if (t0.width >= 3004 && bpp && bpp <= 8)
 						{
 							[cb commit];
@@ -641,15 +647,16 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 							// args, not x/y): take the full top row.
 							std::vector<uint8_t> buf(size_t(t0.width) * bpp);
 							std::string derr;
-							bool ok = dev->ReadbackSlice(rt[0], buf.data(),
+							bool ok = dev->ReadbackSlice((__bridge void*)t0, buf.data(),
 							                             t0.width * bpp, t0.width, 1, 0, 0,
 							                             derr);
 							const uint8_t* px = &buf[size_t(3000) * bpp];
 							const uint8_t* p0 = &buf[size_t(100) * bpp];
-							Log("- p6 fillverify: %s ok=%d y0 x100: %02x %02x %02x %02x "
-								"x3000: %02x %02x %02x %02x",
-								rn2, (int)ok, p0[0], p0[1], p0[2], p0[3], px[0], px[1],
-								px[2], px[3]);
+							Log("- p6 fillverify: %s ok=%d same=%d fmt=%ld y0 x100: "
+								"%02x %02x %02x %02x x3000: %02x %02x %02x %02x",
+								rn2, (int)ok, (int)(t0 == (__bridge id<MTLTexture>)rt[0]),
+								(long)t0.pixelFormat, p0[0], p0[1], p0[2], p0[3], px[0],
+								px[1], px[2], px[3]);
 						}
 					}
 				}
@@ -2412,6 +2419,7 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			if (t)
 				attColorCount++;
 		}
+		rpdAtt0 = rpd.colorAttachments[0].texture;
 		attDepthFmt = rpd.depthAttachment.texture ? (int)rpd.depthAttachment.texture.pixelFormat : 0;
 		// launch166: XR_METAL_VIS=1 — per-pass sample counter on the LIVE
 		// position pass. The pass is committed+waited by the readback flush,
@@ -2935,7 +2943,14 @@ void MtlRuntimeAttach(xray::metal::MetalDevice& device, xray::metal::MetalStateC
 	pm.dev = &device;
 	pm.cache = &pipelines;
 	if (!pm.ring)
-		pm.ring = (__bridge id<MTLBuffer>)device.NewBuffer(kRingSize);
+		// p6 (debug-layer find): MSL _Globals can be padded PAST the
+		// DXBC-derived cb size (SPIRV-Cross rounds trailing vectors), and
+		// Metal validates argument LENGTH against the whole buffer — a slot
+		// ending within ~1 KB of the 64 MB boundary was silently rejected
+		// (vanishing draws; abort under MTL_DEBUG_LAYER). Fixed by the 64 KB
+		// allocation slack at NewBuffer below: wrap still happens at
+		// kRingSize, so argument overshoot always lands inside the buffer.
+		pm.ring = (__bridge id<MTLBuffer>)device.NewBuffer(kRingSize + 65536);
 	pm.initBuiltins();
 }
 
@@ -4651,54 +4666,16 @@ namespace
 		{
 			const uint32_t psBase = Align16(pm.vsSize);
 			const size_t copySize = psBase + Align16(pm.psSize);
-			imgSize = copySize;
 			// p6 (debug-layer find): SPIRV-Cross pads _Globals past the
-			// DXBC-derived cb sizes; Metal validates argument LENGTH against
-			// the ring buffer, so a slot near the 64 MB tail was silently
-			// rejected (draw vanished; with MTL_DEBUG_LAYER it aborts).
-			// Size the slot by the real function requirements instead
-			// (argument-encoder length = _Globals struct size; cached).
-			static std::map<const void*, NSUInteger> s_fnCBSize;
-			auto fnCBSize = [](void* fn) -> NSUInteger {
-				auto it = s_fnCBSize.find(fn);
-				if (it != s_fnCBSize.end())
-					return it->second;
-				NSUInteger n = 0;
-				if (fn)
-				{
-					// maxTotalBoundConstantsSize (macOS 14+): call through the
-					// runtime so older systems degrade to the old sizing.
-					id<MTLFunction> f = (__bridge id<MTLFunction>)fn;
-					SEL sel = NSSelectorFromString(@"maxTotalBoundConstantsSize");
-					if ([(id)f respondsToSelector:sel])
-					{
-						NSMethodSignature* sig = [(id)f methodSignatureForSelector:sel];
-						if (sig.numberOfArguments == 2)
-						{
-							NSInvocation* inv =
-							    [NSInvocation invocationWithMethodSignature:sig];
-							inv.selector = sel;
-							inv.target = f;
-							[inv invoke];
-							[inv getReturnValue:&n];
-						}
-					}
-				}
-				s_fnCBSize[fn] = n;
-				return n;
-			};
-			if (vsR && vsR->function)
-			{
-				const NSUInteger need = fnCBSize(vsR->function);
-				if (need > imgSize)
-					imgSize = need;
-			}
-			if (psR && psR->function)
-			{
-				const NSUInteger need = (NSUInteger)psBase + fnCBSize(psR->function);
-				if (need > imgSize)
-					imgSize = need;
-			}
+			// DXBC-derived cb size (observed 960 vs 896); Metal validates the
+			// argument LENGTH against the whole ring buffer, so a slot ending
+			// within ~1 KB of the 64 MB boundary was silently rejected
+			// (vanishing draws; abort under MTL_DEBUG_LAYER). The real fix is
+			// the +64 KB allocation slack (NewBuffer above): wrap still happens
+			// at kRingSize, so any argument overshoot lands inside the buffer.
+			// The +512 slot margin additionally stops one slot's overshoot
+			// from reading the NEXT slot's live CB image.
+			imgSize = copySize + 512;
 			if (pm.ringOff + imgSize > kRingSize)
 				pm.ringOff = 0; // launch302: wrap only here — reuse period ~30 frames ≫ CB backlog
 			slotOff = pm.ringOff;

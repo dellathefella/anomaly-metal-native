@@ -670,6 +670,19 @@ fragment Fill4 xrred4_ps()
 							frpd.depthAttachment.loadAction = MTLLoadActionLoad;
 							frpd.depthAttachment.storeAction =
 								MTLStoreActionStore;
+							// PSO below declares stencil for the combined
+							// format — attach it or debug layer aborts.
+							if (((MTLPixelFormat)frpd.depthAttachment.texture
+							         .pixelFormat)
+							        == MTLPixelFormatDepth32Float_Stencil8)
+							{
+								frpd.stencilAttachment.texture =
+									frpd.depthAttachment.texture;
+								frpd.stencilAttachment.loadAction =
+									MTLLoadActionLoad;
+								frpd.stencilAttachment.storeAction =
+									MTLStoreActionStore;
+							}
 						}
 						PipelineDesc fpd;
 						id<MTLFunction> vsF =
@@ -803,6 +816,19 @@ fragment Fill4 xrred4_ps()
 						// Store (not DontCare): the sweep re-loads zb for
 						// each threshold; DontCare discards it on-tile.
 						drpd.depthAttachment.storeAction = MTLStoreActionStore;
+						// blitPipeline declares stencil=260 for combined
+						// depth formats — the pass must attach it too or the
+						// debug layer aborts ("stencil ... no texture set").
+						if (((MTLPixelFormat)drpd.depthAttachment.texture.pixelFormat)
+						        == MTLPixelFormatDepth32Float_Stencil8)
+						{
+							drpd.stencilAttachment.texture =
+							    drpd.depthAttachment.texture;
+							drpd.stencilAttachment.loadAction =
+							    MTLLoadActionLoad;
+							drpd.stencilAttachment.storeAction =
+							    MTLStoreActionStore;
+						}
 						if (!s_greaterDss)
 						{
 							MTLDepthStencilDescriptor* dd =

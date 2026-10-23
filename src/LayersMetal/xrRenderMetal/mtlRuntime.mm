@@ -797,7 +797,9 @@ fragment Fill4 xrred4_ps()
 						drpd.depthAttachment.texture =
 						    (__bridge id<MTLTexture>)zb;
 						drpd.depthAttachment.loadAction = MTLLoadActionLoad;
-						drpd.depthAttachment.storeAction = MTLStoreActionDontCare;
+						// Store (not DontCare): the sweep re-loads zb for
+						// each threshold; DontCare discards it on-tile.
+						drpd.depthAttachment.storeAction = MTLStoreActionStore;
 						if (!s_greaterDss)
 						{
 							MTLDepthStencilDescriptor* dd =
@@ -807,48 +809,74 @@ fragment Fill4 xrred4_ps()
 							s_greaterDss = [(__bridge id<MTLDevice>)dev->Device()
 							        newDepthStencilStateWithDescriptor:dd];
 						}
-						const float thr = (float)atof(s_dp);
-						const float dparams[4] = { 1.0f, 0.0f, thr, 1.0f };
-						id<MTLBuffer> pb =
-						    [(__bridge id<MTLDevice>)dev->Device()
-						        newBufferWithBytes:dparams
-						                    length:sizeof(dparams)
-						                  options:MTLResourceStorageModeShared];
+						// p6: threshold sweep in FRAMEBUFFER depth units
+						// (z_ndc = 2*fb - 1). 16 m terrain stores ~0.988
+						// (near=0.2, far=500); cleared = 1.0. A black gap in
+						// the red mask's MID row over the band proves a
+						// nearer depth wall at/below that threshold. Full
+						// texture readback + mid-row scan (top row is sky).
+						static const float s_dpThr[] = { 0.90f, 0.97f, 0.995f };
+						const uint32_t bpp = dev->TextureBpp(rt[0]);
 						id<MTLRenderPipelineState> pso = blitPipeline(
 						    (MTLPixelFormat)a0.pixelFormat, true, false,
 						    (int)drpd.depthAttachment.texture.pixelFormat);
-						if (pso && s_greaterDss && pb)
+						if (pso && s_greaterDss && bpp && bpp <= 8)
 						{
-							id<MTLRenderCommandEncoder> de =
-								[cb renderCommandEncoderWithDescriptor:drpd];
-							[de setViewport:(MTLViewport){ 0.0, 0.0,
-								(double)a0.width, (double)a0.height, 0.0, 1.0 }];
-							[de setDepthStencilState:s_greaterDss];
-							[de setCullMode:MTLCullModeNone];
-							[de setRenderPipelineState:pso];
-							[de setVertexBuffer:pb offset:0 atIndex:0];
-							[de setFragmentBuffer:pb offset:0 atIndex:0];
-							[de drawPrimitives:MTLPrimitiveTypeTriangle
-							        vertexStart:0
-							        vertexCount:3];
-							[de endEncoding];
-							[cb commit];
-							[cb waitUntilCompleted];
-							cb = [(__bridge id<MTLCommandQueue>)dev->Queue()
-							        commandBuffer];
-							const uint32_t bpp = dev->TextureBpp(rt[0]);
-							if (bpp && bpp <= 8)
+							std::vector<uint8_t> dbuf(
+							    size_t(a0.width) * size_t(a0.height) * bpp);
+							const uint32_t dh = (uint32_t)a0.height;
+							for (int ti = 0; ti < 3; ti++)
 							{
-								std::vector<uint8_t> dbuf(size_t(a0.width) * bpp);
+								const float fbz = s_dpThr[ti];
+								const float dparams[4] = { 1.0f, 0.0f,
+								                           2.0f * fbz - 1.0f,
+								                           1.0f };
+								id<MTLBuffer> pb =
+								    [(__bridge id<MTLDevice>)dev->Device()
+								        newBufferWithBytes:dparams
+								                    length:sizeof(dparams)
+								                  options:MTLResourceStorageModeShared];
+								if (!pb)
+									continue;
+								id<MTLRenderCommandEncoder> de =
+									[cb renderCommandEncoderWithDescriptor:drpd];
+								[de setViewport:(MTLViewport){ 0.0, 0.0,
+									(double)a0.width, (double)a0.height, 0.0,
+									1.0 }];
+								[de setDepthStencilState:s_greaterDss];
+								[de setCullMode:MTLCullModeNone];
+								[de setRenderPipelineState:pso];
+								[de setVertexBuffer:pb offset:0 atIndex:0];
+								[de setFragmentBuffer:pb offset:0 atIndex:0];
+								[de drawPrimitives:MTLPrimitiveTypeTriangle
+								        vertexStart:0
+								        vertexCount:3];
+								[de endEncoding];
+								[cb commit];
+								[cb waitUntilCompleted];
+								cb = [(__bridge id<MTLCommandQueue>)dev->Queue()
+								        commandBuffer];
 								std::string derr;
 								bool ok = dev->ReadbackSlice(
 								    (void*)(__bridge void*)a0, dbuf.data(),
-								    a0.width * bpp, a0.width, 1, 0, 0, derr);
-								const uint8_t* d100 = &dbuf[size_t(100) * bpp];
-								const uint8_t* d3k = &dbuf[size_t(3000) * bpp];
-								Log("- p6 dprobe: thr=%.2f ok=%d y0 x100: %02x %02x "
-								    "x3000: %02x %02x",
-								    thr, (int)ok, d100[0], d100[1], d3k[0], d3k[1]);
+								    a0.width * bpp, a0.width, dh, 0, 0, derr);
+								const uint32_t ym = dh / 2;
+								const uint8_t* row = &dbuf[size_t(ym) *
+								                           a0.width * bpp];
+								uint32_t lastred = 0;
+								for (uint32_t x = a0.width; x-- > 0;)
+									if (row[size_t(x) * bpp + 1] == 0x3c)
+									{
+										lastred = x;
+										break;
+									}
+								const uint8_t* d100 = &row[size_t(100) * bpp];
+								const uint8_t* d3k =
+								    &row[size_t(3000) * bpp];
+								Log("- p6 dprobe: fbz=%.3f ok=%d y%u lastred=%u "
+								    "x100:%02x%02x x3000:%02x%02x",
+								    fbz, (int)ok, ym, lastred, d100[0], d100[1],
+								    d3k[0], d3k[1]);
 							}
 						}
 					}

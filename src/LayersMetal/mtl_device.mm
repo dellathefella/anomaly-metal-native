@@ -284,10 +284,14 @@ namespace xray::metal
 	}
 
 	// launch131: Present() carries the leakbeat (see top of file).
+	// p6: exported so render-layer probes can gate on real frame progress
+	// (encoder counts burn during the 3.5-min load screen and are useless).
+	uint64_t g_mtlPresentCount = 0;
 	void MetalDevice::Present(void* commandBuffer)
 	{
 		static uint64_t s_presentN = 0;
-		if (++s_presentN % 120 == 0)
+		g_mtlPresentCount = ++s_presentN;
+		if (s_presentN % 120 == 0)
 		{
 			// launch132: live arena BYTES (buffers: exact length; textures:
 			// w*h*4*4/3 rough) — separates engine-side retention from

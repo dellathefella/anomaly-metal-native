@@ -75,6 +75,9 @@ static uint64_t g_dbgDrawEnter = 0, g_dbgDrawNoCb = 0, g_dbgDrawNoEnc = 0, g_dbg
 // p5 diag: silent-exit hunt round 2 — fanVerts<3 drops + per-topology arrivals.
 static uint64_t g_dbgFanDrop = 0, g_dbgFanOK = 0;
 static uint64_t g_dbgEncoders = 0, g_dbgRtSwitches = 0;
+// p6: exported by MetalDevice::Present (mtl_device.mm) — real frame clock.
+namespace xray::metal { extern uint64_t g_mtlPresentCount; }
+using xray::metal::g_mtlPresentCount;
 static int g_pgGate = 0; // p5: position-pass-end counter (postgeom + canaryG tick)
 // launch128: canaryI pass-end append state. In-pass canaries get overwritten
 // by the real (zero-writing) draws that follow them in the same pass — the
@@ -793,15 +796,15 @@ fragment Fill4 xrred4_ps()
 				static uint64_t s_dpN = 0;
 				static id<MTLDepthStencilState> s_greaterDss = nil;
 				// p6: the old ">2000" gate fired during MENU/LOAD where the
-				// position pass is clear-only -> vacuous all-red sweeps.
-				// Stair-step the fires across the encoder-count timeline so
-				// sweeps land in load AND gameplay; log the counter.
-				static const uint64_t s_dpStairs[] = { 3000, 20000, 40000,
-					                                   60000, 80000, 100000,
-					                                   130000, 160000, 190000,
-					                                   220000, 250000, 280000 };
-				if (s_dp && rt[0] && zb && dev && cb && s_dpN < 12 &&
-				    g_dbgEncoders > s_dpStairs[s_dpN])
+				// position pass is clear-only -> vacuous all-red sweeps. The
+				// 3.5-min load screen burns >100k encoders, so encoder counts
+				// are useless as a phase marker; PRESENTS are not (load ends
+				// ~11000, screenshot window 12000-14600). Fire per present
+				// stair.
+				static const uint64_t s_dpStairs[] = { 11500, 12200, 12900,
+					                                   13600, 14300, 15000 };
+				if (s_dp && rt[0] && zb && dev && cb && s_dpN < 6 &&
+				    g_mtlPresentCount > s_dpStairs[s_dpN])
 				{
 					const char* rn4 = MtlDbgRTGetName(rt[0]);
 					if (rn4 && strstr(rn4, "position"))
@@ -922,9 +925,9 @@ fragment Fill4 xrred4_ps()
 									    &row[size_t(100) * bpp];
 									const uint8_t* d3k =
 									    &row[size_t(3000) * bpp];
-									Log("- p6 dprobe: encN=%llu fbz=%.3f ok=%d y%u "
+									Log("- p6 dprobe: presN=%llu fbz=%.3f ok=%d y%u "
 									    "lastred=%u x100:%02x%02x x3000:%02x%02x",
-									    (unsigned long long)g_dbgEncoders, fbz,
+									    (unsigned long long)g_mtlPresentCount, fbz,
 									    (int)ok, ym, lastred, d100[0],
 									    d100[1], d3k[0], d3k[1]);
 								}

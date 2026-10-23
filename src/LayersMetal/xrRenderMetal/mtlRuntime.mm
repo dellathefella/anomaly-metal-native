@@ -3343,6 +3343,19 @@ void MtlBlitToDrawable(void* srcTex, void* dstTex, uint32_t srcW, uint32_t srcH,
 	pm.endEncoder();
 	id<MTLTexture> src = (__bridge id<MTLTexture>)srcTex;
 	id<MTLTexture> dst = (__bridge id<MTLTexture>)dstTex;
+	// p6 band-hunt: periodic audit of declared vs ACTUAL texture extents
+	// (a mismatch means the present blit lands a sub-rect, top-left).
+	{
+		static int s_blitDbgN = 0;
+		const bool mismatch = src.width != srcW || src.height != srcH || dst.width != dstW ||
+		                      dst.height != dstH;
+		if (s_blitDbgN < 6 || mismatch || s_blitDbgN % 900 == 0)
+			Log("- p6 blitdbg #%d: src actual=%ux%u declared=%ux%u | dst actual=%ux%u declared=%ux%u | fmt %d->%d",
+			    s_blitDbgN, (unsigned)src.width, (unsigned)src.height, srcW, srcH,
+			    (unsigned)dst.width, (unsigned)dst.height, dstW, dstH,
+			    (int)src.pixelFormat, (int)dst.pixelFormat);
+		s_blitDbgN++;
+	}
 	// Fast path: exact size + format -> blit encoder.
 	if (srcW == dstW && srcH == dstH && src.pixelFormat == dst.pixelFormat)
 	{

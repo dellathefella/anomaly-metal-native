@@ -251,7 +251,26 @@ namespace xray::metal
 			dsd.backFaceStencil = sd; // DX9 is single-sided
 			}
 		}
-		id<MTLDepthStencilState> dss = [dev newDepthStencilStateWithDescriptor:dsd];
+		NSError* dssErr = nil;
+		id<MTLDepthStencilState> dss = [dev newDepthStencilStateWithDescriptor:dsd
+		                                                                 error:&dssErr];
+		// p6: nil DSS => applyEncoderState silently skips the bind => the
+		// encoder keeps Metal's DEFAULT state (Always, no write) — the only
+		// mechanism left that fits "dssg zW=1 but zb never written".
+		if (!dss)
+		{
+			static int s_dssNil = 0;
+			if (s_dssNil < 8)
+			{
+				s_dssNil++;
+				Log("! p6 DSSnil: zE=%d zF=%d zW=%d sE=%d sF=%d ops=%d/%d/%d "
+				    "rm=%X wm=%X err=%s",
+				    desc.depthEnable ? 1 : 0, desc.depthFunc, desc.depthWrite ? 1 : 0,
+				    desc.stencilEnable ? 1 : 0, desc.func, desc.failOp, desc.passOp,
+				    desc.zFailOp, desc.readMask, desc.writeMask,
+				    dssErr.localizedDescription.UTF8String ?: "?");
+			}
+		}
 		if (dss)
 			m_impl->depthStates[key] = dss;
 		return (__bridge void*)dss;

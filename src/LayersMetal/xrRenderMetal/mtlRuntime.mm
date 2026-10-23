@@ -769,9 +769,9 @@ fragment Fill4 xrred4_ps()
 				}
 			}
 			// p6 band-hunt: XR_METAL_DPROBE=<z> — depth-threshold probe pass:
-			// clear color, Load zb, fullscreen z=<z> fill with Greater depth
-			// test. RED px => stored depth > z (normal far terrain);
-			// black => stored <= z (something NEAR wrote depth there).
+			// clear color, Load zb, fullscreen z=<z> fill with LESS depth test
+			// (passes where stored depth is FARTHER than z). RED px =>
+			// stored > z (normal far terrain); black => stored <= z
 			{
 				static const char* s_dp = getenv("XR_METAL_DPROBE");
 				static uint64_t s_dpN = 0;
@@ -802,7 +802,7 @@ fragment Fill4 xrred4_ps()
 						{
 							MTLDepthStencilDescriptor* dd =
 								[MTLDepthStencilDescriptor new];
-							dd.depthCompareFunction = MTLCompareFunctionGreater;
+							dd.depthCompareFunction = MTLCompareFunctionLess;
 							dd.depthWriteEnabled = false;
 							s_greaterDss = [(__bridge id<MTLDevice>)dev->Device()
 							        newDepthStencilStateWithDescriptor:dd];

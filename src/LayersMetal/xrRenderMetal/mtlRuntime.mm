@@ -792,8 +792,14 @@ fragment Fill4 xrred4_ps()
 				static const char* s_dp = getenv("XR_METAL_DPROBE");
 				static uint64_t s_dpN = 0;
 				static id<MTLDepthStencilState> s_greaterDss = nil;
-				if (s_dp && rt[0] && zb && dev && cb && g_dbgEncoders > 2000 &&
-				    s_dpN < 6)
+				// p6: the old ">2000" gate fired during MENU/LOAD where the
+				// position pass is clear-only -> vacuous all-red sweeps.
+				// Stair-step the fires across the encoder-count timeline so
+				// sweeps land in load AND gameplay; log the counter.
+				static const uint64_t s_dpStairs[] = { 3000, 20000, 40000,
+					                                   60000, 80000, 100000 };
+				if (s_dp && rt[0] && zb && dev && cb && s_dpN < 6 &&
+				    g_dbgEncoders > s_dpStairs[s_dpN])
 				{
 					const char* rn4 = MtlDbgRTGetName(rt[0]);
 					if (rn4 && strstr(rn4, "position"))

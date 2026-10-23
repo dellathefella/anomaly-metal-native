@@ -6779,14 +6779,17 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 					else if (u.name == "m_P" && u.offset + 64 <= pm.vsSize && !mp)
 						mp = reinterpret_cast<const float*>(pm.staging.data() + u.offset);
 				}
-				Log("* p5 scenecolor: pair=%s named=%s rt=(%p,%p,%p,%p) zb=%p cf=%d mask=%X bl=%d "
+				uint32_t dbgRW = 0, dbgRH = 0; // p6: live RT dims (black-band hunt)
+				if (pm.rt[0] && pm.dev)
+					pm.dev->TextureDims(pm.rt[0], &dbgRW, &dbgRH);
+				Log("* p5 scenecolor: pair=%s named=%s rt=(%p,%p,%p,%p) rtWH=%ux%u zb=%p cf=%d mask=%X bl=%d "
 				    "zE=%d zF=%d vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d) pt=%u n=%u idx=%d "
 				    "vsSize=%u wvpSeen=%d wvpIn=%d wvpOff=%d "
 				    "mWVP=(%.2f %.2f %.2f %.2f|%.2f %.2f %.2f %.2f) "
 				    "mWVP2=(%.2f %.2f %.2f %.2f) mWVP3=(%.2f %.2f %.2f %.2f) mW0=(%.2f %.2f %.2f %.2f) "
 				    "mW3=(%.2f %.2f %.2f %.2f) "
 				    "mV0=(%.2f %.2f %.2f %.2f) mP0=(%.2f %.2f %.2f %.2f)",
-				    pn, n0, pm.rt[0], pm.rt[1], pm.rt[2], pm.rt[3], pm.zb, cfCount,
+				    pn, n0, pm.rt[0], pm.rt[1], pm.rt[2], pm.rt[3], dbgRW, dbgRH, pm.zb, cfCount,
 				    (unsigned)pm.blend.writeMask, (int)pm.blend.enabled, (int)pm.depthEn, pm.depthFunc,
 				    pm.vpX, pm.vpY, pm.vpW, pm.vpH, pm.scissorEn, pm.scL, pm.scT, pm.scR, pm.scB,
 				    topology, primCount, indexed,

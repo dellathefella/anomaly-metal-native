@@ -2744,6 +2744,19 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		ds.depthEnable = depthEn;
 		ds.depthFunc = depthFunc;
 		ds.depthWrite = depthWrite;
+		// p6: one-shot truth log — which Z state the first gbuffer draws
+		// actually bind (the dprobe sweep showed zb never written: suspect
+		// every position-pass draw runs with depth-write off).
+		{
+			static int s_dsLog = 0;
+			const char* rnD = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
+			if (s_dsLog < 24 && rnD && strstr(rnD, "position"))
+			{
+				s_dsLog++;
+				Log("- p6 dssg: zE=%d zF=%d zW=%d sE=%d", (int)depthEn, depthFunc,
+				    (int)depthWrite, (int)stencilEn);
+			}
+		}
 		ds.stencilEnable = stencilEn;
 		ds.readMask = stMask;
 		ds.writeMask = stWMask;

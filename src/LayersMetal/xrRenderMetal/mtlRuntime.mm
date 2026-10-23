@@ -386,13 +386,13 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 // p6: MRT variants — the probe pipeline must output EVERY attachment of the
 // pass it draws into (a 1-RT pipeline into a 3-RT pass = silently rejected draw).
 fragment void xrfill2_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]]) { c0 = params; c1 = params; }
+    [[color(0)]] float4 c0, [[color(1)]] float4 c1) { c0 = params; c1 = params; }
 fragment void xrfill3_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]], out float4 c2 [[color(2)]])
+    [[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2)
     { c0 = params; c1 = params; c2 = params; }
 fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    out float4 c0 [[color(0)]], out float4 c1 [[color(1)]], out float4 c2 [[color(2)]],
-    out float4 c3 [[color(3)]]) { c0 = params; c1 = params; c2 = params; c3 = params; }
+    [[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2,
+    [[color(3)]] float4 c3) { c0 = params; c1 = params; c2 = params; c3 = params; }
 )metal";
 
 	struct MtlPassManager

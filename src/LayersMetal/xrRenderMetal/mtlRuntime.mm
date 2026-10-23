@@ -504,6 +504,58 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 	{
 		if (enc)
 		{
+			// p6 band-hunt: XR_METAL_RECTDBG2 — coverage truth probe: once,
+			// draw a builtin full-screen fill (depth-test off) as the LAST
+			// thing in a live $user$position pass. The rtdump then shows how
+			// far the pass's raster actually reaches.
+			{
+				static const bool s_rv2 = !!getenv("XR_METAL_RECTDBG2");
+				static int s_rv2N = 0;
+				if (s_rv2 && s_rv2N < 30000 && rt[0] && dev)
+				{
+					const char* rn = MtlDbgRTGetName(rt[0]);
+					if (rn && strstr(rn, "position") && g_dbgEncoders > 2000)
+					{
+						s_rv2N++;
+						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
+						id<MTLRenderPipelineState> pso =
+						    blitPipeline((MTLPixelFormat)t0.pixelFormat, true, false, attDepthFmt);
+						if (pso)
+						{
+							const float params[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+							id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
+							id<MTLBuffer> pb = [mdev newBufferWithBytes:params
+							                                   length:sizeof(params)
+							                                 options:MTLResourceStorageModeShared];
+							if (pb)
+							{
+								static id<MTLDepthStencilState> s_neverDss = nil;
+								if (!s_neverDss)
+								{
+									MTLDepthStencilDescriptor* dd = [MTLDepthStencilDescriptor new];
+									dd.depthCompareFunction = MTLCompareFunctionNever;
+									dd.depthWriteEnabled = false;
+									s_neverDss =
+									    [mdev newDepthStencilStateWithDescriptor:dd];
+								}
+								[enc setDepthStencilState:s_neverDss];
+								[enc setRenderPipelineState:pso];
+								[enc setVertexBuffer:pb offset:0 atIndex:0];
+								[enc setFragmentBuffer:pb offset:0 atIndex:0];
+								[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
+								         vertexCount:3];
+								if (s_rv2N <= 3)
+									Log("- p6 rectv2: fill drawn into position pass %d (rt %lux%lu "
+									    "fmt=%ld)",
+									    s_rv2N, (unsigned long)t0.width,
+									    (unsigned long)t0.height, (long)t0.pixelFormat);
+							}
+						}
+						else
+							Log("! p6 rectv2: no fill pso for fmt=%ld", (long)t0.pixelFormat);
+					}
+				}
+			}
 			[enc endEncoding];
 			enc = nil;
 			markTouched();

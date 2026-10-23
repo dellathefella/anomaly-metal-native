@@ -356,6 +356,14 @@ void CInput::MouseUpdate()
 	if (Device.dwPrecacheFrame)
 	{
 		// DI backend consumed-and-dropped buffered data during precache
+		// p6: log drops once per 300 frames — if this spams in-game the
+		// gate (not the camera) is why mouse_move never rotates the view.
+		{
+			static int s_pgLog = 0;
+			if (!g_pending_mouse.empty() && (s_pgLog++ % 300) == 0)
+				Msg("* p6 mouseDrop: precache=%u dropped=%zu n=%d",
+				    Device.dwPrecacheFrame, g_pending_mouse.size(), s_pgLog);
+		}
 		g_pending_mouse.clear();
 		return;
 	}

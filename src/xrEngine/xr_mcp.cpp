@@ -376,11 +376,20 @@ namespace
             return push_resp("pong " + std::to_string(Device.dwFrame));
         if (raw == "state")
         {
+            // p6: yaw from vCameraDirection proves whether mouse_move
+            // actually rotated the camera (camtest verdict depends on it).
+            const float py = Device.vCameraDirection.y < -1.f ? -1.f
+                           : Device.vCameraDirection.y > 1.f ? 1.f
+                                                            : Device.vCameraDirection.y;
+            const float yaw = std::atan2(Device.vCameraDirection.z, Device.vCameraDirection.x) *
+                              57.29578f;
+            const float pit = std::asin(py) * 57.29578f;
             char buf[512];
             snprintf(buf, sizeof buf,
-                "OK frame=%u fps=%.1f in_game=%d level=%s script=%d lvlptr=%p",
+                "OK frame=%u fps=%.1f in_game=%d yaw=%.1f pitch=%.1f precache=%u level=%s script=%d lvlptr=%p",
                 Device.dwFrame, Device.fTimeDelta > 1e-6f ? 1.f / Device.fTimeDelta : 0.f,
-                g_pGameLevel ? 1 : 0, g_pGameLevel ? *(g_pGameLevel->name()) : "-",
+                g_pGameLevel ? 1 : 0, yaw, pit, Device.dwPrecacheFrame,
+                g_pGameLevel ? *(g_pGameLevel->name()) : "-",
                 mcp_ai() ? 1 : 0, (void*)g_pGameLevel);
             return push_resp(buf);
         }

@@ -4584,15 +4584,16 @@ namespace
 			static const bool s_cstat = !!getenv("XR_METAL_CLIPSTAT");
 			static uint64_t s_csNext = 0;
 			static int s_csWin = 0;
+			static unsigned s_csNB = 0, s_csNL = 0, s_csNBand = 0, s_csNX = 0;
+			static int s_csDraws = 0;
 			static const time_t s_csT0 = time(nullptr);
-			if (s_cstat && s_csWin < 8 && indexed && ds.vb && ds.ib && !pm.staging.empty() &&
+			static float s_csMaxNdc = -9.f;
+			if (s_cstat && s_csWin < 6 && indexed && ds.vb && ds.ib && !pm.staging.empty() &&
 			    g_dbgDrawOK >= s_csNext && (time(nullptr) - s_csT0) > 235)
 			{
 				const char* rtN2 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rtN2 && strstr(rtN2, "position"))
 				{
-					s_csNext = g_dbgDrawOK + 6000;
-					s_csWin++;
 					const float* mW = nullptr;
 					for (const auto& u : vsR->uniforms)
 						if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
@@ -4602,11 +4603,23 @@ namespace
 						}
 					if (mW)
 					{
+						if (s_csDraws == 0)
+							for (const auto& u : vsR->uniforms)
+								if ((u.name == "m_P" || u.name == "m_VP") &&
+								    u.offset + 64 <= pm.vsSize)
+								{
+									const float* q = reinterpret_cast<const float*>(
+									    pm.staging.data() + u.offset);
+									Log("- p6 %s#%d: [%.4f %.4f %.4f %.4f | %.4f %.4f %.4f %.4f | "
+									    "%.4f %.4f %.4f %.4f | %.4f %.4f %.4f %.4f]",
+									    u.name.c_str(), s_csWin, q[0], q[1], q[2], q[3], q[4],
+									    q[5], q[6], q[7], q[8], q[9], q[10], q[11], q[12], q[13],
+									    q[14], q[15]);
+								}
 						id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;
 						id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
 						const uint16_t* i = (const uint16_t*)[ibB contents];
 						const uint8_t* vbase = (const uint8_t*)[vbB contents];
-						unsigned nb = 0, nl = 0, nband = 0, nx = 0;
 						const uint32_t tn = primCount < 48 ? primCount : 48;
 						for (uint32_t t = 0; t < tn; t++)
 						{
@@ -4618,23 +4631,31 @@ namespace
 							const float cw = vx * mW[3] + vy * mW[7] + vz * mW[11] + mW[15];
 							if (!(cw > 0.f))
 							{
-								nb++;
+								s_csNB++;
 								continue;
 							}
 							const float ndx = cx / cw;
 							if (ndx > 1.f || ndx < -1.f)
-								nx++;
+								s_csNX++;
 							else if (ndx > 0.524f)
-								nband++;
+								s_csNBand++;
 							else
-								nl++;
+								s_csNL++;
+							if (ndx < 4.f && ndx > s_csMaxNdc)
+								s_csMaxNdc = ndx;
 						}
-						Log("- p6 clipstat#%d: pair=%s tris=%u behind=%u left=%u band=%u out=%u",
-						    s_csWin, pair ? pair->name.c_str() : "?", tn, nb, nl, nband, nx);
-						Log("- p6 mWVP#%d: [%.4f %.4f %.4f %.4f | %.4f %.4f %.4f %.4f | %.4f "
-						    "%.4f %.4f %.4f | %.4f %.4f %.4f %.4f]",
-						    s_csWin, mW[0], mW[1], mW[2], mW[3], mW[4], mW[5], mW[6], mW[7],
-						    mW[8], mW[9], mW[10], mW[11], mW[12], mW[13], mW[14], mW[15]);
+						if (++s_csDraws >= 400)
+						{
+							Log("- p6 clipstat#%d: draws=400 behind=%u left=%u band=%u out=%u "
+							    "maxndc=%.3f (px %.0f)",
+							    s_csWin, s_csNB, s_csNL, s_csNBand, s_csNX, s_csMaxNdc,
+							    s_csMaxNdc * 1512.f + 1512.f);
+							s_csWin++;
+							s_csDraws = 0;
+							s_csNext = g_dbgDrawOK + 30000;
+							s_csNB = s_csNL = s_csNBand = s_csNX = 0;
+							s_csMaxNdc = -9.f;
+						}
 					}
 				}
 			}

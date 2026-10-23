@@ -509,12 +509,12 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			// thing in a live $user$position pass. The rtdump then shows how
 			// far the pass's raster actually reaches.
 			{
-				static const bool s_rv2 = !!getenv("XR_METAL_RECTDBG2");
+				static const char* s_rv2 = getenv("XR_METAL_RECTDBG2");
 				static int s_rv2N = 0;
 				if (s_rv2 && s_rv2N < 30000 && rt[0] && dev)
 				{
 					const char* rn = MtlDbgRTGetName(rt[0]);
-					if (rn && strstr(rn, "albedo") && g_dbgEncoders > 2000)
+					if (rn && strstr(rn, s_rv2) && g_dbgEncoders > 2000)
 					{
 						s_rv2N++;
 						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];

@@ -393,6 +393,18 @@ fragment void xrfill3_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
     [[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2,
     [[color(3)]] float4 c3) { c0 = params; c1 = params; c2 = params; c3 = params; }
+// p6: zero-binding fallback — no buffers, no stage_in; only color(N) outputs.
+vertex float4 xrtri_vs(uint vid [[vertex_id]]) {
+    float2 p = float2(float((vid << 1) & 2), float(vid & 2));
+    return float4(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
+}
+fragment void xrred1_ps([[color(0)]] float4 c0) { c0 = float4(1.0, 0.0, 0.0, 1.0); }
+fragment void xrred2_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1)
+    { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; }
+fragment void xrred3_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2)
+    { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; c2 = c0; }
+fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2,
+    [[color(3)]] float4 c3) { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; c2 = c0; c3 = c0; }
 )metal";
 
 	struct MtlPassManager
@@ -568,7 +580,6 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 						id<MTLRenderPipelineState> pso = fillPipelineMRT();
 						if (pso)
 						{
-							const float params[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
 							id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
 							if (!s_alwaysDss)
 							{
@@ -577,10 +588,7 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 								dd.depthWriteEnabled = false;
 								s_alwaysDss = [mdev newDepthStencilStateWithDescriptor:dd];
 							}
-							id<MTLBuffer> pb = [mdev newBufferWithBytes:params
-							                                   length:sizeof(params)
-							                                 options:MTLResourceStorageModeShared];
-							if (pb && s_alwaysDss)
+							if (s_alwaysDss)
 							{
 								s_frtN++;
 								// Own the viewport/scissor: the engine's last
@@ -596,8 +604,6 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 								[enc setDepthStencilState:s_alwaysDss];
 								[enc setCullMode:MTLCullModeNone];
 								[enc setRenderPipelineState:pso];
-								[enc setVertexBuffer:pb offset:0 atIndex:0];
-								[enc setFragmentBuffer:pb offset:0 atIndex:0];
 								[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
 								         vertexCount:3];
 								if (s_frtN <= 3 || s_frtN % 300 == 0)
@@ -612,6 +618,38 @@ fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buff
 			[enc endEncoding];
 			enc = nil;
 			markTouched();
+			// p6 fill self-verify: right after the first fills, commit+wait and
+			// read 4 px at x=3000 of the very texture the fill targeted. Decides
+			// "rasterizer won't paint the band" vs "the dump reads something else".
+			{
+				static const char* s_frt2 = getenv("XR_METAL_FILLRT");
+				static uint64_t s_fvCnt = 0;
+				if (s_frt2 && rt[0] && dev && cb && g_dbgEncoders > 2000 && s_fvCnt < 8)
+				{
+					const char* rn2 = MtlDbgRTGetName(rt[0]);
+					if (rn2 && strstr(rn2, s_frt2))
+					{
+						s_fvCnt++;
+						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
+						const uint32_t bpp = dev->TextureBpp(rt[0]);
+						if (t0.width >= 3004 && bpp && bpp <= 8)
+						{
+							[cb commit];
+							[cb waitUntilCompleted];
+							cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+							uint8_t buf[64] = { 0 };
+							std::string derr;
+							uint32_t y = (uint32_t)t0.height / 2;
+							bool ok = dev->ReadbackSlice(rt[0], buf, bpp, 4, 1, 3000, y,
+							                             derr);
+							Log("- p6 fillverify: %s ok=%d y=%u px3000: "
+								"%02x %02x %02x %02x %02x %02x %02x %02x",
+								rn2, (int)ok, y, buf[0], buf[1], buf[2], buf[3],
+								buf[4], buf[5], buf[6], buf[7]);
+						}
+					}
+				}
+			}
 			// p6 band-hunt: XR_METAL_RTDUMP=<substr> — every ~300th close of a
 			// pass whose color0 creation-name contains substr, commit+wait and
 			// read the RT back to /tmp/rtdump/<name>.rgba (raw RGBA8). Offline
@@ -2557,16 +2595,19 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		auto it = fillMrtPso.find(key);
 		if (it != fillMrtPso.end())
 			return it->second;
-		const char* fn = attColorCount == 1 ? "xrfill_ps"
-		              : attColorCount == 2 ? "xrfill2_ps"
-		              : attColorCount == 3 ? "xrfill3_ps"
-		                                   : "xrfill4_ps";
-		id<MTLFunction> psF = [blitLib newFunctionWithName:
-		                                                     @(fn)];
-		if (!psF)
+		// Zero-binding pair: xrtri_vs (hardcoded NDC triangle) + xrredN_ps
+		// (hardcoded red, color(N) outputs only) - no buffers, no stage_in,
+		// nothing that can silently mismatch live encoder state.
+		const char* fn = attColorCount == 1 ? "xrred1_ps"
+		              : attColorCount == 2 ? "xrred2_ps"
+		              : attColorCount == 3 ? "xrred3_ps"
+		                                   : "xrred4_ps";
+		id<MTLFunction> psF = [blitLib newFunctionWithName:@(fn)];
+		id<MTLFunction> vsF = [blitLib newFunctionWithName:@"xrtri_vs"];
+		if (!psF || !vsF)
 			return nil;
 		PipelineDesc pd;
-		pd.vs = (__bridge void*)blitVs;
+		pd.vs = (__bridge void*)vsF;
 		pd.ps = (__bridge void*)psF;
 		pd.attrs.clear(); // vertex-id VS
 		pd.colorFormats = std::vector<int>(attColorFmt, attColorFmt + attColorCount);

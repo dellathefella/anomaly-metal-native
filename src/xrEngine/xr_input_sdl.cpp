@@ -436,7 +436,7 @@ void CInput::MouseUpdate()
 	{
 		// p4: mouse-to-menu path probe
 		static int s_p4_mm = 0;
-		if (s_p4_mm < 5 && (offs[0] || offs[1]))
+		if (s_p4_mm < 40 && (offs[0] || offs[1]))
 			Msg("* p4: MouseUpdate dispatch move dx=%d dy=%d cbStack=%zu", offs[0], offs[1],
 				cbStack.size());
 		if (offs[0] || offs[1])

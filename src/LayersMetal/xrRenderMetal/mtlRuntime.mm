@@ -407,6 +407,19 @@ vertex float4 xrtri_vs(uint vid [[vertex_id]]) {
     float2 p = float2(float((vid << 1) & 2), float(vid & 2));
     return float4(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
 }
+// p6 band-hunt: replay VS — engine VB bytes + engine WVP bytes with the
+// SAME row-vector semantics as engine MSL (v * float4x4), vertex-id driven
+// through a copied index list. Zero dependence on engine decls/descriptors.
+struct XrReplayU { float4x4 wvp; uint stride; uint baseV; };
+vertex float4 xrreplay_vs(uint vid [[vertex_id]],
+                          const device uchar* vb [[buffer(1)]],
+                          const device ushort* ib [[buffer(2)]],
+                          constant XrReplayU& u [[buffer(0)]])
+{
+    uint i = uint(ib[vid]) + u.baseV;
+    const device float* p = (const device float*)(vb + size_t(i) * u.stride);
+    return float4(p[0], p[1], p[2], 1.0) * u.wvp;
+}
 fragment float4 xrred1_ps() { return float4(1.0, 0.0, 0.0, 1.0); }
 fragment Fill2 xrred2_ps() { return Fill2{ float4(1,0,0,1), float4(1,0,0,1) }; }
 fragment Fill3 xrred3_ps()
@@ -414,6 +427,13 @@ fragment Fill3 xrred3_ps()
 fragment Fill4 xrred4_ps()
     { float4 r(1,0,0,1); return Fill4{ r, r, r, r }; }
 )metal";
+
+	// p6 band-hunt: last big position-pass draw snapshot (XR_METAL_REPLAY)
+	void* g_rpVb = nullptr;
+	void* g_rpIb = nullptr;
+	uint32_t g_rpStride = 0, g_rpStartI = 0, g_rpBaseV = 0, g_rpPrimCnt = 0;
+	uint8_t g_rpWvp[64] = {};
+	bool g_rpOk = false;
 
 	struct MtlPassManager
 	{
@@ -633,6 +653,121 @@ fragment Fill4 xrred4_ps()
 									    "engvp=%.0fx%.0f",
 									    rn, attColorCount, s_frtN, vpW, vpH);
 							}
+						}
+					}
+				}
+			}
+			// p6 band-hunt: XR_METAL_REPLAY=1 — replay the captured engine draw
+			// with the probe pipeline: same VB bytes + same WVP bytes, but my VS
+			// (vertex-id, raw-byte fetch), red MRT PS, depth Always/no-write,
+			// cull none, full viewport/scissor, bias zero. Red reaching x>2500
+			// => engine per-draw pipeline state kills coverage; red stopping at
+			// the band => the vertex data itself dies there.
+			{
+				static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
+				static id<MTLRenderPipelineState> s_rpPso = nil;
+				static int s_rpN = 0;
+				if (s_rpen && g_rpOk && s_rpN < 3 && rt[0] && dev && attColorCount)
+				{
+					const char* rn = MtlDbgRTGetName(rt[0]);
+					if (rn && strstr(rn, "position"))
+					{
+						s_rpN++;
+						g_rpOk = false;
+						id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
+						if (!s_rpPso)
+						{
+							initBuiltins();
+							id<MTLFunction> rvs =
+							    [blitLib newFunctionWithName:@"xrreplay_vs"];
+							const char* pfn = attColorCount == 1
+							                        ? "xrred1_ps"
+							                        : attColorCount == 2
+							                              ? "xrred2_ps"
+							                              : attColorCount == 3
+							                                    ? "xrred3_ps"
+							                                    : "xrred4_ps";
+							id<MTLFunction> rps =
+							    [blitLib newFunctionWithName:@(pfn)];
+							if (rvs && rps)
+							{
+								PipelineDesc pd;
+								pd.vs = (__bridge void*)rvs;
+								pd.ps = (__bridge void*)rps;
+								pd.attrs.clear();
+								pd.colorFormats = std::vector<int>(
+								    attColorFmt, attColorFmt + attColorCount);
+								if (attDepthFmt)
+								{
+									pd.depthFormat = attDepthFmt;
+									if (attDepthFmt ==
+									    (int)MTLPixelFormatDepth32Float_Stencil8)
+										pd.stencilFormat = attDepthFmt;
+								}
+								pd.depthEnabled = false;
+								pd.blend.enabled = false;
+								std::string e2;
+								s_rpPso = (__bridge id<MTLRenderPipelineState>)
+								    cache->Pipeline(dev->Device(), pd, e2);
+								if (!s_rpPso)
+									Log("! p6 replay: pipeline failed: %s",
+									    e2.c_str());
+							}
+						}
+						if (s_rpPso)
+						{
+							struct RpU
+							{
+								float wvp[16];
+								uint32_t stride, baseV;
+							};
+							RpU u;
+							std::memcpy(u.wvp, g_rpWvp, 64);
+							u.stride = g_rpStride;
+							u.baseV = g_rpBaseV;
+							id<MTLBuffer> ub = [mdev
+							    newBufferWithBytes:&u
+							                length:sizeof(RpU)
+							               options:MTLResourceStorageModeShared];
+							uint32_t nIdx = g_rpPrimCnt * 3;
+							if (nIdx > 900)
+								nIdx = 900;
+							id<MTLBuffer> ibc = [mdev
+							    newBufferWithLength:nIdx * 2
+							                options:MTLResourceStorageModeShared];
+							const uint16_t* src =
+							    (const uint16_t*)[(__bridge id<MTLBuffer>)g_rpIb
+							                              contents] +
+							    g_rpStartI;
+							std::memcpy([ibc contents], src, nIdx * 2);
+							id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
+							[enc setViewport:(MTLViewport){ 0.0, 0.0,
+							    (double)t0.width, (double)t0.height, 0.0, 1.0 }];
+							[enc setScissorRect:(MTLScissorRect){ 0, 0, t0.width,
+							    t0.height }];
+							MTLDepthStencilDescriptor* dd =
+							    [MTLDepthStencilDescriptor new];
+							dd.depthCompareFunction = MTLCompareFunctionAlways;
+							dd.depthWriteEnabled = false;
+							[enc setDepthStencilState:
+							        [mdev newDepthStencilStateWithDescriptor:dd]];
+							[enc setCullMode:MTLCullModeNone];
+							[enc setTriangleFillMode:MTLTriangleFillModeFill];
+							[enc setDepthBias:0.0 slopeScale:0.0 clamp:1e30];
+							[enc setRenderPipelineState:s_rpPso];
+							[enc setVertexBuffer:ub offset:0 atIndex:0];
+							[enc setVertexBuffer:(__bridge id<MTLBuffer>)g_rpVb
+							                offset:0
+							               atIndex:1];
+							[enc setVertexBuffer:ibc offset:0 atIndex:2];
+							[enc drawPrimitives:MTLPrimitiveTypeTriangle
+							        vertexStart:0
+							        vertexCount:nIdx];
+							const float* wf = (const float*)g_rpWvp;
+							Log("- p6 replay: drew nIdx=%u stride=%u baseV=%u "
+							    "startI=%u primCnt=%u wrow=(%.4f %.4f %.4f %.4f)",
+							    nIdx, g_rpStride, g_rpBaseV, g_rpStartI,
+							    g_rpPrimCnt, wf[3], wf[7], wf[11], wf[15]);
 						}
 					}
 				}
@@ -7812,6 +7947,30 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				    mv ? mv[0] : 9e9f, mv ? mv[1] : 9e9f, mv ? mv[2] : 9e9f, mv ? mv[3] : 9e9f,
 				    mv ? mv[4] : 9e9f, mv ? mv[5] : 9e9f, mv ? mv[6] : 9e9f, mv ? mv[7] : 9e9f,
 				    (unsigned long long)g_mtlPresentCount);
+			}
+		}
+		// p6 band-hunt: XR_METAL_REPLAY — remember the biggest position-pass
+		// draw (engine VB/IB + engine WVP bytes) for the pass-end replay draw.
+		{
+			static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
+			if (s_rpen && indexed && ds.vb && ds.ib && vsR && !pm.staging.empty() &&
+			    primCount >= 200 && primCount > g_rpPrimCnt)
+			{
+				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+				if (rn && strstr(rn, "position"))
+					for (const auto& u : vsR->uniforms)
+						if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
+						{
+							std::memcpy(g_rpWvp, pm.staging.data() + u.offset, 64);
+							g_rpVb = ds.vb;
+							g_rpIb = ds.ib;
+							g_rpStride = ds.vbStride;
+							g_rpStartI = startI;
+							g_rpBaseV = baseV;
+							g_rpPrimCnt = primCount;
+							g_rpOk = true;
+							break;
+						}
 			}
 		}
 		g_dbgDrawOK++;

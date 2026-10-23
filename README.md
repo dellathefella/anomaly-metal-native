@@ -1,5 +1,8 @@
 ## X-Ray Monolith Edition for S.T.A.L.K.E.R. Anomaly
 ----
+
+> **Metal renderer port status:** see [README-METAL.md](README-METAL.md) (macOS/ARM64 native Metal renderer — current state, open black-band investigation, probe knobs, testing workflow).
+
 * based on Open X-Ray Call of Chernobyl Edition
 * based on X-Ray 1.6 Engine
 

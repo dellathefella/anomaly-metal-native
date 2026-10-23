@@ -41,6 +41,11 @@ A vertical black band on the right edge of the screen (~24% of width at the wide
 | **Not** texture views (none exist in the port) | static audit |
 | Engine geometry **does** project into the band per CPU simulation | replay probe: largest in-game draw (70 272 tris, 9 994 front-facing) CPU bbox spans px 4..2992 — yet the gbuffer stays empty right of the line |
 | A fixed-NDC fill (no vertex transform at all) rasterizes fine in the band, in the same encoder | wvp10 fill |
+| **Independently re-confirmed on a verified-healthy Metal run** (in-game k00_marsh, 53 fps, no key presses): final-frame content stops at x=2318@y0 → 2287@y1600, i.e. a straight ≈0.93° tilt and a 711–737 px black right band | screenshot column scan, 2026-10-23 |
+| Every screen pass uses `vp=(0,0,3024x1688)` on `rtWH=3024x1688` — no narrower viewport exists anywhere in the frame, so the ~2290 edge is **not** a viewport width | log scan of all `rtWH=`/`vp=` pairs |
+| Screenshots come out **3024×1688** (RT size), while earlier notes assumed 3024×1680 — the 1680/1688/1690 mismatch across notes is real and unresolved | screenshot vs `rtWH` vs `rtatt` |
+| A second seam sits near **y≈1456**: below it the frame shows different content (HUD strip + smeared ground), so the defect is not purely one vertical edge | screenshot row scan + visual |
+| Verified-healthy in-game frame also shows **radial streaking** out of a central vanishing point with a stationary camera, and a very dark scene (mean lum 7.7/255, 7% non-black) — separate defects from the band | screenshot, 2026-10-23 |
 
 ### Remaining suspects (bisect in progress)
 
@@ -91,15 +96,50 @@ frusprobe right-plane @ x≈2300 → CPU culling wedge → fix plane inputs
 
 ## Testing workflow
 
-One game at a time: `pkill -9 -x xr_3da` first. Launch flags `-nointro -mcp`; MCP on
-`127.0.0.1:27846`. Load with `exec start server(player - autosave/single/alife/load) client(localhost)`.
+### `-renderer metal` is mandatory
+
+Launch flags are `-nointro -renderer metal -mcp`. `EngineAPI.cpp` picks the renderer module
+from `-renderer metal|gl`, then `$XR_RENDERER`, and **defaults to `gl`** — Apple's OpenGL
+translayer. It then `dlopen`s the chosen dylib and, if the Metal one fails, prints
+`! renderer: xrRender_METAL.dylib failed to load ... - falling back to GL` and silently
+continues on GL. Launch without the flag and you are screenshotting, profiling and
+"debugging" the translayer while believing it is Metal (a black window plus `fps=0.0` in
+the menu is the classic symptom). Verify which renderer is live before trusting any
+observation, e.g. `sample <pid>` and check for `render_metal` vs `render_gl::CHW::Present`,
+or grep the log for `xrRenderMetal` lines.
+
+### Logging goes to stdout, not the .log file
+
+`Msg()` output lands on **stdout**; `appdata/logs/xray_jdella.log` is not written by current
+runs. Redirect stdout when launching or you have no log at all.
+
+### MCP notes
+
+MCP listens on `127.0.0.1:27846` and serves **one client at a time**. A second client
+blocks until the first closes, which looks exactly like an engine hang — never run the
+driver script and a manual client together. Commands execute on the main thread, so replies
+lag while the frame loop is busy. The server keeps the socket open, so read **up to the
+first newline** and stop; reading until the connection closes just burns your whole timeout.
+
+Load with `exec start server(player - autosave/single/alife/load) client(localhost)`.
+
+### Audio
+
+Silence runs with `exec snd_volume_eff 0` + `exec snd_volume_music 0`. Those two cover both
+branches of the only volume formula (`SoundRender_Emitter_FSM`:
+`st_Effect ? psSoundVEffects*psSoundVFactor : psSoundVMusic`), so they mute everything.
+**Do not use `-nosound`** — it stalls startup before the log and MCP come up.
 
 **Evidence standard**: only *verified in-game* samples count — the load screen fakes a lot
-(`fps=0.0` = paused key-gate; it orbits its own camera; `frame`/`yaw` can look alive). Acceptance
-requires `in_game=1 && level=k00_marsh && frame>9000 && fps>5` **and** a stable `yaw` across two
-polls with **no mouse nudges** (nudges rotate the player camera and fake orbit). The
-`keypress_on_start on` intro gate needs real key events (`key ESC` / `key RETURN`), not motion.
-Screenshots land in `Anomaly/appdata/screenshots/`.
+(it orbits its own camera; `frame`/`yaw` can look alive). `fps=0.0` means
+`Device.fTimeDelta <= 1e-6`, which is normal *during* loading — it is **not** a pause or a
+key-gate, and no key press is needed: the same session reaches ~50 fps on its own once the
+load finishes. Acceptance requires `in_game=1 && level=k00_marsh && frame>9000 && fps>5`
+**and** a stable `yaw` across two polls with **no mouse nudges** (nudges rotate the player
+camera and fake orbit). Screenshots land in `Anomaly/appdata/screenshots/`.
+
+`harness/probe_run.sh <tag> [ENV=VAL ...]` automates launch → mute → load → verified-in-game
+poll → screenshot → quit.
 
 ## Key files
 

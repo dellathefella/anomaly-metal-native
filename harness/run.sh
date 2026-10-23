@@ -31,7 +31,16 @@ mkdir -p "$OUT_DIR"
 rm -f "$GAME_DIR/appdata/screenshots/$SHOT"
 
 cd "$GAME_DIR"
-"$BIN" -nointro -harness "$CASE_FILE" "$@" || {
+# RENDERER names the capture bucket AND must select the renderer module:
+# EngineAPI.cpp defaults to GL (Apple's translayer) unless told otherwise, so a
+# bare `RENDERER=metal ./run.sh ...` used to capture GL pixels into the metal
+# bucket. Pass the matching -renderer flag.
+RFLAG=""
+case "$RENDERER" in
+    metal) RFLAG="-renderer metal" ;;
+    gl)    RFLAG="-renderer gl" ;;
+esac
+"$BIN" -nointro $RFLAG -harness "$CASE_FILE" "$@" || {
     echo "xr_3da exited with $? — see appdata/logs" >&2; }
 
 SRC="$GAME_DIR/appdata/screenshots/$SHOT"

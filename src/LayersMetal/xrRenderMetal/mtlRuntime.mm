@@ -438,6 +438,10 @@ fragment Fill4 xrred4_ps()
 	uint32_t g_rpFront = 0;
 	bool g_rpDrew2 = false;
 
+	// p6 band-hunt: defined in xrRender_R2/r2.cpp; dumps the culling ViewBase
+	// planes + stamp + mFullTransform (called from endEncoder, see frusprobe).
+	extern "C" void xrMetalDumpFrustum();
+
 	struct MtlPassManager
 	{
 		MetalDevice* dev = nullptr;
@@ -1294,6 +1298,20 @@ fragment Fill4 xrred4_ps()
 					}
 				}
 			}
+			// p6 band-hunt: XR_METAL_FRUSPROBE=1 — dump the culling frustum from
+			// this proven-live path (the r2.cpp OnCameraUpdated probe never
+			// printed). Two shots: identical planes with an ADVANCING stamp =
+			// frustum live; FROZEN stamp = OnCameraUpdated dead => stale ViewBase.
+			{
+				static const bool s_fsEn = !!getenv("XR_METAL_FRUSPROBE");
+				static int s_fsN = 0;
+				if (s_fsEn && s_fsN < 2 &&
+				    g_mtlPresentCount > (s_fsN ? uint64_t(6500) : uint64_t(6000)))
+				{
+					s_fsN++;
+					xrMetalDumpFrustum();
+				}
+			}
 			// p6 band-hunt: XR_METAL_RTDUMP=<substr> — every ~300th close of a
 			// pass whose color0 creation-name contains substr, commit+wait and
 			// read the RT back to /tmp/rtdump/<name>.rgba (raw RGBA8). Offline
@@ -1307,11 +1325,14 @@ fragment Fill4 xrred4_ps()
 					if (rn && strstr(rn, s_rtd) && t0.width >= 1024 && t0.height >= 600)
 					{
 						static std::map<void*, uint64_t> s_rtdCnt;
-						// p6 wvp13: once verified in-game (Present>12200 — the
+						// p6 wvp13: once verified in-game (Present>gate — the
 						// scenecolor-proven gate), dump each distinct RT exactly
 						// ONE more time. Load-phase dumps are stale evidence.
+						// wvp17: MCP frame == presents since launch, so the old
+						// 12200 gate sat inside the ~frame-9500 freeze window.
+						// 6000 = ~2500 frames after load-end (~3500): in-game.
 						static std::set<void*> s_rtdIngame;
-						const bool rtdFire = g_mtlPresentCount > 12200
+						const bool rtdFire = g_mtlPresentCount > 6000
 						                         ? s_rtdIngame.insert(rt[0]).second
 						                         : (s_rtdCnt[rt[0]]++ % 300) == 299;
 						if (rtdFire)
@@ -8097,12 +8118,13 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 		}
 		// p6 band-hunt: XR_METAL_REPLAY — remember the biggest position-pass
 		// draw (engine VB/IB + engine WVP bytes) for the pass-end replay draw.
-		// wvp14: capture only after the verified in-game gate (Present>12200) —
-		// the old budget burned all 3 replays during the load screen.
+		// wvp14: capture only after the verified in-game gate — the old budget
+		// burned all 3 replays during the load screen. wvp18: gate 6000 (MCP
+		// frame == presents; load ends ~3500) — under the ~frame-9500 freeze.
 		{
 			static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
 			if (s_rpen && indexed && ds.vb && ds.ib && vsR && !pm.staging.empty() &&
-			    primCount >= 200 && g_mtlPresentCount > 12200)
+			    primCount >= 200 && g_mtlPresentCount > 6000)
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rn && strstr(rn, "position"))

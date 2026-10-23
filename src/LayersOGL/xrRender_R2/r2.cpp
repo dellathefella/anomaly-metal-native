@@ -19,6 +19,13 @@ namespace xray::render::RENDER_NAMESPACE
 {
 CRender RImplementation;
 
+// p6 band-hunt: published by CRender::OnCameraUpdated, dumped from the Metal
+// pass manager's endEncoder (a proven-live path) via xrMetalDumpFrustum.
+// If the stamp advances across dumps, OnCameraUpdated runs; a frozen stamp
+// means ViewBase is stale — itself the smoking gun for a culled wedge.
+void* g_xrViewBasePub = nullptr;
+volatile u32 g_xrViewBaseStamp = 0;
+
 //////////////////////////////////////////////////////////////////////////
 class CGlow : public IRender_Glow
 {
@@ -626,6 +633,16 @@ void CRender::OnCameraUpdated()
     // Frustum
     ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 
+    // p6 band-hunt: publish ViewBase + stamp for the endEncoder-driven dump
+    // (xrMetalDumpFrustum in mtlRuntime). If OnCameraUpdated ever runs, the
+    // stamp advances; a frozen stamp across dumps = stale culling frustum.
+    {
+        extern void* g_xrViewBasePub;
+        extern volatile u32 g_xrViewBaseStamp;
+        g_xrViewBasePub = &ViewBase;
+        g_xrViewBaseStamp = Device.dwFrame;
+    }
+
     // p6 band-hunt: XR_METAL_FRUSPROBE=1 — dump the culling frustum planes in
     // game. A right-plane whose screen-space boundary predicts the band edge
     // (x~2300 @y840, tilted ~1 deg) proves the hole is a CPU cull, not GPU.
@@ -1033,3 +1050,33 @@ void CRender::DumpStatistics(CGameFont& font, IPerformanceAlert* alert)
     Sectors_xrc.DumpStatistics(font, alert);
 }
 } // namespace xray::render::RENDER_NAMESPACE
+
+// p6 band-hunt: dumped from mtlRuntime endEncoder (proven-live path) under
+// XR_METAL_FRUSPROBE=1. Dumps the published culling ViewBase planes + stamp +
+// current mFullTransform. NO-PUBLISHED case proves OnCameraUpdated never ran.
+extern "C" void xrMetalDumpFrustum()
+{
+    using namespace xray::render::RENDER_NAMESPACE;
+    const CFrustum* vb = static_cast<const CFrustum*>(g_xrViewBasePub);
+    if (!vb)
+    {
+        Msg("* frusprobe: NO PUBLISHED VIEWBASE (OnCameraUpdated never ran)");
+        return;
+    }
+    char fp[512];
+    int off = snprintf(fp, sizeof fp, "* frusprobe: stamp=%u frame=%u",
+                       (unsigned)g_xrViewBaseStamp, (unsigned)Device.dwFrame);
+    for (int i = 0; i < vb->p_count && off < 300; i++)
+        off += snprintf(fp + off, sizeof fp - off, " p%d=(%.4f %.4f %.4f|%.3f)", i,
+                        (double)vb->planes[i].n.x, (double)vb->planes[i].n.y,
+                        (double)vb->planes[i].n.z, (double)vb->planes[i].d);
+    snprintf(fp + off, sizeof fp - off, " aspect=%.4f fov=%.2f", (double)Device.fASPECT,
+             (double)Device.fFOV);
+    Msg("%s", fp);
+    const Fmatrix& m = Device.mFullTransform;
+    Msg("* frusprobeM: (%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f "
+        "%.4f %.4f)",
+        (double)m._11, (double)m._12, (double)m._13, (double)m._14, (double)m._21, (double)m._22,
+        (double)m._23, (double)m._24, (double)m._31, (double)m._32, (double)m._33, (double)m._34,
+        (double)m._41, (double)m._42, (double)m._43, (double)m._44);
+}

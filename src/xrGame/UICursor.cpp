@@ -8,7 +8,7 @@
 #define C_DEFAULT	D3DCOLOR_XRGB(0xff,0xff,0xff)
 
 CUICursor::CUICursor()
-	: m_static(NULL), m_b_use_win_cursor(false)
+	: m_static(NULL), m_b_use_win_cursor(false), m_win_cursor_retry(false)
 {
 	bVisible = false;
 	vPrevPos.set(0.0f, 0.0f);
@@ -56,6 +56,14 @@ void CUICursor::InitInternal()
 	u32 screen_size_x = GetSystemMetrics(SM_CXSCREEN);
 	u32 screen_size_y = GetSystemMetrics(SM_CYSCREEN);
 	m_b_use_win_cursor = (screen_size_y >= Device.dwHeight && screen_size_x >= Device.dwWidth);
+	// p6: cursor-mode probe — relative mode drifts (points fed to UI space);
+	// absolute win-cursor mode needs monitor >= drawable at init time.
+	Msg("* p6 uicursor: monitor=%ux%u device=%ux%u win_cursor=%d", screen_size_x, screen_size_y,
+		Device.dwWidth, Device.dwHeight, m_b_use_win_cursor ? 1 : 0);
+	// p6: if relative mode won, the window/drawable metrics at UI-init time
+	// were inconsistent; re-evaluate lazily on the first cursor update once
+	// the window exists (shim metrics are only trustworthy then).
+	m_win_cursor_retry = !m_b_use_win_cursor;
 }
 
 //--------------------------------------------------------------------
@@ -130,6 +138,19 @@ Fvector2 CUICursor::GetCursorPositionDelta()
 
 void CUICursor::UpdateCursorPosition(int _dx, int _dy)
 {
+	// p6: shim monitor metrics are only trustworthy once the window exists
+	// and the drawable has settled; retry absolute mode periodically.
+	if (m_win_cursor_retry && 0 == (Device.dwFrame % 240))
+	{
+		const u32 sx = GetSystemMetrics(SM_CXSCREEN), sy = GetSystemMetrics(SM_CYSCREEN);
+		if (sy >= Device.dwHeight && sx >= Device.dwWidth)
+		{
+			m_b_use_win_cursor = true;
+			m_win_cursor_retry = false;
+			Msg("* p6 uicursor: late absolute mode (monitor=%ux%u device=%ux%u)", sx, sy,
+				Device.dwWidth, Device.dwHeight);
+		}
+	}
 	Fvector2 p;
 	vPrevPos = vPos;
 	if (m_b_use_win_cursor)

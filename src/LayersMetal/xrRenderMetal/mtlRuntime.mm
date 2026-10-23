@@ -2771,6 +2771,29 @@ void MtlFrameBegin()
 void MtlFrameEnd()
 {
 	PM().endEncoder();
+	// p6 band-hunt: XR_METAL_RTSIZES=1 — periodic census of every RT bound
+	// this frame: name + dims. The x=2304 band should match a sub-width
+	// surface somewhere in the chain.
+	{
+		static int s_census = 0;
+		if (getenv("XR_METAL_RTSIZES") && (s_census++ % 600) == 0 && PM().dev)
+		{
+			if (std::vector<void*>* rts = MtlDbgRTs())
+			{
+				std::set<void*> seen;
+				for (void* t : *rts)
+				{
+					if (!t || !seen.insert(t).second)
+						continue;
+					uint32_t tw = 0, th = 0;
+					PM().dev->TextureDims(t, &tw, &th);
+					const char* rn = MtlDbgRTGetName(t);
+					Log("- p6 rtsizes: %s %ux%u%s", rn ? rn : "?", tw, th,
+					    (tw != PM().dev->Width()) ? "  <-SUBWIDTH" : "");
+				}
+			}
+		}
+	}
 }
 
 // Block until the current (committed) frame command buffer completes. Used by

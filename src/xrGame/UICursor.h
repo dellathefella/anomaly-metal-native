@@ -10,6 +10,7 @@ class CUICursor : public pureRender,
 	Fvector2 vPos;
 	Fvector2 vPrevPos;
 	bool m_b_use_win_cursor;
+	bool m_win_cursor_retry; // p6: re-evaluate absolute mode once metrics settle
 	CUIStatic* m_static;
 	void InitInternal();
 public:

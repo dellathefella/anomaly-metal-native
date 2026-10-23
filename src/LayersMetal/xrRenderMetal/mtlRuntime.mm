@@ -2871,6 +2871,17 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		ds.passOp = stPass;
 		ds.zFailOp = stZFail;
 		id<MTLDepthStencilState> dss = (__bridge id<MTLDepthStencilState>)cache->DepthStateFull(dev->Device(), ds);
+		// p6: pair the created DSS pointer with the drawZ log.
+		{
+			static int s_dg2 = 0;
+			const char* rnP = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
+			if (s_dg2 < 12 && rnP && strstr(rnP, "position"))
+			{
+				s_dg2++;
+				Log("- p6 dssgPtr: dss=%p zE=%d zF=%d zW=%d sE=%d", (void*)dss,
+				    (int)depthEn, depthFunc, (int)depthWrite, (int)stencilEn);
+			}
+		}
 		if (dss)
 			[enc setDepthStencilState:dss];
 		[enc setStencilReferenceValue:stRef];
@@ -4998,6 +5009,25 @@ namespace
 			return false;
 		}
 		[pm.enc setRenderPipelineState:pso];
+
+		// p6 drawZ truth: the ACTUAL DSS + depth attachment of the live
+		// encoder at draw time (Metal readonly state). If dss here differs
+		// from the zW=1 state applyEncoderState created (dssgPtr), or
+		// rpdZb differs from the texture the dprobe reads, that is the
+		// disconnect that leaves zb unwritten.
+		{
+			static int s_dzLog = 0;
+			const char* rnZ2 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+			if (s_dzLog < 8 && rnZ2 && strstr(rnZ2, "position"))
+			{
+				s_dzLog++;
+				Log("- p6 drawZ: pair=%s dss=%p rpdZb=%p pmZb=%p attFmt=%d",
+				    pair ? pair->name.c_str() : "?",
+				    (void*)pm.enc.depthStencilState,
+				    (void*)pm.enc.renderPassDescriptor.depthAttachment.texture,
+				    pm.zb, pm.attDepthFmt);
+			}
+		}
 
 		// Constants snapshot
 		uint64_t slotOff = 0;

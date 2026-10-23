@@ -4584,8 +4584,9 @@ namespace
 			static const bool s_cstat = !!getenv("XR_METAL_CLIPSTAT");
 			static uint64_t s_csNext = 0;
 			static int s_csWin = 0;
+			static const time_t s_csT0 = time(nullptr);
 			if (s_cstat && s_csWin < 8 && indexed && ds.vb && ds.ib && !pm.staging.empty() &&
-			    g_dbgDrawOK >= s_csNext)
+			    g_dbgDrawOK >= s_csNext && (time(nullptr) - s_csT0) > 235)
 			{
 				const char* rtN2 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rtN2 && strstr(rtN2, "position"))
@@ -4628,10 +4629,12 @@ namespace
 							else
 								nl++;
 						}
-						Log("- p6 clipstat#%d: pair=%s tris=%u behind=%u left=%u band=%u out=%u "
-						    "mW=(%.3f %.3f %.3f %.3f)",
-						    s_csWin, pair ? pair->name.c_str() : "?", tn, nb, nl, nband, nx, mW[0],
-						    mW[5], mW[10], mW[15]);
+						Log("- p6 clipstat#%d: pair=%s tris=%u behind=%u left=%u band=%u out=%u",
+						    s_csWin, pair ? pair->name.c_str() : "?", tn, nb, nl, nband, nx);
+						Log("- p6 mWVP#%d: [%.4f %.4f %.4f %.4f | %.4f %.4f %.4f %.4f | %.4f "
+						    "%.4f %.4f %.4f | %.4f %.4f %.4f %.4f]",
+						    s_csWin, mW[0], mW[1], mW[2], mW[3], mW[4], mW[5], mW[6], mW[7],
+						    mW[8], mW[9], mW[10], mW[11], mW[12], mW[13], mW[14], mW[15]);
 					}
 				}
 			}

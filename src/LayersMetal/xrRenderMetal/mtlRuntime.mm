@@ -7452,8 +7452,12 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 			// in-game matrices; re-arm a second budget once we are safely
 			// in-game (present-count stair, same gate style as dprobe).
 			static std::map<std::string, int> s_scIngameN;
+			// Periodic in-game sampling: must see m_V rotate when state
+			// yaw= moves. Frozen m_V => render cam static => band is the
+			// map-edge void under the stubbed black sky, not a clip bug.
+			const bool scPresTick = (g_mtlPresentCount % 600) == 0;
 			const bool scIngame =
-			    g_mtlPresentCount > 12200 && s_scIngameN[pn]++ < 3;
+			    g_mtlPresentCount > 12200 && s_scIngameN[pn]++ < 40 && scPresTick;
 			if (n0 && (s_scLogged[pn]++ < 6 || ppPeriodic || scIngame))
 			{
 				// p5 launch194: what screen_res do the pixel-space quad VSes
@@ -7784,7 +7788,8 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				    "mW3=(%.2f %.2f %.2f %.2f) "
 				    "mV0=(%.2f %.2f %.2f %.2f) mP0=(%.2f %.2f %.2f %.2f) "
 				    "mP1=(%.2f %.2f %.2f %.2f) mP2=(%.2f %.2f %.2f %.2f) "
-				    "mP3=(%.2f %.2f %.2f %.2f) pres=%llu",
+				    "mP3=(%.2f %.2f %.2f %.2f) "
+				    "mVh=(%.5f %.5f %.5f %.5f|%.5f %.5f %.5f %.5f) pres=%llu",
 				    pn, n0, pm.rt[0], pm.rt[1], pm.rt[2], pm.rt[3], dbgRW, dbgRH, pm.zb, cfCount,
 				    (unsigned)pm.blend.writeMask, (int)pm.blend.enabled, (int)pm.depthEn, pm.depthFunc,
 				    pm.vpX, pm.vpY, pm.vpW, pm.vpH, pm.scissorEn, pm.scL, pm.scT, pm.scR, pm.scB,
@@ -7804,6 +7809,8 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				    mp ? mp[4] : 9e9f, mp ? mp[5] : 9e9f, mp ? mp[6] : 9e9f, mp ? mp[7] : 9e9f,
 				    mp ? mp[8] : 9e9f, mp ? mp[9] : 9e9f, mp ? mp[10] : 9e9f, mp ? mp[11] : 9e9f,
 				    mp ? mp[12] : 9e9f, mp ? mp[13] : 9e9f, mp ? mp[14] : 9e9f, mp ? mp[15] : 9e9f,
+				    mv ? mv[0] : 9e9f, mv ? mv[1] : 9e9f, mv ? mv[2] : 9e9f, mv ? mv[3] : 9e9f,
+				    mv ? mv[4] : 9e9f, mv ? mv[5] : 9e9f, mv ? mv[6] : 9e9f, mv ? mv[7] : 9e9f,
 				    (unsigned long long)g_mtlPresentCount);
 			}
 		}

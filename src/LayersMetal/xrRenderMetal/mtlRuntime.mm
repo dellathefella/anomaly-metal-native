@@ -514,7 +514,7 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 				if (s_rv2 && s_rv2N < 30000 && rt[0] && dev)
 				{
 					const char* rn = MtlDbgRTGetName(rt[0]);
-					if (rn && strstr(rn, "position") && g_dbgEncoders > 2000)
+					if (rn && strstr(rn, "albedo") && g_dbgEncoders > 2000)
 					{
 						s_rv2N++;
 						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
@@ -539,6 +539,9 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 									    [mdev newDepthStencilStateWithDescriptor:dd];
 								}
 								[enc setDepthStencilState:s_neverDss];
+								// pass carries DX9 front=CW + cull-Back; the
+								// builtin fill triangle is CCW — cull off.
+								[enc setCullMode:MTLCullModeNone];
 								[enc setRenderPipelineState:pso];
 								[enc setVertexBuffer:pb offset:0 atIndex:0];
 								[enc setFragmentBuffer:pb offset:0 atIndex:0];

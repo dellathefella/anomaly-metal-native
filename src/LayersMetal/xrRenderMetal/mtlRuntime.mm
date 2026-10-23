@@ -7448,7 +7448,13 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 			const bool ppPeriodic =
 			    pn && (strstr(pn, "postprocess") || strstr(pn, "combine_1")) &&
 			    (s_ppPass++ % 240) < 1;
-			if (n0 && (s_scLogged[pn]++ < 6 || ppPeriodic))
+			// p6: load-phase samples (first 6/pair) proved unreliable for
+			// in-game matrices; re-arm a second budget once we are safely
+			// in-game (present-count stair, same gate style as dprobe).
+			static std::map<std::string, int> s_scIngameN;
+			const bool scIngame =
+			    g_mtlPresentCount > 12200 && s_scIngameN[pn]++ < 3;
+			if (n0 && (s_scLogged[pn]++ < 6 || ppPeriodic || scIngame))
 			{
 				// p5 launch194: what screen_res do the pixel-space quad VSes
 				// actually receive? (0 => VS projects to a degenerate point.)
@@ -7776,7 +7782,9 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				    "mWVP=(%.2f %.2f %.2f %.2f|%.2f %.2f %.2f %.2f) "
 				    "mWVP2=(%.2f %.2f %.2f %.2f) mWVP3=(%.2f %.2f %.2f %.2f) mW0=(%.2f %.2f %.2f %.2f) "
 				    "mW3=(%.2f %.2f %.2f %.2f) "
-				    "mV0=(%.2f %.2f %.2f %.2f) mP0=(%.2f %.2f %.2f %.2f)",
+				    "mV0=(%.2f %.2f %.2f %.2f) mP0=(%.2f %.2f %.2f %.2f) "
+				    "mP1=(%.2f %.2f %.2f %.2f) mP2=(%.2f %.2f %.2f %.2f) "
+				    "mP3=(%.2f %.2f %.2f %.2f) pres=%llu",
 				    pn, n0, pm.rt[0], pm.rt[1], pm.rt[2], pm.rt[3], dbgRW, dbgRH, pm.zb, cfCount,
 				    (unsigned)pm.blend.writeMask, (int)pm.blend.enabled, (int)pm.depthEn, pm.depthFunc,
 				    pm.vpX, pm.vpY, pm.vpW, pm.vpH, pm.scissorEn, pm.scL, pm.scT, pm.scR, pm.scB,
@@ -7792,7 +7800,11 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				    mw ? mw[12] : 9e9f, mw ? mw[13] : 9e9f, mw ? mw[14] : 9e9f,
 				    mw ? mw[15] : 9e9f,
 				    mv ? mv[0] : 9e9f, mv ? mv[1] : 9e9f, mv ? mv[2] : 9e9f, mv ? mv[3] : 9e9f,
-				    mp ? mp[0] : 9e9f, mp ? mp[1] : 9e9f, mp ? mp[2] : 9e9f, mp ? mp[3] : 9e9f);
+				    mp ? mp[0] : 9e9f, mp ? mp[1] : 9e9f, mp ? mp[2] : 9e9f, mp ? mp[3] : 9e9f,
+				    mp ? mp[4] : 9e9f, mp ? mp[5] : 9e9f, mp ? mp[6] : 9e9f, mp ? mp[7] : 9e9f,
+				    mp ? mp[8] : 9e9f, mp ? mp[9] : 9e9f, mp ? mp[10] : 9e9f, mp ? mp[11] : 9e9f,
+				    mp ? mp[12] : 9e9f, mp ? mp[13] : 9e9f, mp ? mp[14] : 9e9f, mp ? mp[15] : 9e9f,
+				    (unsigned long long)g_mtlPresentCount);
 			}
 		}
 		g_dbgDrawOK++;

@@ -4894,6 +4894,72 @@ namespace
 					}
 				}
 			}
+ 		}
+ 
+		// p6 band-hunt: XR_METAL_DRAWBBOX — full-vertex NDC-x bbox of draws
+		// in the gbuffer pass. Draws whose bbox REACHES the band yet store
+		// nothing prove a per-fragment kill; zero such draws => the CPU
+		// culling boundary itself is the tilted line.
+		{
+			static const bool s_bb = !!getenv("XR_METAL_DRAWBBOX");
+			static int s_bbN = 0, s_bbLogged = 0;
+			static uint64_t s_bbNext = 0;
+			static const time_t s_bbT0 = time(nullptr);
+			if (s_bb && s_bbLogged < 120 && indexed && ds.vb && ds.ib &&
+			    !pm.staging.empty() && g_dbgDrawOK >= s_bbNext &&
+			    (time(nullptr) - s_bbT0) > 235)
+			{
+				const char* rtN3 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+				if (rtN3 && strstr(rtN3, "position"))
+				{
+					const float* mW3 = nullptr;
+					for (const auto& u : vsR->uniforms)
+						if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
+						{
+							mW3 = reinterpret_cast<const float*>(
+							    pm.staging.data() + u.offset);
+							break;
+						}
+					if (mW3)
+					{
+						if (s_bbN++ == 0)
+							s_bbNext = g_dbgDrawOK + 4000; // let the gate settle
+						id<MTLBuffer> vbB3 = (__bridge id<MTLBuffer>)ds.vb;
+						id<MTLBuffer> ibB3 = (__bridge id<MTLBuffer>)ds.ib;
+						const uint16_t* i3 = (const uint16_t*)[ibB3 contents];
+						const uint8_t* v3 = (const uint8_t*)[vbB3 contents];
+						const uint32_t nv = primCount * 3 < 4096 ? primCount * 3
+						                                         : 4096;
+						float xmn = 9.f, xmx = -9.f;
+						for (uint32_t k = 0; k < nv; k++)
+						{
+							const uint8_t* vp = v3 +
+							                    (NSUInteger)(baseV + i3[startI + k]) *
+							                        ds.vbStride;
+							const float* p = reinterpret_cast<const float*>(vp);
+							const float cx = p[0] * mW3[0] + p[1] * mW3[4] +
+							                 p[2] * mW3[8] + mW3[12];
+							const float cw = p[0] * mW3[3] + p[1] * mW3[7] +
+							                 p[2] * mW3[11] + mW3[15];
+							if (!(cw > 0.f))
+								continue;
+							const float nd = cx / cw;
+							if (nd < xmn)
+								xmn = nd;
+							if (nd > xmx)
+								xmx = nd;
+						}
+						if (xmx > 0.52f)
+						{
+							s_bbLogged++;
+							Log("- p6 drawbbox: pair=%s prim=%u ndc=[%.2f..%.2f] "
+								"px[%.0f..%.0f]",
+								pair ? pair->name.c_str() : "?", primCount, xmn, xmx,
+								xmn * 1512.f + 1512.f, xmx * 1512.f + 1512.f);
+						}
+					}
+				}
+			}
 		}
 
 		BindDraw(pm, pm.enc, *vsR, *psR, slotOff);

@@ -638,6 +638,10 @@ fragment Fill4 xrred4_ps()
 			// color0+depth as the position pass: fresh rpd, Load/Store, my
 			// own pipeline + draw, commit, wait, readback. Separates
 			// "my MSL/pipeline is broken" from "the engine pass eats it".
+			// p6: XR_METAL_DPROBE=<thr> — depth-threshold probe: clear color,
+			// Load zb, fullscreen z=<thr> triangle with Greater depth test.
+			// RED px => stored depth > thr (normal far terrain);
+			// black => stored <= thr (something NEAR wrote depth there).
 			{
 				static const char* s_ft = getenv("XR_METAL_FILLTEST");
 				static uint64_t s_ftN = 0;
@@ -760,6 +764,92 @@ fragment Fill4 xrred4_ps()
 								rn2, (int)ok, (int)(t0 == (__bridge id<MTLTexture>)rt[0]),
 								(long)t0.pixelFormat, p0[0], p0[1], p0[2], p0[3], px[0],
 								px[1], px[2], px[3]);
+						}
+					}
+				}
+			}
+			// p6 band-hunt: XR_METAL_DPROBE=<z> — depth-threshold probe pass:
+			// clear color, Load zb, fullscreen z=<z> fill with Greater depth
+			// test. RED px => stored depth > z (normal far terrain);
+			// black => stored <= z (something NEAR wrote depth there).
+			{
+				static const char* s_dp = getenv("XR_METAL_DPROBE");
+				static uint64_t s_dpN = 0;
+				static id<MTLDepthStencilState> s_greaterDss = nil;
+				if (s_dp && rt[0] && zb && dev && cb && g_dbgEncoders > 2000 &&
+				    s_dpN < 6)
+				{
+					const char* rn4 = MtlDbgRTGetName(rt[0]);
+					if (rn4 && strstr(rn4, "position"))
+					{
+						s_dpN++;
+						[cb commit];
+						[cb waitUntilCompleted];
+						cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+						id<MTLTexture> a0 = rpdAtt0 ? rpdAtt0
+						                            : (__bridge id<MTLTexture>)rt[0];
+						MTLRenderPassDescriptor* drpd = [MTLRenderPassDescriptor new];
+						drpd.colorAttachments[0].texture = a0;
+						drpd.colorAttachments[0].loadAction = MTLLoadActionClear;
+						drpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+						drpd.colorAttachments[0].clearColor =
+						    MTLClearColorMake(0, 0, 0, 1);
+						drpd.depthAttachment.texture =
+						    (__bridge id<MTLTexture>)zb;
+						drpd.depthAttachment.loadAction = MTLLoadActionLoad;
+						drpd.depthAttachment.storeAction = MTLStoreActionDontCare;
+						if (!s_greaterDss)
+						{
+							MTLDepthStencilDescriptor* dd =
+								[MTLDepthStencilDescriptor new];
+							dd.depthCompareFunction = MTLCompareFunctionGreater;
+							dd.depthWriteEnabled = false;
+							s_greaterDss = [(__bridge id<MTLDevice>)dev->Device()
+							        newDepthStencilStateWithDescriptor:dd];
+						}
+						const float thr = (float)atof(s_dp);
+						const float dparams[4] = { 1.0f, 0.0f, thr, 1.0f };
+						id<MTLBuffer> pb =
+						    [(__bridge id<MTLDevice>)dev->Device()
+						        newBufferWithBytes:dparams
+						                    length:sizeof(dparams)
+						                  options:MTLResourceStorageModeShared];
+						id<MTLRenderPipelineState> pso = blitPipeline(
+						    (MTLPixelFormat)a0.pixelFormat, true, false,
+						    (int)drpd.depthAttachment.texture.pixelFormat);
+						if (pso && s_greaterDss && pb)
+						{
+							id<MTLRenderCommandEncoder> de =
+								[cb renderCommandEncoderWithDescriptor:drpd];
+							[de setViewport:(MTLViewport){ 0.0, 0.0,
+								(double)a0.width, (double)a0.height, 0.0, 1.0 }];
+							[de setDepthStencilState:s_greaterDss];
+							[de setCullMode:MTLCullModeNone];
+							[de setRenderPipelineState:pso];
+							[de setVertexBuffer:pb offset:0 atIndex:0];
+							[de setFragmentBuffer:pb offset:0 atIndex:0];
+							[de drawPrimitives:MTLPrimitiveTypeTriangle
+							        vertexStart:0
+							        vertexCount:3];
+							[de endEncoding];
+							[cb commit];
+							[cb waitUntilCompleted];
+							cb = [(__bridge id<MTLCommandQueue>)dev->Queue()
+							        commandBuffer];
+							const uint32_t bpp = dev->TextureBpp(rt[0]);
+							if (bpp && bpp <= 8)
+							{
+								std::vector<uint8_t> dbuf(size_t(a0.width) * bpp);
+								std::string derr;
+								bool ok = dev->ReadbackSlice(
+								    (void*)(__bridge void*)a0, dbuf.data(),
+								    a0.width * bpp, a0.width, 1, 0, 0, derr);
+								const uint8_t* d100 = &dbuf[size_t(100) * bpp];
+								const uint8_t* d3k = &dbuf[size_t(3000) * bpp];
+								Log("- p6 dprobe: thr=%.2f ok=%d y0 x100: %02x %02x "
+								    "x3000: %02x %02x",
+								    thr, (int)ok, d100[0], d100[1], d3k[0], d3k[1]);
+							}
 						}
 					}
 				}

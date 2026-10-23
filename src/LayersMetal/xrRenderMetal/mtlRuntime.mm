@@ -629,6 +629,96 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 			[enc endEncoding];
 			enc = nil;
 			markTouched();
+			// p6: XR_METAL_FILLTEST — standalone probe pass on the same
+			// color0+depth as the position pass: fresh rpd, Load/Store, my
+			// own pipeline + draw, commit, wait, readback. Separates
+			// "my MSL/pipeline is broken" from "the engine pass eats it".
+			{
+				static const char* s_ft = getenv("XR_METAL_FILLTEST");
+				static uint64_t s_ftN = 0;
+				if (s_ft && rt[0] && dev && cb && g_dbgEncoders > 2000 && s_ftN < 6)
+				{
+					const char* rn3 = MtlDbgRTGetName(rt[0]);
+					if (rn3 && strstr(rn3, s_ft))
+					{
+						s_ftN++;
+						[cb commit];
+						[cb waitUntilCompleted];
+						cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+						id<MTLTexture> a0 = rpdAtt0 ? rpdAtt0
+						                            : (__bridge id<MTLTexture>)rt[0];
+						MTLRenderPassDescriptor* frpd = [MTLRenderPassDescriptor new];
+						frpd.colorAttachments[0].texture = a0;
+						frpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
+						frpd.colorAttachments[0].storeAction = MTLStoreActionStore;
+						if (zb)
+						{
+							frpd.depthAttachment.texture =
+								(__bridge id<MTLTexture>)zb;
+							frpd.depthAttachment.loadAction = MTLLoadActionLoad;
+							frpd.depthAttachment.storeAction =
+								MTLStoreActionStore;
+						}
+						PipelineDesc fpd;
+						id<MTLFunction> vsF =
+						    [blitLib newFunctionWithName:@"xrtri_vs"];
+						id<MTLFunction> psF =
+						    [blitLib newFunctionWithName:@"xrred1_ps"];
+						fpd.vs = (__bridge void*)vsF;
+						fpd.ps = (__bridge void*)psF;
+						fpd.colorFormats = { (int)a0.pixelFormat };
+						if (frpd.depthAttachment.texture)
+						{
+							fpd.depthFormat =
+								(int)frpd.depthAttachment.texture.pixelFormat;
+							if (fpd.depthFormat ==
+							        (int)MTLPixelFormatDepth32Float_Stencil8)
+								fpd.stencilFormat = fpd.depthFormat;
+						}
+						std::string ferr;
+						void* pv = cache->Pipeline(dev->Device(), fpd, ferr);
+						Log("- p6 filltest: pass=%s fmt=%ld z=%d pso=%d err=%s",
+						    rn3, (long)a0.pixelFormat, (int)(zb != nullptr),
+						    (int)(pv != nullptr), ferr.c_str());
+						if (pv && vsF && psF)
+						{
+							id<MTLRenderCommandEncoder> fe =
+								[cb renderCommandEncoderWithDescriptor:frpd];
+							[fe setViewport:(MTLViewport){ 0.0, 0.0,
+								(double)a0.width, (double)a0.height, 0.0, 1.0 }];
+							[fe setScissorRect:(MTLScissorRect){ 0, 0, a0.width,
+								a0.height }];
+							[fe setCullMode:MTLCullModeNone];
+							[fe setRenderPipelineState:
+								(__bridge id<MTLRenderPipelineState>)pv];
+							[fe drawPrimitives:MTLPrimitiveTypeTriangle
+							        vertexStart:0
+							        vertexCount:3];
+							[fe endEncoding];
+							[cb commit];
+							[cb waitUntilCompleted];
+							cb = [(__bridge id<MTLCommandQueue>)dev->Queue()
+							        commandBuffer];
+							const uint32_t bpp = dev->TextureBpp(rt[0]);
+							if (bpp && bpp <= 8)
+							{
+								std::vector<uint8_t> fbuf(size_t(a0.width) * bpp);
+								std::string derr;
+								bool ok = dev->ReadbackSlice((void*)(__bridge void*)a0,
+								                             fbuf.data(),
+								                             a0.width * bpp, a0.width,
+								                             1, 0, 0, derr);
+								const uint8_t* f100 = &fbuf[size_t(100) * bpp];
+								const uint8_t* f3k = &fbuf[size_t(3000) * bpp];
+								Log("- p6 filltest px: ok=%d x100: %02x %02x %02x "
+								    "%02x x3000: %02x %02x %02x %02x",
+								    (int)ok, f100[0], f100[1], f100[2], f100[3],
+								    f3k[0], f3k[1], f3k[2], f3k[3]);
+							}
+						}
+					}
+				}
+			}
 			// p6 fill self-verify: right after the first fills, commit+wait and
 			// read 4 px at x=3000 of the very texture the fill targeted. Decides
 			// "rasterizer won't paint the band" vs "the dump reads something else".

@@ -507,6 +507,68 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 			[enc endEncoding];
 			enc = nil;
 			markTouched();
+			// p6 band-hunt: XR_METAL_RTDUMP=<substr> — every ~300th close of a
+			// pass whose color0 creation-name contains substr, commit+wait and
+			// read the RT back to /tmp/rtdump/<name>.rgba (raw RGBA8). Offline
+			// conversion to PNG shows which pass first carries the black band.
+			{
+				static const char* s_rtd = getenv("XR_METAL_RTDUMP");
+				if (s_rtd && rt[0] && dev && cb)
+				{
+					id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
+					const char* rn = MtlDbgRTGetName(rt[0]);
+					if (rn && strstr(rn, s_rtd) && t0.width >= 1024 && t0.height >= 600)
+					{
+						static std::map<void*, uint64_t> s_rtdCnt;
+						if ((s_rtdCnt[rt[0]]++ % 300) == 299)
+						{
+							[cb commit];
+							[cb waitUntilCompleted];
+							cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
+							const uint32_t bw = (uint32_t)t0.width, bh = (uint32_t)t0.height;
+							const uint32_t bpp = dev->TextureBpp(rt[0]);
+							if (bpp)
+							{
+								std::vector<uint8_t> buf(size_t(bw) * bh * 4);
+								std::string derr;
+								if (dev->ReadbackSlice(rt[0], buf.data(), bw * 4, bw, bh, 0, 0,
+								                       derr))
+								{
+									mkdir("/tmp/rtdump", 0755);
+									char path[256];
+									snprintf(path, sizeof path, "/tmp/rtdump/%s.rgba", rn);
+									for (char* p = path + strlen("/tmp/rtdump/"); *p; p++)
+										if (*p == '$' || *p == '/' || *p == ' ')
+											*p = '_';
+									FILE* f = fopen(path, "wb");
+									if (f)
+									{
+										fwrite(buf.data(), 1, buf.size(), f);
+										fclose(f);
+									}
+									// row stats at mid height: rightmost lit pixel
+									uint32_t lastLit = 0, blackTail = 0;
+									const uint32_t y = bh / 2;
+									for (uint32_t x = bw; x-- > 0;)
+									{
+										const uint8_t* p = &buf[(size_t(y) * bw + x) * 4];
+										if (p[0] | p[1] | p[2])
+										{
+											lastLit = x;
+											break;
+										}
+										blackTail++;
+									}
+									Log("- p6 rtdump: %s %ux%u midrow lastlit=%u blacktail=%u -> %s",
+									    rn, bw, bh, lastLit, blackTail, path);
+								}
+								else
+									Log("! p6 rtdump: %s readback failed: %s", rn, derr.c_str());
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 

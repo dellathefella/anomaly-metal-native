@@ -203,6 +203,12 @@ void* CRender::texture_load(pcstr fRName, u32& ret_msize, u32& ret_desc, u32& re
     void* pTexture = nullptr;
     const glm::vec3 ext(texture.extent());
 
+    // p6 leakbeat: creation telemetry for the texture-reload-storm hunt
+    // (liveTexMB grows unbounded). Rate-limited: first 300, then every 100th.
+    static int s_texDbgN = 0;
+    if (++s_texDbgN <= 300 || s_texDbgN % 100 == 0)
+        Msg("- p6 texdbg: #%d '%s' %ux%u", s_texDbgN, fn, (u32)ext.x, (u32)ext.y);
+
     switch (texture.target())
     {
     case gli::TARGET_2D:

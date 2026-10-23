@@ -626,6 +626,35 @@ void CRender::OnCameraUpdated()
     // Frustum
     ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 
+    // p6 band-hunt: XR_METAL_FRUSPROBE=1 — dump the culling frustum planes in
+    // game. A right-plane whose screen-space boundary predicts the band edge
+    // (x~2300 @y840, tilted ~1 deg) proves the hole is a CPU cull, not GPU.
+    {
+        static const bool s_fpen = !!getenv("XR_METAL_FRUSPROBE");
+        if (s_fpen && Device.dwFrame > 300 && (Device.dwFrame % 300) == 0)
+        {
+            char fp[512];
+            int off = snprintf(fp, sizeof fp, "* frusprobe:");
+            for (int i = 0; i < ViewBase.p_count && off < 300; i++)
+                off += snprintf(fp + off, sizeof fp - off, " p%d=(%.4f %.4f %.4f|%.3f)", i,
+                                (double)ViewBase.planes[i].n.x, (double)ViewBase.planes[i].n.y,
+                                (double)ViewBase.planes[i].n.z, (double)ViewBase.planes[i].d);
+            snprintf(fp + off, sizeof fp - off, " aspect=%.4f fov=%.2f", (double)Device.fASPECT,
+                     (double)Device.fFOV);
+            Msg("%s", fp);
+            Msg("* frusprobeM: (%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|"
+                "%.4f %.4f %.4f %.4f)",
+                (double)Device.mFullTransform._11, (double)Device.mFullTransform._12,
+                (double)Device.mFullTransform._13, (double)Device.mFullTransform._14,
+                (double)Device.mFullTransform._21, (double)Device.mFullTransform._22,
+                (double)Device.mFullTransform._23, (double)Device.mFullTransform._24,
+                (double)Device.mFullTransform._31, (double)Device.mFullTransform._32,
+                (double)Device.mFullTransform._33, (double)Device.mFullTransform._34,
+                (double)Device.mFullTransform._41, (double)Device.mFullTransform._42,
+                (double)Device.mFullTransform._43, (double)Device.mFullTransform._44);
+        }
+    }
+
     // p4: dev guards its menu-without-level scene here; the monolith engine
     // only drives the renderer when a level is active, so no guard is needed.
     ProcessHOMTask = &HOM.DispatchMTRender();

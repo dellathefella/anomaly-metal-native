@@ -382,6 +382,15 @@ void CHOM::Disable()
 
 void CHOM::Enable()
 {
+	// p6 band-hunt: XR_METAL_NOHOM=1 — runtime bisect: HOM mis-occlusion is the
+	// prime suspect for the screen-fixed culled wedge (zero fragments, clean GPU
+	// matrices, survives camera orbit). With it off, everything is visible.
+	static const bool s_nohom = !!getenv("XR_METAL_NOHOM");
+	if (s_nohom)
+	{
+		bEnabled = FALSE;
+		return;
+	}
 	bEnabled = m_pModel ? TRUE : FALSE;
 }
 

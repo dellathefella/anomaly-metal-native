@@ -674,7 +674,7 @@ fragment Fill4 xrred4_ps()
 				const bool rpScren = rt[0] && MtlDbgRTGetName(rt[0]) &&
 				                             strstr(MtlDbgRTGetName(rt[0]), "generic0");
 				if (s_rpen && g_rpOk && rt[0] && dev && attColorCount &&
-				    (s_rpN < 3 || (rpScren && s_rpN2 < 3)))
+				    (s_rpN < 400 || (rpScren && s_rpN2 < 400)))
 				{
 					const char* rn = MtlDbgRTGetName(rt[0]);
 					if (rn && (strstr(rn, "position") || rpScren))
@@ -684,6 +684,7 @@ fragment Fill4 xrred4_ps()
 						else
 							s_rpN++;
 						g_rpOk = false;
+						g_rpFront = 0; // re-pick the biggest draw next frame
 						id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
 						if (!s_rpPso)
 						{
@@ -784,6 +785,7 @@ fragment Fill4 xrred4_ps()
 								const uint16_t* ii = (const uint16_t*)[ibc contents];
 								unsigned nFront = 0, nBand = 0, nOut = 0;
 								double maxNx = -9.9;
+								double pxLo = 1e9, pxHi = -1e9; // expected screen px
 								for (uint32_t k = 0; k < nIdx; k += 3)
 								{
 									bool anyFront = false;
@@ -804,6 +806,14 @@ fragment Fill4 xrred4_ps()
 										double nx = cx / cw;
 										if (nx > maxNx)
 											maxNx = nx;
+										if (nx >= -1.0 && nx <= 1.0)
+										{
+											double px = (nx * 0.5 + 0.5) * 3024.0;
+											if (px < pxLo)
+												pxLo = px;
+											if (px > pxHi)
+												pxHi = px;
+										}
 										if (nx > 0.524)
 											nBand++;
 										else if (nx < -1.0 || nx > 1.0)
@@ -812,9 +822,10 @@ fragment Fill4 xrred4_ps()
 									if (anyFront)
 										nFront++;
 								}
-								Log("- p6 replaycpu: tris=%u front=%u bandVerts=%u "
-								    "outVerts=%u maxNdcX=%.3f",
-								    nIdx / 3, nFront, nBand, nOut, maxNx);
+								Log("- p6 replaycpu: pass=%s tris=%u front=%u bandVerts=%u "
+								    "outVerts=%u maxNdcX=%.3f px=[%.0f..%.0f]",
+								    rn ? rn : "?", nIdx / 3, nFront, nBand, nOut, maxNx,
+								    pxLo > pxHi ? -1.0 : pxLo, pxHi);
 							}
 							const float* wf = (const float*)g_rpWvp;
 							Log("- p6 replay: drew nIdx=%u stride=%u baseV=%u "
@@ -844,16 +855,19 @@ fragment Fill4 xrred4_ps()
 				uint32_t bppR = dev->TextureBpp(rt[0]);
 				if (bppR && bppR <= 8)
 				{
-					uint32_t Wr = (uint32_t)a0r.width, Yr = (uint32_t)a0r.height / 2;
-					std::vector<uint8_t> rb(size_t(Wr) * bppR);
+					uint32_t Wr = (uint32_t)a0r.width, Hr = (uint32_t)a0r.height,
+					         Yr = (uint32_t)a0r.height / 2;
+					// wvp14 fix: the old call passed Yr as MIP (840!) — invalid,
+					// silently zero. Read the whole texture, scan row Yr.
+					std::vector<uint8_t> rb(size_t(Wr) * Hr * bppR);
 					std::string rerr;
 					bool okR = dev->ReadbackSlice((void*)(__bridge void*)a0r,
-					                              rb.data(), Wr * bppR, Wr, 1, 0, Yr,
-					                              rerr);
+					                              rb.data(), Wr * bppR, Wr, Hr, 0,
+					                              0, rerr);
 					int first = -1, last = -1, n = 0;
 					for (uint32_t x = 0; x < Wr; x++)
 					{
-						const uint8_t* p = &rb[size_t(x) * bppR];
+						const uint8_t* p = &rb[(size_t(Yr) * Wr + x) * bppR];
 						if (p[0] == 0x00 && p[1] == 0x3c && p[2] == 0x00 &&
 						    p[3] == 0x00)
 						{
@@ -863,8 +877,8 @@ fragment Fill4 xrred4_ps()
 							last = (int)x;
 						}
 					}
-					const uint8_t* q1 = &rb[size_t(100) * bppR];
-					const uint8_t* q2 = &rb[size_t(2600) * bppR];
+					const uint8_t* q1 = &rb[(size_t(Yr) * Wr + 100) * bppR];
+					const uint8_t* q2 = &rb[(size_t(Yr) * Wr + 2600) * bppR];
 					Log("- p6 replayrb: ok=%d y=%u bpp=%u redN=%d x=[%d..%d] "
 					    "px100=%02x%02x%02x%02x px2600=%02x%02x%02x%02x",
 					    (int)okR, Yr, bppR, n, first, last, q1[0], q1[1], q1[2],
@@ -1293,7 +1307,14 @@ fragment Fill4 xrred4_ps()
 					if (rn && strstr(rn, s_rtd) && t0.width >= 1024 && t0.height >= 600)
 					{
 						static std::map<void*, uint64_t> s_rtdCnt;
-						if ((s_rtdCnt[rt[0]]++ % 300) == 299)
+						// p6 wvp13: once verified in-game (Present>12200 — the
+						// scenecolor-proven gate), dump each distinct RT exactly
+						// ONE more time. Load-phase dumps are stale evidence.
+						static std::set<void*> s_rtdIngame;
+						const bool rtdFire = g_mtlPresentCount > 12200
+						                         ? s_rtdIngame.insert(rt[0]).second
+						                         : (s_rtdCnt[rt[0]]++ % 300) == 299;
+						if (rtdFire)
 						{
 							[cb commit];
 							[cb waitUntilCompleted];
@@ -4428,6 +4449,31 @@ void MtlBlitToDrawable(void* srcTex, void* dstTex, uint32_t srcW, uint32_t srcH,
 }
 
 // --- viewport / scissor --------------------------------------------------------
+// p6 band-hunt: the engine can drive SetViewport/SetScissor straight to the
+// live encoder, bypassing applyEncoderState's rectdbg. Log every UNIQUE rect
+// applied while a screen-sized RT is bound, tagged with the pass name.
+static void mtlRectBypassLog(MtlPassManager& pm, const char* kind)
+{
+	static const bool s_rben = !!getenv("XR_METAL_RECTBYPASS");
+	if (!s_rben || !pm.rt[0] || !pm.dev)
+		return;
+	uint32_t rw = 0, rh = 0;
+	pm.dev->TextureDims(pm.rt[0], &rw, &rh);
+	if (rw < 1600 || rh < 800)
+		return;
+	char sig[160];
+	snprintf(sig, sizeof sig, "%s|%.0f|%.0f|%.0f|%.0f|%d|%d|%d|%d|%d", kind, pm.vpX, pm.vpY,
+	         pm.vpW, pm.vpH, (int)pm.scissorEn, pm.scL, pm.scT, pm.scR, pm.scB);
+	static std::set<std::string> s_seen;
+	if (s_seen.size() < 64 && s_seen.insert(sig).second)
+	{
+		const char* rn = MtlDbgRTGetName(pm.rt[0]);
+		Log("- p6 rectbp: %s rt=%s %ux%u vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d)", kind,
+		    rn ? rn : "?", rw, rh, pm.vpX, pm.vpY, pm.vpW, pm.vpH, (int)pm.scissorEn, pm.scL,
+		    pm.scT, pm.scR, pm.scB);
+	}
+}
+
 void MtlSetViewport(float x, float y, float w, float h, float minD, float maxD)
 {
 	MtlPassManager& pm = PM();
@@ -4446,6 +4492,7 @@ void MtlSetViewport(float x, float y, float w, float h, float minD, float maxD)
 		const MTLViewport vp{ x, y, w, h, minD, maxD };
 		[pm.enc setViewport:vp];
 	}
+	mtlRectBypassLog(pm, "vp");
 }
 
 void MtlSetScissor(bool enabled, int32_t l, int32_t t, int32_t r, int32_t b)
@@ -4469,6 +4516,7 @@ void MtlSetScissor(bool enabled, int32_t l, int32_t t, int32_t r, int32_t b)
 			[pm.enc setScissorRect:full];
 		}
 	}
+	mtlRectBypassLog(pm, "sc");
 }
 
 // --- state ---------------------------------------------------------------------
@@ -8049,10 +8097,12 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 		}
 		// p6 band-hunt: XR_METAL_REPLAY — remember the biggest position-pass
 		// draw (engine VB/IB + engine WVP bytes) for the pass-end replay draw.
+		// wvp14: capture only after the verified in-game gate (Present>12200) —
+		// the old budget burned all 3 replays during the load screen.
 		{
 			static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
 			if (s_rpen && indexed && ds.vb && ds.ib && vsR && !pm.staging.empty() &&
-			    primCount >= 200)
+			    primCount >= 200 && g_mtlPresentCount > 12200)
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rn && strstr(rn, "position"))

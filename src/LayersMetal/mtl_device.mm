@@ -461,7 +461,10 @@ namespace xray::metal
 		// texture): usage bits decide. framebufferOnly == usage RenderTarget;
 		// readable/copyable textures need ShaderRead (also enables getBytes).
 		td.usage = MTLTextureUsageRenderTarget;
-		if (shaderReadable || !framebufferOnly)
+		// p6 wvp13: with the RT-dump knob on, make screen-sized RTs readable
+		// (incl. the framebufferOnly gbuffer) so rtdump can actually read them.
+		static const bool s_rtdAll = !!getenv("XR_METAL_RTDUMP");
+		if (shaderReadable || !framebufferOnly || (s_rtdAll && w >= 1024 && h >= 600))
 			td.usage |= MTLTextureUsageShaderRead;
 		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
 		if (tex)
@@ -554,7 +557,8 @@ namespace xray::metal
 		                  : mips > 1   ? mips
 		                               : 1;
 		td.usage = MTLTextureUsageRenderTarget;
-		if (shaderReadable || !framebufferOnly)
+		if (shaderReadable || !framebufferOnly ||
+		    (w >= 1024 && h >= 600 && getenv("XR_METAL_RTDUMP")))
 			td.usage |= MTLTextureUsageShaderRead;
 		return td;
 	}

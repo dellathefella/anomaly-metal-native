@@ -435,6 +435,8 @@ fragment Fill4 xrred4_ps()
 	uint8_t g_rpWvp[64] = {};
 	bool g_rpOk = false;
 	bool g_rpDrew = false;
+	uint32_t g_rpFront = 0;
+	bool g_rpDrew2 = false;
 
 	struct MtlPassManager
 	{
@@ -668,12 +670,19 @@ fragment Fill4 xrred4_ps()
 				static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
 				static id<MTLRenderPipelineState> s_rpPso = nil;
 				static int s_rpN = 0;
-				if (s_rpen && g_rpOk && s_rpN < 3 && rt[0] && dev && attColorCount)
+				static int s_rpN2 = 0;
+				const bool rpScren = rt[0] && MtlDbgRTGetName(rt[0]) &&
+				                             strstr(MtlDbgRTGetName(rt[0]), "generic0");
+				if (s_rpen && g_rpOk && rt[0] && dev && attColorCount &&
+				    (s_rpN < 3 || (rpScren && s_rpN2 < 3)))
 				{
 					const char* rn = MtlDbgRTGetName(rt[0]);
-					if (rn && strstr(rn, "position"))
+					if (rn && (strstr(rn, "position") || rpScren))
 					{
-						s_rpN++;
+						if (rpScren)
+							s_rpN2++;
+						else
+							s_rpN++;
 						g_rpOk = false;
 						id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
 						if (!s_rpPso)
@@ -764,7 +773,8 @@ fragment Fill4 xrred4_ps()
 							[enc drawPrimitives:MTLPrimitiveTypeTriangle
 							        vertexStart:0
 							        vertexCount:nIdx];
-							g_rpDrew = true;
+							g_rpDrew = !rpScren;
+							g_rpDrew2 = rpScren;
 							// CPU clip sim over the exact replay inputs: where are
 							// these triangles supposed to land?
 							{
@@ -8042,21 +8052,45 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 		{
 			static const bool s_rpen = !!getenv("XR_METAL_REPLAY");
 			if (s_rpen && indexed && ds.vb && ds.ib && vsR && !pm.staging.empty() &&
-			    primCount >= 200 && primCount > g_rpPrimCnt)
+			    primCount >= 200)
 			{
 				const char* rn = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rn && strstr(rn, "position"))
 					for (const auto& u : vsR->uniforms)
 						if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
 						{
-							std::memcpy(g_rpWvp, pm.staging.data() + u.offset, 64);
-							g_rpVb = ds.vb;
-							g_rpIb = ds.ib;
-							g_rpStride = ds.vbStride;
-							g_rpStartI = startI;
-							g_rpBaseV = baseV;
-							g_rpPrimCnt = primCount;
-							g_rpOk = true;
+							const float* m = reinterpret_cast<const float*>(
+							    pm.staging.data() + u.offset);
+							// CPU front test on sampled vertices: only capture
+							// draws whose geometry actually faces the camera.
+							const uint16_t* i16 =
+							    (const uint16_t*)[(__bridge id<MTLBuffer>)ds.ib
+							                              contents] +
+							    startI;
+							const uint8_t* vbB = (const uint8_t*)
+							    [(__bridge id<MTLBuffer>)ds.vb contents];
+							unsigned nFr = 0;
+							for (uint32_t k = 0; k < primCount * 3; k += 17)
+							{
+								const float* q = (const float*)(vbB +
+								    size_t((uint32_t)i16[k] + baseV) * ds.vbStride);
+								if (q[0] * m[3] + q[1] * m[7] + q[2] * m[11] +
+								        m[15] >
+								    0.01f)
+									nFr++;
+							}
+							if (nFr > g_rpFront)
+							{
+								g_rpFront = nFr;
+								std::memcpy(g_rpWvp, m, 64);
+								g_rpVb = ds.vb;
+								g_rpIb = ds.ib;
+								g_rpStride = ds.vbStride;
+								g_rpStartI = startI;
+								g_rpBaseV = baseV;
+								g_rpPrimCnt = primCount;
+								g_rpOk = true;
+							}
 							break;
 						}
 			}

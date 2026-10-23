@@ -2260,6 +2260,32 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 				                    rh ? rh : (NSUInteger)vpH };
 			[enc setScissorRect:r];
 		}
+		// p6 band-hunt: flag every state application whose viewport or scissor
+		// is narrower than the bound RT. One such rect, painted black or left
+		// to cull, is the world-clipping band we keep seeing at x~2304.
+		{
+			uint32_t rw = 0, rh = 0;
+			if (rt[0] && dev)
+				dev->TextureDims(rt[0], &rw, &rh);
+			if (rw > 1600 && rh > 800) // screen-sized targets only
+			{
+				const bool vpOff = vpX != 0 || vpY != 0 || vpW != (double)rw || vpH != (double)rh;
+				const bool scNarrow = scissorEn && !s_noScis &&
+				                      ((scR - scL) < (long)(rw * 0.95) || (scB - scT) < (long)(rh * 0.95));
+				if (vpOff || scNarrow)
+				{
+					static int s_rectN = 0;
+					if (s_rectN < 60)
+					{
+						const char* rnC = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
+						Log("- p6 rectdbg #%d: rt=%s %ux%u vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d)",
+						    s_rectN, rnC ? rnC : "?", rw, rh, vpX, vpY, vpW, vpH, (int)scissorEn,
+						    scL, scT, scR, scB);
+						s_rectN++;
+					}
+				}
+			}
+		}
 		DepthStencilDesc ds;
 		ds.depthEnable = depthEn;
 		ds.depthFunc = depthFunc;

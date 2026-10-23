@@ -385,26 +385,31 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 }
 // p6: MRT variants — the probe pipeline must output EVERY attachment of the
 // pass it draws into (a 1-RT pipeline into a 3-RT pass = silently rejected draw).
-fragment void xrfill2_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    [[color(0)]] float4 c0, [[color(1)]] float4 c1) { c0 = params; c1 = params; }
-fragment void xrfill3_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    [[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2)
-    { c0 = params; c1 = params; c2 = params; }
-fragment void xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]],
-    [[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2,
-    [[color(3)]] float4 c3) { c0 = params; c1 = params; c2 = params; c3 = params; }
-// p6: zero-binding fallback — no buffers, no stage_in; only color(N) outputs.
+// NOTE: old-school struct returns — [[color(N)]] fragment ARGS are Metal 3 and
+// the runtime compiles kBlitMSL at the DEFAULT language version, which parsed
+// them as plain locals: valid pipeline, legal draw, discarded outputs (the
+// fill that produced no pixels).
+struct Fill2 { float4 a [[color(0)]]; float4 b [[color(1)]]; };
+struct Fill3 { float4 a [[color(0)]]; float4 b [[color(1)]]; float4 c [[color(2)]]; };
+struct Fill4 { float4 a [[color(0)]]; float4 b [[color(1)]]; float4 c [[color(2)]];
+    float4 d [[color(3)]]; };
+fragment Fill2 xrfill2_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]])
+    { return Fill2{ params, params }; }
+fragment Fill3 xrfill3_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]])
+    { return Fill3{ params, params, params }; }
+fragment Fill4 xrfill4_ps(BlitOut in [[stage_in]], constant float4& params [[buffer(0)]])
+    { return Fill4{ params, params, params, params }; }
+// p6: zero-binding fallback — hardcoded triangle, hardcoded red, no buffers.
 vertex float4 xrtri_vs(uint vid [[vertex_id]]) {
     float2 p = float2(float((vid << 1) & 2), float(vid & 2));
     return float4(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
 }
-fragment void xrred1_ps([[color(0)]] float4 c0) { c0 = float4(1.0, 0.0, 0.0, 1.0); }
-fragment void xrred2_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1)
-    { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; }
-fragment void xrred3_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2)
-    { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; c2 = c0; }
-fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(2)]] float4 c2,
-    [[color(3)]] float4 c3) { c0 = float4(1.0, 0.0, 0.0, 1.0); c1 = c0; c2 = c0; c3 = c0; }
+fragment float4 xrred1_ps() { return float4(1.0, 0.0, 0.0, 1.0); }
+fragment Fill2 xrred2_ps() { return Fill2{ float4(1,0,0,1), float4(1,0,0,1) }; }
+fragment Fill3 xrred3_ps()
+    { float4 r(1,0,0,1); return Fill3{ r, r, r }; }
+fragment Fill4 xrred4_ps()
+    { float4 r(1,0,0,1); return Fill4{ r, r, r, r }; }
 )metal";
 
 	struct MtlPassManager

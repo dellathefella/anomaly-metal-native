@@ -12,8 +12,13 @@ static const float source_radius = 12.5f;
 static const float source_offset = 40.f;
 static const float max_distance = source_offset * 1.25f;
 static const float sink_offset = -(max_distance - source_offset);
-static const float drop_length = 5.f;
-static const float drop_width = 0.30f;
+// Look tuning for the Mac ports: the legacy DX9 rain used 5m x 0.3m quads,
+// which project as screen-crossing spikes from the 12.5m spawn cylinder
+// around the camera (a drop 2m away spans ~100 deg of view). DX11-era
+// Anomaly rain reads as fine streaks; shorten/narrow the quads to match
+// that silhouette without touching spawn physics.
+static const float drop_length = 1.2f;
+static const float drop_width = 0.06f;
 static const float drop_angle = 3.0f;
 static const float drop_max_angle = deg2rad(10.f);
 static const float drop_max_wind_vel = 20.0f;

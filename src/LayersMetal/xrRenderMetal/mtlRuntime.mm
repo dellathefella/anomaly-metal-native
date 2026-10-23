@@ -2549,6 +2549,27 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 			att.loadAction = MTLLoadActionLoad;
 			att.storeAction = MTLStoreActionStore;
 		}
+		// p6: per-pass truth log — does THIS pass actually get zb?
+		// (dprobe proved zb is never written; if the position pass
+		// logs zb=0, the depth state is a no-op and DX9 z-surface
+		// binding is lost on this path.)
+		{
+			static std::vector<std::string> s_zlinkSeen;
+			const char* rnZ = rt[0] ? MtlDbgRTGetName(rt[0]) : nullptr;
+			std::string nmZ = rnZ ? rnZ : "?";
+			bool seen = false;
+			for (const std::string& s : s_zlinkSeen)
+				if (s == nmZ)
+				{
+					seen = true;
+					break;
+				}
+			if (!seen && s_zlinkSeen.size() < 40)
+			{
+				s_zlinkSeen.push_back(nmZ);
+				Log("- p6 passZlink: rt=%s zb=%p", nmZ.c_str(), zb);
+			}
+		}
 		if (zb)
 		{
 			id<MTLTexture> tex = (__bridge id<MTLTexture>)zb;

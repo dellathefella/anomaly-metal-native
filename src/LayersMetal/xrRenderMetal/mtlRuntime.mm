@@ -559,9 +559,12 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 							const uint32_t bpp = dev->TextureBpp(rt[0]);
 							if (bpp)
 							{
-								std::vector<uint8_t> buf(size_t(bw) * bh * 4);
+								// p6: ReadbackSlice returns RAW format bytes —
+								// stride/size must use the texture's own bpp,
+								// not 4 (fp16 RTs read back as 8 B/px).
+								std::vector<uint8_t> buf(size_t(bw) * bh * bpp);
 								std::string derr;
-								if (dev->ReadbackSlice(rt[0], buf.data(), bw * 4, bw, bh, 0, 0,
+								if (dev->ReadbackSlice(rt[0], buf.data(), bw * bpp, bw, bh, 0, 0,
 								                       derr))
 								{
 									mkdir("/tmp/rtdump", 0755);
@@ -576,21 +579,28 @@ fragment float4 xrfill_ps(BlitOut in [[stage_in]], constant float4& params [[buf
 										fwrite(buf.data(), 1, buf.size(), f);
 										fclose(f);
 									}
-									// row stats at mid height: rightmost lit pixel
+									// row stats at mid height: rightmost lit
+									// pixel. Test RGB bytes only (alpha can be
+									// a constant 1.0 in fp16 RTs).
 									uint32_t lastLit = 0, blackTail = 0;
 									const uint32_t y = bh / 2;
+									const uint32_t rgb = bpp >= 6 ? 6 : bpp - 2;
 									for (uint32_t x = bw; x-- > 0;)
 									{
-										const uint8_t* p = &buf[(size_t(y) * bw + x) * 4];
-										if (p[0] | p[1] | p[2])
+										const uint8_t* p = &buf[(size_t(y) * bw + x) * bpp];
+										uint8_t any = 0;
+										for (uint32_t c = 0; c < rgb; c++)
+											any |= p[c];
+										if (any)
 										{
 											lastLit = x;
 											break;
 										}
 										blackTail++;
 									}
-									Log("- p6 rtdump: %s %ux%u midrow lastlit=%u blacktail=%u -> %s",
-									    rn, bw, bh, lastLit, blackTail, path);
+									Log("- p6 rtdump: %s %ux%u fmt=%ld midrow lastlit=%u "
+									    "blacktail=%u -> %s",
+									    rn, bw, bh, (long)t0.pixelFormat, lastLit, blackTail, path);
 								}
 								else
 									Log("! p6 rtdump: %s readback failed: %s", rn, derr.c_str());

@@ -606,6 +606,14 @@ fragment void xrred4_ps([[color(0)]] float4 c0, [[color(1)]] float4 c1, [[color(
 								    t0.width, t0.height }];
 								[enc setDepthStencilState:s_alwaysDss];
 								[enc setCullMode:MTLCullModeNone];
+								[enc setTriangleFillMode:MTLTriangleFillModeFill];
+								// Engine per-draw depth bias is encoder state
+								// too: a leftover big bias depth-clips this
+								// z=0 triangle entirely (test passes, frags
+								// vanish before the store — exactly what the
+								// fillverify saw).
+								[enc setDepthBias:0.0 slopeScale:0.0
+								            clamp:1e30];
 								[enc setRenderPipelineState:pso];
 								[enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0
 								         vertexCount:3];

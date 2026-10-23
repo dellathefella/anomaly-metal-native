@@ -891,6 +891,78 @@ fragment Fill4 xrred4_ps()
 									    d100[1], d3k[0], d3k[1]);
 								}
 							}
+							// p6: self-calibration — stamp fb 0.97 into the
+							// whole zb (LessEqual + WRITE), then probe with
+							// the same Less machinery at 0.995 (must FAIL:
+							// lastred==0) and 0.90 (must PASS: full red).
+							// If calibration lies, the sweep proves nothing.
+							id<MTLDepthStencilState> s_dssW = nil;
+							{
+								MTLDepthStencilDescriptor* dd =
+									[MTLDepthStencilDescriptor new];
+								dd.depthCompareFunction =
+									MTLCompareFunctionLessEqual;
+								dd.depthWriteEnabled = true;
+								s_dssW = [(__bridge id<MTLDevice>)dev->Device()
+								        newDepthStencilStateWithDescriptor:dd];
+							}
+							if (s_dssW && pso)
+							{
+								const float cals[3] = { 0.97f, 0.995f, 0.90f };
+								uint32_t calLast[3] = { 0, 0, 0 };
+								for (int ci = 0; ci < 3; ci++)
+								{
+									const float fbz = cals[ci];
+									const float dparams[4] = { 1.0f, 0.0f,
+										2.0f * fbz - 1.0f, 1.0f };
+									id<MTLBuffer> pb =
+									    [(__bridge id<MTLDevice>)dev->Device()
+									        newBufferWithBytes:dparams
+									                    length:sizeof(dparams)
+									                  options:MTLResourceStorageModeShared];
+									if (!pb)
+										continue;
+									id<MTLRenderCommandEncoder> de =
+										[cb renderCommandEncoderWithDescriptor:drpd];
+									[de setViewport:(MTLViewport){ 0.0, 0.0,
+										(double)a0.width, (double)a0.height,
+										0.0, 1.0 }];
+									[de setDepthStencilState:ci == 0
+									                           ? s_dssW
+									                           : s_greaterDss];
+									[de setCullMode:MTLCullModeNone];
+									[de setRenderPipelineState:pso];
+									[de setVertexBuffer:pb offset:0 atIndex:0];
+									[de setFragmentBuffer:pb offset:0 atIndex:0];
+									[de drawPrimitives:MTLPrimitiveTypeTriangle
+									        vertexStart:0
+									        vertexCount:3];
+									[de endEncoding];
+									[cb commit];
+									[cb waitUntilCompleted];
+									cb = [(__bridge id<MTLCommandQueue>)dev->Queue()
+									        commandBuffer];
+									std::string derr;
+									if (dev->ReadbackSlice(
+									        (void*)(__bridge void*)a0,
+									        dbuf.data(), a0.width * bpp,
+									        a0.width, dh, 0, 0, derr))
+									{
+										const uint8_t* row = &dbuf[size_t(dh / 2)
+										                           * a0.width * bpp];
+										for (uint32_t x = a0.width; x-- > 0;)
+											if (row[size_t(x) * bpp + 1] == 0x3c)
+											{
+												calLast[ci] = x;
+												break;
+											}
+									}
+								}
+								Log("- p6 dcalib: stamp0.97 then Less: "
+								    "probe0.995 lastred=%u (want 0) "
+								    "probe0.90 lastred=%u (want %u)",
+								    calLast[1], calLast[2], a0.width - 1);
+							}
 						}
 					}
 				}

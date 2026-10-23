@@ -860,23 +860,36 @@ fragment Fill4 xrred4_ps()
 								bool ok = dev->ReadbackSlice(
 								    (void*)(__bridge void*)a0, dbuf.data(),
 								    a0.width * bpp, a0.width, dh, 0, 0, derr);
-								const uint32_t ym = dh / 2;
-								const uint8_t* row = &dbuf[size_t(ym) *
-								                           a0.width * bpp];
-								uint32_t lastred = 0;
-								for (uint32_t x = a0.width; x-- > 0;)
-									if (row[size_t(x) * bpp + 1] == 0x3c)
-									{
-										lastred = x;
-										break;
-									}
-								const uint8_t* d100 = &row[size_t(100) * bpp];
-								const uint8_t* d3k =
-								    &row[size_t(3000) * bpp];
-								Log("- p6 dprobe: fbz=%.3f ok=%d y%u lastred=%u "
-								    "x100:%02x%02x x3000:%02x%02x",
-								    fbz, (int)ok, ym, lastred, d100[0], d100[1],
-								    d3k[0], d3k[1]);
+								// Mid row is the HORIZON (ground
+								// there is 100 m+ => fb~0.999 => red
+								// regardless). The bottom row has the
+								// ground 2-5 m ahead (fb 0.97-0.99):
+								// black at x100 there proves depth
+								// IS written; x3000 then says wall
+								// (black) vs missing-geometry (red).
+								const uint32_t ys[2] = { dh / 2,
+									     dh > 60u ? dh - 40u : 0u };
+								for (int ri = 0; ri < 2; ri++)
+								{
+									const uint32_t ym = ys[ri];
+									const uint8_t* row =
+									    &dbuf[size_t(ym) * a0.width * bpp];
+									uint32_t lastred = 0;
+									for (uint32_t x = a0.width; x-- > 0;)
+										if (row[size_t(x) * bpp + 1] == 0x3c)
+										{
+											lastred = x;
+											break;
+										}
+									const uint8_t* d100 =
+									    &row[size_t(100) * bpp];
+									const uint8_t* d3k =
+									    &row[size_t(3000) * bpp];
+									Log("- p6 dprobe: fbz=%.3f ok=%d y%u "
+									    "lastred=%u x100:%02x%02x x3000:%02x%02x",
+									    fbz, (int)ok, ym, lastred, d100[0],
+									    d100[1], d3k[0], d3k[1]);
+								}
 							}
 						}
 					}

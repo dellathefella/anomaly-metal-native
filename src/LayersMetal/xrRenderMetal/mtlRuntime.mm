@@ -4576,6 +4576,67 @@ namespace
 			}
 		}
 
+		// p6 band-hunt: XR_METAL_CLIPSTAT — NDC-x distribution of vertices in
+		// live scene draws (CPU clip math over the exact staging bytes).
+		// Tris landing in the band (ndc 0.524..1.0) exist => raster drops
+		// them; none => CPU culling never submitted them.
+		{
+			static const bool s_cstat = !!getenv("XR_METAL_CLIPSTAT");
+			static uint64_t s_csNext = 0;
+			static int s_csWin = 0;
+			if (s_cstat && s_csWin < 8 && indexed && ds.vb && ds.ib && !pm.staging.empty() &&
+			    g_dbgDrawOK >= s_csNext)
+			{
+				const char* rtN2 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+				if (rtN2 && strstr(rtN2, "position"))
+				{
+					s_csNext = g_dbgDrawOK + 6000;
+					s_csWin++;
+					const float* mW = nullptr;
+					for (const auto& u : vsR->uniforms)
+						if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
+						{
+							mW = reinterpret_cast<const float*>(pm.staging.data() + u.offset);
+							break;
+						}
+					if (mW)
+					{
+						id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;
+						id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
+						const uint16_t* i = (const uint16_t*)[ibB contents];
+						const uint8_t* vbase = (const uint8_t*)[vbB contents];
+						unsigned nb = 0, nl = 0, nband = 0, nx = 0;
+						const uint32_t tn = primCount < 48 ? primCount : 48;
+						for (uint32_t t = 0; t < tn; t++)
+						{
+							const uint8_t* vp =
+							    vbase + (NSUInteger)(baseV + i[startI + t]) * ds.vbStride;
+							const float* p = reinterpret_cast<const float*>(vp);
+							const float vx = p[0], vy = p[1], vz = p[2];
+							const float cx = vx * mW[0] + vy * mW[4] + vz * mW[8] + mW[12];
+							const float cw = vx * mW[3] + vy * mW[7] + vz * mW[11] + mW[15];
+							if (!(cw > 0.f))
+							{
+								nb++;
+								continue;
+							}
+							const float ndx = cx / cw;
+							if (ndx > 1.f || ndx < -1.f)
+								nx++;
+							else if (ndx > 0.524f)
+								nband++;
+							else
+								nl++;
+						}
+						Log("- p6 clipstat#%d: pair=%s tris=%u behind=%u left=%u band=%u out=%u "
+						    "mW=(%.3f %.3f %.3f %.3f)",
+						    s_csWin, pair ? pair->name.c_str() : "?", tn, nb, nl, nband, nx, mW[0],
+						    mW[5], mW[10], mW[15]);
+					}
+				}
+			}
+		}
+
 		BindDraw(pm, pm.enc, *vsR, *psR, slotOff);
 
 		// p5 diag: dump the first draws (which shader, what geometry, which RT).

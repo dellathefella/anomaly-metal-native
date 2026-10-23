@@ -242,6 +242,16 @@ void CHW::Reset()
     UpdateVSync();
     MtlInvalidatePass();
     UpdateViews();
+
+    // p6 band-hunt: CPU culling matrix vs viewport. The x=2304 band implies a
+    // culling aspect of ~1.383 while the viewport aspect is ~1.815.
+    if (getenv("XR_METAL_RTSIZES"))
+    {
+        const Fmatrix& P = Device.mProject;
+        Msg("* p6 projmat(reset): half=%g/%g fAspect=%g fov=%g P._11=%g _22=%g _24=%g dw=%ux%u",
+            Device.fWidth_2, Device.fHeight_2, Device.fASPECT, Device.fFOV, P._11, P._22, P._24,
+            Device.dwWidth, Device.dwHeight);
+    }
 }
 
 void CHW::SetPrimaryAttributes(u32& windowFlags)

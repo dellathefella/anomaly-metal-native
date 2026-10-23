@@ -4191,20 +4191,28 @@ namespace
 			psR = (const MtlStageRefl*)ds.ps;
 		}
 		// p6 band-hunt: XR_METAL_STOPAFTER=<substr> halts all further draws
-		// once a matching shader pair has been emitted (paint-order bisection:
-		// whatever covers the right band disappears when the culprit is cut).
+		// within a frame once a matching shader pair has been emitted
+		// (paint-order bisection). Re-arms each frame (new command buffer).
 		{
 			static const char* s_stop = getenv("XR_METAL_STOPAFTER");
 			static bool s_stopped = false;
+			static const void* s_stopCb = nullptr;
 			if (s_stop)
 			{
+				if ((__bridge const void*)pm.cb != s_stopCb)
+				{
+					s_stopCb = (__bridge const void*)pm.cb;
+					s_stopped = false;
+				}
 				if (s_stopped)
 					return true;
 				const char* nm = pair ? pair->name.c_str() : (psR ? psR->name.c_str() : "");
 				if (nm && strstr(nm, s_stop))
 				{
 					s_stopped = true;
-					Log("- p6 stopafter: halted draws after pair '%s'", nm);
+					static int s_saN = 0;
+					if (s_saN++ < 3)
+						Log("- p6 stopafter: halted frame draws after pair '%s'", nm);
 				}
 			}
 		}

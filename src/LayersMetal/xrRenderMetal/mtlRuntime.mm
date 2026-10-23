@@ -660,43 +660,7 @@ fragment Fill4 xrred4_ps()
 						[cb commit];
 						[cb waitUntilCompleted];
 						cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
-							// p6: RAW zb readback — bypass the Less-fill
-							// chain entirely. Scan the bottom row of the
-							// depth texture itself. All 1.0 => truly
-							// unwritten; any <0.99 => the fill-chain was
-							// lying and depth IS written.
-							{
-								id<MTLTexture> zt =
-								    zb ? (__bridge id<MTLTexture>)zb : nil;
-								const uint32_t zw = zt ? (uint32_t)zt.width : 0;
-								const uint32_t zh = zt ? (uint32_t)zt.height : 0;
-								if (zw >= 1024 && zh >= 600)
-								{
-									std::vector<uint8_t> zbuf(
-									    size_t(zw) * zh * 4);
-									std::string zerr;
-									bool zok = dev->ReadbackSlice(
-									    zb, zbuf.data(), zw * 4, zw, zh, 0, 0,
-									    zerr);
-									const uint32_t zy = zh - 40u;
-									const float* zrow = reinterpret_cast<const float*>(
-									    &zbuf[size_t(zy) * zw * 4]);
-									float zmin = 2.f, zmax = -2.f;
-									uint64_t zfar = 0;
-									for (uint32_t x = 0; x < zw; x++)
-									{
-										const float v = zrow[x];
-										if (v < zmin) zmin = v;
-										if (v > zmax) zmax = v;
-										if (v > 0.9999f) zfar++;
-									}
-									Log("- p6 rawZb: ok=%d y=%u min=%.5f "
-									    "max=%.5f farfrac=%.3f x100=%.5f "
-									    "x3000=%.5f err=%s",
-									    (int)zok, zy, zmin, zmax,
-									    (double)zfar / zw, zrow[100],
-									    zrow[3000], zerr.c_str());
-								}
+							// (rawZb relocated to dprobe block)
 						id<MTLTexture> a0 = rpdAtt0 ? rpdAtt0
 						                            : (__bridge id<MTLTexture>)rt[0];
 						MTLRenderPassDescriptor* frpd = [MTLRenderPassDescriptor new];
@@ -852,6 +816,43 @@ fragment Fill4 xrred4_ps()
 						cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
 						id<MTLTexture> a0 = rpdAtt0 ? rpdAtt0
 						                            : (__bridge id<MTLTexture>)rt[0];
+							// p6: RAW zb readback — bypass the Less-fill
+							// chain entirely. Scan the bottom row of the
+							// depth texture itself. All 1.0 => truly
+							// unwritten; any <0.99 => the fill-chain was
+							// lying and depth IS written.
+							{
+								id<MTLTexture> zt =
+								    zb ? (__bridge id<MTLTexture>)zb : nil;
+								const uint32_t zw = zt ? (uint32_t)zt.width : 0;
+								const uint32_t zh = zt ? (uint32_t)zt.height : 0;
+								if (zw >= 1024 && zh >= 600)
+								{
+									std::vector<uint8_t> zbuf(
+									    size_t(zw) * zh * 4);
+									std::string zerr;
+									bool zok = dev->ReadbackSlice(
+									    zb, zbuf.data(), zw * 4, zw, zh, 0, 0,
+									    zerr);
+									const uint32_t zy = zh - 40u;
+									const float* zrow = reinterpret_cast<const float*>(
+									    &zbuf[size_t(zy) * zw * 4]);
+									float zmin = 2.f, zmax = -2.f;
+									uint64_t zfar = 0;
+									for (uint32_t x = 0; x < zw; x++)
+									{
+										const float v = zrow[x];
+										if (v < zmin) zmin = v;
+										if (v > zmax) zmax = v;
+										if (v > 0.9999f) zfar++;
+									}
+									Log("- p6 rawZb: ok=%d y=%u min=%.5f "
+									    "max=%.5f farfrac=%.3f x100=%.5f "
+									    "x3000=%.5f err=%s",
+									    (int)zok, zy, zmin, zmax,
+									    (double)zfar / zw, zrow[100],
+									    zrow[3000], zerr.c_str());
+								}
 						MTLRenderPassDescriptor* drpd = [MTLRenderPassDescriptor new];
 						drpd.colorAttachments[0].texture = a0;
 						drpd.colorAttachments[0].loadAction = MTLLoadActionClear;

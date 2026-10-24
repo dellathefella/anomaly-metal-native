@@ -3194,6 +3194,29 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 	{
 		if (!enc)
 			return;
+		// p6 band-hunt: XR_METAL_POSVP=1 — log the EXACT viewport/scissor applied
+		// to position-pass draws (rectdbg hid it: only logs on RT-mismatch). If
+		// vpW < RT width, the geometry pass is rendering into a narrow sub-rect
+		// => the screen-fixed right band.
+		{
+			static const bool s_pvp = !!getenv("XR_METAL_POSVP");
+			if (s_pvp && rt[0] && dev)
+			{
+				const char* rn = MtlDbgRTGetName(rt[0]);
+				if (rn && strstr(rn, "position"))
+				{
+					uint32_t rw = 0, rh = 0;
+					dev->TextureDims(rt[0], &rw, &rh);
+					static std::set<std::string> s_pvpSeen;
+					char sig[128];
+					snprintf(sig, sizeof sig, "%.0f|%.0f|%.0f|%.0f|%d|%d|%d|%d|%d|%u", vpX,
+					         vpY, vpW, vpH, (int)scissorEn, scL, scT, scR, scB, rw);
+					if (s_pvpSeen.size() < 24 && s_pvpSeen.insert(sig).second)
+						Log("- p6 posvp: rt=%ux%u vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d)",
+						    rw, rh, vpX, vpY, vpW, vpH, (int)scissorEn, scL, scT, scR, scB);
+				}
+			}
+		}
 		const MTLViewport vp{ vpX, vpY, vpW, vpH, vpMin, vpMax };
 		[enc setViewport:vp];
 		// p5 launch250: XR_P5_NOSCISSOR=1 skips the rect entirely (a stale
@@ -5497,11 +5520,14 @@ namespace
 					const char* rnW = MtlDbgRTGetName(pm.rt[0]);
 					if (rnW && strstr(rnW, "position") && g_mtlPresentCount > 6000)
 					{
-						static int s_wcN = 0, s_wmN = 0;
-						if (s_wcN < 60000)
+						static int s_wcN = 0, s_wmN = 0, s_wsN = 0;
+						if (s_wcN + s_wsN < 60000)
+						{
+							bool foundW = false;
 							for (const auto& uw : vsR->uniforms)
 								if (uw.name == "m_WVP" && uw.offset + 64 <= pm.vsSize)
 								{
+									foundW = true;
 									float xf[16];
 									if (xrMetalGetFullXform(xf))
 									{
@@ -5515,8 +5541,10 @@ namespace
 										if (!eq && s_wmN < 4)
 										{
 											s_wmN++;
-											Log("- p6 wvpcmp MISMATCH off=%u vsSize=%u",
-											    uw.offset, pm.vsSize);
+											Log("- p6 wvpcmp MISMATCH off=%u vsSize=%u "
+											    "pair=%s",
+											    uw.offset, pm.vsSize,
+											    pair ? pair->name.c_str() : "?");
 											Log("- p6 wvpcmp gpu=(%.4f %.4f %.4f %.4f|%.4f "
 											    "%.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f "
 											    "%.4f %.4f %.4f)",

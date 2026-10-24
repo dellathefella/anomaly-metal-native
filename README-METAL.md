@@ -65,9 +65,13 @@ Earlier "red stops/never crosses" readings were additionally corrupted by
 single-row scans and tail-truncated logs.
 
 **Facts still load-bearing:** band edge = NDC x ≈ 0.52, straight, tilted ≈0.9°,
-screen-fixed through 66° orbit; fixed-NDC fill reaches x=2645 through the same
-PSO path (wvp21, 1.27M red px in position RT + screenshot); staged m_WVP
-projects to maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
+**conclusively screen-fixed** — wvp29 orbited the live camera 132° (yaw
+94→50→6→−38) and the edge stayed at top=2311/mid=2297/bot=2287, tilt 0.91°,
+BAND@0.760 in every shot. This rules out world-fixed geometry: missing terrain
+sectors, world-space geometry gaps, and camera-locked culling (all rotate with
+the camera). Fixed-NDC fill reaches x=2645 through the same PSO path (wvp21,
+1.27M red px in position RT + screenshot); staged m_WVP projects to
+maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
 
 **Active theory:** the tilt kills every framebuffer-space mechanism
 (viewport/scissor/attachments cannot tilt) — only clip-space or matrix x/y

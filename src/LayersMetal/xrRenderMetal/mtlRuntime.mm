@@ -410,15 +410,26 @@ vertex float4 xrtri_vs(uint vid [[vertex_id]]) {
 // p6 band-hunt: replay VS — engine VB bytes + engine WVP bytes with the
 // SAME row-vector semantics as engine MSL (v * float4x4), vertex-id driven
 // through a copied index list. Zero dependence on engine decls/descriptors.
-struct XrReplayU { float4x4 wvp; uint stride; uint baseV; };
+struct XrReplayU { float4x4 wvp; uint stride; uint baseV; uint mode; };
 vertex float4 xrreplay_vs(uint vid [[vertex_id]],
                           const device uchar* vb [[buffer(1)]],
                           const device ushort* ib [[buffer(2)]],
                           constant XrReplayU& u [[buffer(0)]])
 {
+    // wvp21: runtime variant switch (XR_METAL_RPMODE): 0 = engine row-vector
+    // semantics; 1 = fixed NDC triangle through the SAME pipeline+draw path
+    // (plumbing vs transform discriminator); 2 = column-vector M*v.
+    if (u.mode == 1u)
+    {
+        float2 p = float2(float((vid << 1) & 2), float(vid & 2));
+        return float4((p.x * 2.0 - 1.0) * 0.25, (1.0 - p.y * 2.0) * 0.25, 0.0, 1.0);
+    }
     uint i = uint(ib[vid]) + u.baseV;
     const device float* p = (const device float*)(vb + size_t(i) * u.stride);
-    return float4(p[0], p[1], p[2], 1.0) * u.wvp;
+    float4 pos = float4(p[0], p[1], p[2], 1.0);
+    if (u.mode == 2u)
+        return u.wvp * pos;
+    return pos * u.wvp;
 }
 fragment float4 xrred1_ps() { return float4(1.0, 0.0, 0.0, 1.0); }
 fragment Fill2 xrred2_ps() { return Fill2{ float4(1,0,0,1), float4(1,0,0,1) }; }
@@ -436,11 +447,14 @@ fragment Fill4 xrred4_ps()
 	bool g_rpOk = false;
 	bool g_rpDrew = false;
 	uint32_t g_rpFront = 0;
+	uint32_t g_rpBand = 0; // wvp23: prefer draws that cover the band region
 	bool g_rpDrew2 = false;
 
-	// p6 band-hunt: defined in xrRender_R2/r2.cpp; dumps the culling ViewBase
+	// p6 band-hunt: defined in xrRender_R2/r2.cpp; formats the culling ViewBase
 	// planes + stamp + mFullTransform (called from endEncoder, see frusprobe).
-	extern "C" void xrMetalDumpFrustum();
+	extern "C" int xrMetalFormatFrustum(char* buf, int cap);
+	// p6 band-hunt: engine mFullTransform as 16 floats (WVP-override probe).
+	extern "C" int xrMetalGetFullXform(float* out16);
 
 	struct MtlPassManager
 	{
@@ -678,7 +692,7 @@ fragment Fill4 xrred4_ps()
 				const bool rpScren = rt[0] && MtlDbgRTGetName(rt[0]) &&
 				                             strstr(MtlDbgRTGetName(rt[0]), "generic0");
 				if (s_rpen && g_rpOk && rt[0] && dev && attColorCount &&
-				    (s_rpN < 400 || (rpScren && s_rpN2 < 400)))
+				    (s_rpN < 400 || (rpScren && s_rpN2 < 1200)))
 				{
 					const char* rn = MtlDbgRTGetName(rt[0]);
 					if (rn && (strstr(rn, "position") || rpScren))
@@ -689,6 +703,7 @@ fragment Fill4 xrred4_ps()
 							s_rpN++;
 						g_rpOk = false;
 						g_rpFront = 0; // re-pick the biggest draw next frame
+						g_rpBand = 0;
 						id<MTLDevice> mdev = (__bridge id<MTLDevice>)dev->Device();
 						if (!s_rpPso)
 						{
@@ -734,12 +749,22 @@ fragment Fill4 xrred4_ps()
 							struct RpU
 							{
 								float wvp[16];
-								uint32_t stride, baseV;
+								uint32_t stride, baseV, mode;
 							};
 							RpU u;
 							std::memcpy(u.wvp, g_rpWvp, 64);
 							u.stride = g_rpStride;
 							u.baseV = g_rpBaseV;
+							// wvp21: XR_METAL_RPMODE=fixed|tp variant switch.
+							static const uint32_t s_rpMode = [] {
+								const char* m = getenv("XR_METAL_RPMODE");
+								if (m && !strcmp(m, "fixed"))
+									return 1u;
+								if (m && !strcmp(m, "tp"))
+									return 2u;
+								return 0u;
+							}();
+							u.mode = s_rpMode;
 							id<MTLBuffer> ub = [mdev
 							    newBufferWithBytes:&u
 							                length:sizeof(RpU)
@@ -790,6 +815,7 @@ fragment Fill4 xrred4_ps()
 								unsigned nFront = 0, nBand = 0, nOut = 0;
 								double maxNx = -9.9;
 								double pxLo = 1e9, pxHi = -1e9; // expected screen px
+								double pyLo = 1e9, pyHi = -1e9; // wvp20: y too
 								for (uint32_t k = 0; k < nIdx; k += 3)
 								{
 									bool anyFront = false;
@@ -800,23 +826,32 @@ fragment Fill4 xrred4_ps()
 										const float* q =
 										    (const float*)(vbB +
 										                 size_t(vi) * g_rpStride);
-										float cw = q[0] * m[3] + q[1] * m[7] +
-										         q[2] * m[11] + m[15];
+										float cw = q[0] * m[12] + q[1] * m[13] +
+										         q[2] * m[14] + m[15];
 										if (cw <= 0.01f)
 											continue;
 										anyFront = true;
-										float cx = q[0] * m[0] + q[1] * m[4] +
-										         q[2] * m[8] + m[12];
+										float cx = q[0] * m[0] + q[1] * m[1] +
+										         q[2] * m[2] + m[3];
+										float cy = q[0] * m[4] + q[1] * m[5] +
+										         q[2] * m[6] + m[7];
 										double nx = cx / cw;
+										double ny = cy / cw;
 										if (nx > maxNx)
 											maxNx = nx;
-										if (nx >= -1.0 && nx <= 1.0)
+										if (nx >= -1.0 && nx <= 1.0 && ny >= -1.0 &&
+										    ny <= 1.0)
 										{
 											double px = (nx * 0.5 + 0.5) * 3024.0;
+											double py = (0.5 - ny * 0.5) * 1688.0;
 											if (px < pxLo)
 												pxLo = px;
 											if (px > pxHi)
 												pxHi = px;
+											if (py < pyLo)
+												pyLo = py;
+											if (py > pyHi)
+												pyHi = py;
 										}
 										if (nx > 0.524)
 											nBand++;
@@ -827,9 +862,10 @@ fragment Fill4 xrred4_ps()
 										nFront++;
 								}
 								Log("- p6 replaycpu: pass=%s tris=%u front=%u bandVerts=%u "
-								    "outVerts=%u maxNdcX=%.3f px=[%.0f..%.0f]",
+								    "outVerts=%u maxNdcX=%.3f px=[%.0f..%.0f] py=[%.0f..%.0f]",
 								    rn ? rn : "?", nIdx / 3, nFront, nBand, nOut, maxNx,
-								    pxLo > pxHi ? -1.0 : pxLo, pxHi);
+								    pxLo > pxHi ? -1.0 : pxLo, pxHi,
+								    pyLo > pyHi ? -1.0 : pyLo, pyHi);
 							}
 							const float* wf = (const float*)g_rpWvp;
 							Log("- p6 replay: drew nIdx=%u stride=%u baseV=%u "
@@ -868,25 +904,31 @@ fragment Fill4 xrred4_ps()
 					bool okR = dev->ReadbackSlice((void*)(__bridge void*)a0r,
 					                              rb.data(), Wr * bppR, Wr, Hr, 0,
 					                              0, rerr);
-					int first = -1, last = -1, n = 0;
-					for (uint32_t x = 0; x < Wr; x++)
-					{
-						const uint8_t* p = &rb[(size_t(Yr) * Wr + x) * bppR];
-						if (p[0] == 0x00 && p[1] == 0x3c && p[2] == 0x00 &&
-						    p[3] == 0x00)
+					// wvp18: scan the WHOLE texture for probe-red (fp16 R=1,G=0
+					// => bytes 00 3c 00 00) and report the bbox. The old scan
+					// only checked row Yr=840 — the marsh horizon — where the
+					// replayed terrain may not land (and where sky/void clears
+					// to zero, so px100=00000000 was a false empty).
+					int firstX = -1, firstY = -1, lastX = -1, lastY = -1, n = 0;
+					for (uint32_t y = 0; y < Hr; y++)
+						for (uint32_t x = 0; x < Wr; x++)
 						{
-							n++;
-							if (first < 0)
-								first = (int)x;
-							last = (int)x;
+							const uint8_t* p = &rb[(size_t(y) * Wr + x) * bppR];
+							if (p[0] == 0x00 && p[1] == 0x3c && p[2] == 0x00 &&
+							    p[3] == 0x00)
+							{
+								n++;
+								if (firstX < 0)
+								{
+									firstX = (int)x;
+									firstY = (int)y;
+								}
+								lastX = (int)x;
+								lastY = (int)y;
+							}
 						}
-					}
-					const uint8_t* q1 = &rb[(size_t(Yr) * Wr + 100) * bppR];
-					const uint8_t* q2 = &rb[(size_t(Yr) * Wr + 2600) * bppR];
-					Log("- p6 replayrb: ok=%d y=%u bpp=%u redN=%d x=[%d..%d] "
-					    "px100=%02x%02x%02x%02x px2600=%02x%02x%02x%02x",
-					    (int)okR, Yr, bppR, n, first, last, q1[0], q1[1], q1[2],
-					    q1[3], q2[0], q2[1], q2[2], q2[3]);
+					Log("- p6 replayrb: ok=%d y=%u bpp=%u redN=%d bbox=[%d,%d..%d,%d]",
+					    (int)okR, Yr, bppR, n, firstX, firstY, lastX, lastY);
 				}
 				else
 					Log("- p6 replayrb: bpp=%u unsupported", bppR);
@@ -1309,7 +1351,11 @@ fragment Fill4 xrred4_ps()
 				    g_mtlPresentCount > (s_fsN ? uint64_t(6500) : uint64_t(6000)))
 				{
 					s_fsN++;
-					xrMetalDumpFrustum();
+					char fb[512];
+					int n = xrMetalFormatFrustum(fb, (int)sizeof fb);
+					Log("- p6 frusfire: dump#%d present=%llu n=%d", s_fsN,
+					    (unsigned long long)g_mtlPresentCount, n);
+					Log("%s", fb);
 				}
 			}
 			// p6 band-hunt: XR_METAL_RTDUMP=<substr> — every ~300th close of a
@@ -5438,6 +5484,61 @@ namespace
 			g_lastSlotOff = slotOff; // p5 accgpu: readable from the canary block
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;
 			std::memcpy(dst, pm.staging.data(), copySize);
+			// p6 band-hunt: XR_METAL_WVPCMP=1 — compare the ring-slot bytes the
+			// VS ACTUALLY reads at m_WVP against Device.mFullTransform (the
+			// intended matrix). match=1 everywhere => GPU matrix innocent, end
+			// of story for the matrix path. match=0 => log BOTH matrices: the
+			// wrong one is the band's projection.
+			{
+				static const int s_wcmp =
+				    getenv("XR_METAL_WVPCMP") ? atoi(getenv("XR_METAL_WVPCMP")) : 0;
+				if (s_wcmp && vsR && pm.rt[0] && pm.vsSize)
+				{
+					const char* rnW = MtlDbgRTGetName(pm.rt[0]);
+					if (rnW && strstr(rnW, "position") && g_mtlPresentCount > 6000)
+					{
+						static int s_wcN = 0, s_wmN = 0;
+						if (s_wcN < 60000)
+							for (const auto& uw : vsR->uniforms)
+								if (uw.name == "m_WVP" && uw.offset + 64 <= pm.vsSize)
+								{
+									float xf[16];
+									if (xrMetalGetFullXform(xf))
+									{
+										const float* got =
+										    reinterpret_cast<const float*>(dst + uw.offset);
+										bool eq = true;
+										for (int i = 0; i < 16; i++)
+											if (fabsf(got[i] - xf[i]) > 1e-3f)
+												eq = false;
+										s_wcN++;
+										if (!eq && s_wmN < 4)
+										{
+											s_wmN++;
+											Log("- p6 wvpcmp MISMATCH off=%u vsSize=%u",
+											    uw.offset, pm.vsSize);
+											Log("- p6 wvpcmp gpu=(%.4f %.4f %.4f %.4f|%.4f "
+											    "%.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f "
+											    "%.4f %.4f %.4f)",
+											    got[0], got[1], got[2], got[3], got[4], got[5],
+											    got[6], got[7], got[8], got[9], got[10],
+											    got[11], got[12], got[13], got[14], got[15]);
+											Log("- p6 wvpcmp want=(%.4f %.4f %.4f %.4f|%.4f "
+											    "%.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f "
+											    "%.4f %.4f %.4f)",
+											    xf[0], xf[1], xf[2], xf[3], xf[4], xf[5], xf[6],
+											    xf[7], xf[8], xf[9], xf[10], xf[11], xf[12],
+											    xf[13], xf[14], xf[15]);
+										}
+										else if (s_wcN <= 3)
+											Log("- p6 wvpcmp ok: off=%u vsSize=%u", uw.offset,
+											    pm.vsSize);
+									}
+									break;
+								}
+					}
+				}
+			}
 			// p5 launch217: c_brightness canary for the PP pair — if the
 			// screen turns RED the GPU-side CB layout is correct and the
 			// yellow must be NaN (interpolants/noise); if still YELLOW
@@ -8133,27 +8234,36 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						{
 							const float* m = reinterpret_cast<const float*>(
 							    pm.staging.data() + u.offset);
-							// CPU front test on sampled vertices: only capture
-							// draws whose geometry actually faces the camera.
+							// wvp28: capture must be (a) mostly front-facing and
+							// (b) genuinely band-covering (>=40 sampled verts in
+							// NDC x 0.524..1). wvp23/24 picked a 77%-backfacing
+							// particle draw whose replay rasterized to nothing.
 							const uint16_t* i16 =
 							    (const uint16_t*)[(__bridge id<MTLBuffer>)ds.ib
 							                              contents] +
 							    startI;
 							const uint8_t* vbB = (const uint8_t*)
 							    [(__bridge id<MTLBuffer>)ds.vb contents];
-							unsigned nFr = 0;
+							unsigned nBand = 0, nFront = 0, nSmp = 0;
 							for (uint32_t k = 0; k < primCount * 3; k += 17)
 							{
 								const float* q = (const float*)(vbB +
 								    size_t((uint32_t)i16[k] + baseV) * ds.vbStride);
-								if (q[0] * m[3] + q[1] * m[7] + q[2] * m[11] +
-								        m[15] >
-								    0.01f)
-									nFr++;
+								float cw = q[0] * m[12] + q[1] * m[13] +
+								           q[2] * m[14] + m[15];
+								if (cw <= 0.01f)
+									continue;
+								nFront++;
+								float nx = (q[0] * m[0] + q[1] * m[1] +
+								            q[2] * m[2] + m[3]) / cw;
+								if (nx > 0.524f && nx <= 1.0f)
+									nBand++;
+								nSmp++;
 							}
-							if (nFr > g_rpFront)
+							if (nBand >= 40 && nFront * 2 > nSmp && nBand > g_rpBand)
 							{
-								g_rpFront = nFr;
+								g_rpBand = nBand;
+								g_rpFront = nBand;
 								std::memcpy(g_rpWvp, m, 64);
 								g_rpVb = ds.vb;
 								g_rpIb = ds.ib;

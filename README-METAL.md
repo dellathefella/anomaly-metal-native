@@ -47,25 +47,39 @@ A vertical black band on the right edge of the screen (~24% of width at the wide
 | A second seam sits near **y≈1456**: below it the frame shows different content (HUD strip + smeared ground), so the defect is not purely one vertical edge | screenshot row scan + visual |
 | Verified-healthy in-game frame also shows **radial streaking** out of a central vanishing point with a stationary camera, and a very dark scene (mean lum 7.7/255, 7% non-black) — separate defects from the band | screenshot, 2026-10-23 |
 
-### Remaining suspects (bisect in progress)
+### Suspect ledger (status after wvp27)
 
-1. **Per-draw state gating the engine's real draws** — stencil is the prime suspect
-   (gbuffer draws bind stencil-enabled DSS; a stale/odd stencil mask would gate every engine draw
-   while probe draws with stencil disabled sail through). Kill-switch ready: `XR_P5_NOSTENCIL=1`.
-2. **CPU culling frustum** (`ViewBase.CreateFromMatrix(Device.mFullTransform)`) — a right-plane
-   narrower than the projection with ~1° roll would produce exactly this screen-fixed tilted wedge.
-   Probe armed: `XR_METAL_FRUSPROBE=1` dumps planes + full `mFullTransform` in-game.
-3. **The matrix the GPU actually consumes** differing from the dumped staging bytes (ring-slot
-   mismatch). The replay probe (engine VB + WVP bytes through a neutralized pipeline, red output,
-   sustained from Present>12200 with direct gbuffer readback) is the discriminator.
+**Ruled out** (each by raw RT bytes, in-game probes, or state-bisect runs):
+composite; viewport/scissor incl. bypass paths; attachment dims; texture views;
+HOM occlusion culling (wvp11); **culling frustum** — `OnCameraUpdated` is LIVE
+(frusprobe stamp advances), planes verified by hand as the correct 108° wedge
+of a healthy `mFullTransform` (wvp19); **stencil** — `XR_P5_NOSTENCIL=1` band
+pixel-identical (wvp26); **depth test** — `XR_METAL_NODEPTH=1` band unchanged
+(wvp27).
 
-### Verdict tree (next runs)
+**Replay probe RETIRED as oracle** (wvp18–wvp24): engine terrain MSL confirmed
+as `POSITION * m_WVP` (row-vector, `XR_METAL_MSFDUMP` dumps in /tmp/msl/);
+mode-0 replay performs the identical op on identical bytes yet rasterizes
+nothing — its raw vertex fetch does not reproduce the engine's attributed read.
+Earlier "red stops/never crosses" readings were additionally corrupted by
+single-row scans and tail-truncated logs.
 
-```
-replay red crosses band   → per-draw state kills engine draws → NOSTENCIL fix
-replay red stops at line  → matrix defines the boundary → frusprobeM reveals corruption
-frusprobe right-plane @ x≈2300 → CPU culling wedge → fix plane inputs
-```
+**Facts still load-bearing:** band edge = NDC x ≈ 0.52, straight, tilted ≈0.9°,
+screen-fixed through 66° orbit; fixed-NDC fill reaches x=2645 through the same
+PSO path (wvp21, 1.27M red px in position RT + screenshot); staged m_WVP
+projects to maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
+
+**Active theory:** the tilt kills every framebuffer-space mechanism
+(viewport/scissor/attachments cannot tilt) — only clip-space or matrix x/y
+coupling can. `XR_METAL_WVPCMP=1` (wvp28) compares the ring-slot bytes the VS
+actually reads at `m_WVP` against `Device.mFullTransform` per position-pass
+draw: match ⇒ matrix path closed; mismatch ⇒ the wrong matrix is dumped and
+identified.
+
+**Secondary bug found:** `mtl_R_sun.cpp` passes `Device.fASPECT` (=height/width
+in Monolith convention, 0.5582) straight into `glm::perspective`, which expects
+width/height — sun/shadow projections are wrong by (h/w)². Not the band
+(position pass is clean of it) but queued after.
 
 ## Known issues / queue
 

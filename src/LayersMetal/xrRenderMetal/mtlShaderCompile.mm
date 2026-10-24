@@ -18,15 +18,18 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <regex>
+#include <set>
 #include <string>
 #include <tuple>
 #include <vector>
+#include <sys/stat.h>
 
 // Contract types (MtlStageRefl, MtlSharedDevice) live in the render namespace.
 namespace xray::render::RENDER_NAMESPACE
@@ -114,6 +117,37 @@ namespace
 			return nil;
 		}
 		mslSource = MtlClipFixSource(mslSource);
+		// p6 band-hunt: XR_METAL_MSFDUMP=1 — dump every vertex-shader MSL that
+		// references m_WVP to /tmp/msl/ (once per unique source). Settles the
+		// matrix-consumption convention question by direct inspection.
+		{
+			static const bool s_mfd = !!getenv("XR_METAL_MSFDUMP");
+			if (s_mfd)
+			{
+				static std::mutex s_mfdLock;
+				static std::set<size_t> s_mfdSeen;
+				const std::string src = mslSource.UTF8String;
+				if (src.find("vertex ") != std::string::npos &&
+				    src.find("m_WVP") != std::string::npos)
+				{
+					std::lock_guard<std::mutex> lock(s_mfdLock);
+					if (s_mfdSeen.insert(std::hash<std::string>{}(src)).second)
+					{
+						mkdir("/tmp/msl", 0755);
+						char path[160];
+						snprintf(path, sizeof path, "/tmp/msl/%s_%zu.metal",
+						         label ? label : "vs",
+						         std::hash<std::string>{}(src));
+						FILE* f = fopen(path, "wb");
+						if (f)
+						{
+							fwrite(src.data(), 1, src.size(), f);
+							fclose(f);
+						}
+					}
+				}
+			}
+		}
 		NSError* err = nil;
 		id<MTLLibrary> lib = [dev newLibraryWithSource:mslSource options:nil error:&err];
 		if (!lib)

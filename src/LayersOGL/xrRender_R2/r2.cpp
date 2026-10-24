@@ -1051,32 +1051,52 @@ void CRender::DumpStatistics(CGameFont& font, IPerformanceAlert* alert)
 }
 } // namespace xray::render::RENDER_NAMESPACE
 
-// p6 band-hunt: dumped from mtlRuntime endEncoder (proven-live path) under
-// XR_METAL_FRUSPROBE=1. Dumps the published culling ViewBase planes + stamp +
-// current mFullTransform. NO-PUBLISHED case proves OnCameraUpdated never ran.
-extern "C" void xrMetalDumpFrustum()
+// p6 band-hunt: formatted by the Metal pass manager (endEncoder, proven-live)
+// under XR_METAL_FRUSPROBE=1. Writes the published culling ViewBase planes +
+// stamp + current mFullTransform into buf; returns bytes written, or -1 with
+// "NO PUBLISHED VIEWBASE" when OnCameraUpdated never ran (stale culling).
+extern "C" int xrMetalFormatFrustum(char* buf, int cap)
 {
     using namespace xray::render::RENDER_NAMESPACE;
     const CFrustum* vb = static_cast<const CFrustum*>(g_xrViewBasePub);
+    int off = 0;
     if (!vb)
     {
-        Msg("* frusprobe: NO PUBLISHED VIEWBASE (OnCameraUpdated never ran)");
-        return;
+        off = snprintf(buf, (size_t)cap, "* frusprobe: NO PUBLISHED VIEWBASE "
+                       "(OnCameraUpdated never ran)");
+        return -1;
     }
-    char fp[512];
-    int off = snprintf(fp, sizeof fp, "* frusprobe: stamp=%u frame=%u",
-                       (unsigned)g_xrViewBaseStamp, (unsigned)Device.dwFrame);
-    for (int i = 0; i < vb->p_count && off < 300; i++)
-        off += snprintf(fp + off, sizeof fp - off, " p%d=(%.4f %.4f %.4f|%.3f)", i,
+    off = snprintf(buf, (size_t)cap, "* frusprobe: stamp=%u frame=%u",
+                   (unsigned)g_xrViewBaseStamp, (unsigned)Device.dwFrame);
+    for (int i = 0; i < vb->p_count && off < cap - 64; i++)
+        off += snprintf(buf + off, (size_t)(cap - off), " p%d=(%.4f %.4f %.4f|%.3f)", i,
                         (double)vb->planes[i].n.x, (double)vb->planes[i].n.y,
                         (double)vb->planes[i].n.z, (double)vb->planes[i].d);
-    snprintf(fp + off, sizeof fp - off, " aspect=%.4f fov=%.2f", (double)Device.fASPECT,
-             (double)Device.fFOV);
-    Msg("%s", fp);
+    off += snprintf(buf + off, (size_t)(cap - off), " aspect=%.4f fov=%.2f",
+                    (double)Device.fASPECT, (double)Device.fFOV);
     const Fmatrix& m = Device.mFullTransform;
-    Msg("* frusprobeM: (%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f "
-        "%.4f %.4f)",
-        (double)m._11, (double)m._12, (double)m._13, (double)m._14, (double)m._21, (double)m._22,
-        (double)m._23, (double)m._24, (double)m._31, (double)m._32, (double)m._33, (double)m._34,
-        (double)m._41, (double)m._42, (double)m._43, (double)m._44);
+    off += snprintf(buf + off, (size_t)(cap - off),
+                    " M=(%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|%.4f %.4f %.4f %.4f|"
+                    "%.4f %.4f %.4f %.4f)",
+                    (double)m._11, (double)m._12, (double)m._13, (double)m._14,
+                    (double)m._21, (double)m._22, (double)m._23, (double)m._24,
+                    (double)m._31, (double)m._32, (double)m._33, (double)m._34,
+                    (double)m._41, (double)m._42, (double)m._43, (double)m._44);
+    return off;
+}
+
+// p6 band-hunt: WVP-override probe writes the engine's own mFullTransform
+// into the ring slot where the VS reads m_WVP (XR_METAL_WVPOVR=1). If the
+// world snaps to correct projection, the VS's matrix bytes were wrong.
+extern "C" int xrMetalGetFullXform(float* out16)
+{
+    using namespace xray::render::RENDER_NAMESPACE;
+    if (!out16)
+        return 0;
+    const Fmatrix& m = Device.mFullTransform;
+    out16[0] = m._11; out16[1] = m._12; out16[2] = m._13; out16[3] = m._14;
+    out16[4] = m._21; out16[5] = m._22; out16[6] = m._23; out16[7] = m._24;
+    out16[8] = m._31; out16[9] = m._32; out16[10] = m._33; out16[11] = m._34;
+    out16[12] = m._41; out16[13] = m._42; out16[14] = m._43; out16[15] = m._44;
+    return 1;
 }

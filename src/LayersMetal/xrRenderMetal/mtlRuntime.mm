@@ -5174,6 +5174,20 @@ namespace
 				if (tex)
 				{
 					id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
+					// p6 sky-hunt: log the sky draw's bound textures vs the
+					// declared MSL kind. A 2D texture on a cube slot is the
+					// dummy-substitution path that renders black.
+					if (strstr(psRefl.name.c_str(), "sky2"))
+					{
+						static int s_skyN = 0;
+						if (s_skyN++ < 12)
+							Log("- p6 skytex: frag=%d slot=%u declKind=%u tex=%p type=%lu "
+							    "fmt=%d %lux%lu depth=%lu",
+							    (int)fragment, slot, (unsigned)kinds[slot], tex,
+							    (unsigned long)t.textureType, (int)t.pixelFormat,
+							    (unsigned long)t.width, (unsigned long)t.height,
+							    (unsigned long)t.depth);
+					}
 					// p5 launch191: same-target sample → pre-pass scratch copy.
 					if (fragment)
 					{

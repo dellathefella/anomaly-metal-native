@@ -135,6 +135,14 @@ maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
   to 0). wvp41 re-runs the fill probe on the current build with RECTBYPASS to
   confirm the RT accepts fragments beyond the band and log direct scissor
   calls.
+- **wvp41 — BREAKTHROUGH: the fill paints the FULL RT and the band vanishes.**
+  `XR_METAL_FILLRT=position` (own PSO, full viewport/scissor, depth Always,
+  cull None, bias 0) covers x=0..3023 (`band%=100 left%=100`), and the
+  screenshot reads `BAND@1.000` (top/mid/bot=3023) — **no band**. So the RT,
+  composite and present all accept the full width; the band is caused by
+  engine per-draw state that the fill resets. Engine never sets a depth bias
+  (only the fill does), so bias is innocent. Remaining differences: **cull
+  mode** and the **engine PSO** (VS/PS). wvp42 tests global no-cull.
 
 **Active theory (post-wvp37):** the tilt kills every framebuffer-space
 mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a

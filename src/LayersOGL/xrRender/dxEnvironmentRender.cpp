@@ -286,6 +286,9 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     // after the TARGET_CUBE_ARRAY fix).
     {
         dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
+        fprintf(stderr, "- p6 skyfallback: pD=%p tex0=%p tex1=%p\n", (void*)pD,
+                pD ? (void*)pD->sky_texture._get() : nullptr,
+                pD ? (void*)pD->sky_texture_env._get() : nullptr);
         if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
         {
             sky_r_textures.clear();

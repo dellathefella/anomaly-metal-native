@@ -51,6 +51,12 @@ static int facetable[6][4] =
 void render_rain::init()
 {
     rain_factor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
+    // p6 streak hunt: XR_P5_NORAIN>=2 also kills the rain *normal* pass
+    // (draw_rain writes rain patch normals into rt_Position). NORAIN=1 only
+    // skipped the visible rain layer, so the position-RT strip survived.
+    static const int s_norain = getenv("XR_P5_NORAIN") ? atoi(getenv("XR_P5_NORAIN")) : 0;
+    if (s_norain >= 2)
+        rain_factor = 0.f;
 
     o.active  = ps_r2_ls_flags.test(R3FLAG_DYN_WET_SURF);
     o.active &= rain_factor >= EPS_L;

@@ -6220,6 +6220,28 @@ namespace
 					}
 				}
 			}
+			// p6 streak hunt: XR_P5_NOIMPLD=1 skips the implicit-detail terrain
+			// draws (deffer_impl_flat_d), the dominant right-half coverage in
+			// the DRAWBBOX probe. If the streaks vanish, that pass is the source.
+			static const char* s_noimpld = getenv("XR_P5_NOIMPLD");
+			if (s_noimpld && s_noimpld[0] == '1' && pair &&
+			    strstr(pair->name.c_str(), "impl_flat_d"))
+				return true;
+			// p6 streak hunt: XR_P5_NOWATER=1 skips water surface draws.
+			static const char* s_nowater = getenv("XR_P5_NOWATER");
+			if (s_nowater && s_nowater[0] == '1' && pair &&
+			    strstr(pair->name.c_str(), "water"))
+				return true;
+			// p6 streak hunt: XR_P5_NOTREE=1 skips tree geometry draws.
+			static const char* s_notree = getenv("XR_P5_NOTREE");
+			if (s_notree && s_notree[0] == '1' && pair &&
+			    strstr(pair->name.c_str(), "tree"))
+				return true;
+			// p6 streak hunt: XR_P5_NOBASE=1 skips base terrain/building draws.
+			static const char* s_nobase = getenv("XR_P5_NOBASE");
+			if (s_nobase && s_nobase[0] == '1' && pair &&
+			    strstr(pair->name.c_str(), "base"))
+				return true;
 			// launch298: debug-layer catch — the engine legitimately submits
 			// primCount 0 subdraws; indexed draw with indexCount 0 is a hard
 			// validation failure (UB in release). Skip like stride-0.

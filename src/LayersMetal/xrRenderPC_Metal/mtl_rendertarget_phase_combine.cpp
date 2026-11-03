@@ -268,7 +268,10 @@ void CRenderTarget::phase_combine()
         static u32 c = 0;
         if ((++c % 240) == 0) Msg("* p5 flow: pre-bloom done c=%u", c);
     }
-    phase_bloom(); // HDR RT invalidated here
+    // p6 streak hunt: XR_P5_NOBLOOM=1 skips the bloom chain.
+    static const int s_nobloom = getenv("XR_P5_NOBLOOM") ? atoi(getenv("XR_P5_NOBLOOM")) : 0;
+    if (!s_nobloom)
+        phase_bloom(); // HDR RT invalidated here
 
     // RImplementation.rmNormal();
     // u_setrt(rt_Generic_1,0,0,get_base_zb());
@@ -432,10 +435,16 @@ void CRenderTarget::phase_combine()
     //	if FP16-BLEND !not! supported - draw flares here, overwise they are already in the bloom target
     /* if (!RImplementation.o.fp16_blend)*/
     PIX_EVENT(LENS_FLARES);
-    g_pGamePersistent->Environment().RenderFlares(); // lens-flares
+    // p6 streak hunt: XR_P5_NOFLARE=1 skips the combine-pass lens flare.
+    // NOSKY only skipped the RenderSky copy; this second copy still ran.
+    static const int s_noflare = getenv("XR_P5_NOFLARE") ? atoi(getenv("XR_P5_NOFLARE")) : 0;
+    if (!s_noflare)
+        g_pGamePersistent->Environment().RenderFlares(); // lens-flares
 
     //	PP-if required
-    if (PP_Complex)
+    // p6 streak hunt: XR_P5_NOPP=1 skips the postprocess chain.
+    static const int s_nopp = getenv("XR_P5_NOPP") ? atoi(getenv("XR_P5_NOPP")) : 0;
+    if (PP_Complex && !s_nopp)
     {
         PIX_EVENT(phase_pp);
         phase_pp();

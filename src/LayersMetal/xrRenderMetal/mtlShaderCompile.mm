@@ -573,6 +573,17 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
+	// p6 streak hunt: XR_METAL_REFLDBG=<substr> dumps every uniform's
+	// offset/size/stride/elements for shaders whose name contains substr.
+	// The detail VS indexes a large float4 array; a wrong element stride
+	// collapses grass vertices to the camera origin (radial fan).
+	if (const char* rd = getenv("XR_METAL_REFLDBG"))
+	{
+		if (strstr(name, rd))
+			for (const auto& u : refl.uniforms)
+				fprintf(stderr, "- p6 reflU: %s %s off=%u size=%u stride=%u elems=%u\n",
+				        name, u.name.c_str(), u.offset, u.size, u.stride, u.elements);
+	}
 	if (const char* d = getenv("XR_METAL_SPV_DUMP"))
 	{
 		std::string p = std::string(d) + "/" + name + (target == 'v' ? ".vs" : ".ps") + ".spv";

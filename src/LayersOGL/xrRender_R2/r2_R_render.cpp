@@ -237,8 +237,15 @@ void CRender::Render()
         Target->phase_scene_begin();
         dsgraph.render_hud();
         dsgraph.render_graph(0);
-        dsgraph.render_lods(true, true);
-        if (Details)
+        // p6 streak hunt: XR_P5_NOLOD=1 skips FLOD imposter billboards.
+        static const int s_nolod = getenv("XR_P5_NOLOD") ? atoi(getenv("XR_P5_NOLOD")) : 0;
+        if (!s_nolod)
+            dsgraph.render_lods(true, true);
+        // p6 streak hunt: XR_P5_NODETAIL=1 skips grass/detail objects, whose
+        // VS indexes a large float4 array uniform (array[i]) — a misbound
+        // array collapses detail vertices to the camera origin (radial fan).
+        static const int s_nodetail = getenv("XR_P5_NODETAIL") ? atoi(getenv("XR_P5_NODETAIL")) : 0;
+        if (Details && !s_nodetail)
             Details->Render(dsgraph.cmd_list);
         Target->phase_scene_end();
     }
@@ -336,8 +343,11 @@ void CRender::Render()
         // level
         Target->phase_scene_begin();
         dsgraph.render_hud();
-        dsgraph.render_lods(true, true);
-        if (Details)
+        static const int s_nolod1 = getenv("XR_P5_NOLOD") ? atoi(getenv("XR_P5_NOLOD")) : 0;
+        if (!s_nolod1)
+            dsgraph.render_lods(true, true);
+        static const int s_nodetail1 = getenv("XR_P5_NODETAIL") ? atoi(getenv("XR_P5_NODETAIL")) : 0;
+        if (Details && !s_nodetail1)
             Details->Render(dsgraph.cmd_list);
         Target->phase_scene_end();
     }
@@ -351,7 +361,9 @@ void CRender::Render()
     }
 
     // Wall marks
-    if (Wallmarks)
+    // p6 streak hunt: XR_P5_NOWMARK=1 skips wallmark decals.
+    static const int s_nowmark = getenv("XR_P5_NOWMARK") ? atoi(getenv("XR_P5_NOWMARK")) : 0;
+    if (Wallmarks && !s_nowmark)
     {
         PIX_EVENT(DEFER_WALLMARKS);
         Target->phase_wallmarks();

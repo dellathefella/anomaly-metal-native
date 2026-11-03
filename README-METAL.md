@@ -164,6 +164,45 @@ in Monolith convention, 0.5582) straight into `glm::perspective`, which expects
 width/height — sun/shadow projections are wrong by (h/w)². Not the band
 (position pass is clean of it) but queued after.
 
+## Open bug: radial streaks from the screen centre
+
+A fan of thin green/brown lines radiates from the screen centre (x≈1512) across
+the right half, in both the final frame and the raw `$user$albedo` RT. It is
+screen-fixed and survives camera motion. The fan converges at the camera origin,
+so the geometry has vertices collapsing to the eye point.
+
+**Exonerated by verified in-game bisect runs** (each knob leaves the streaks
+pixel-identical):
+
+| Knob | Pass skipped |
+|---|---|
+| `XR_P5_NORAIN=1` | visible rain layer |
+| `XR_P5_NORAIN=2` | rain layer **and** rain normal pass (`draw_rain` → rt_Position) |
+| `XR_P5_NOSKY=1/2` | skybox (+ lens flare) |
+| `XR_P5_NOFLARE=1` | combine-pass lens flare (`RenderFlares`) |
+| `XR_P5_NOSKY=2 + NOFLARE=1` | **both** flare copies |
+| `XR_P5_NODETAIL=1` | grass/detail manager (split + non-split branches) |
+| `XR_P5_NOLOD=1` | FLOD imposter billboards (`render_lods`) |
+| `XR_P5_NOPART=1` | particle sprites (`CParticleEffect::Render`) |
+| `XR_P5_NOIMPLD=1` | implicit-detail terrain (`deffer_impl_flat_d`) |
+| `XR_P5_NOWATER=1` | water surface draws |
+| `XR_P5_NOTREE=1` | tree geometry (left half goes black; streaks persist) |
+| `XR_P5_NOBASE=1` | base terrain/building draws (scene mostly black; streaks persist) |
+| `XR_P5_NOWMARK=1` | wallmark decals |
+| `XR_P5_NOBLOOM=1` | bloom chain |
+| `XR_P5_NOPP=1` | postprocess chain |
+| `XR_P5_NOSHAFTS=1` | volumetric sun shafts |
+| `r3_water_refl 0` / `r2_soft_water off` | water SSR |
+
+**Still standing:** the streaks live in the geometry/albedo pass and are not any
+of the optional passes above. `XR_METAL_DRAWBBOX` shows the right-half coverage
+is dominated by `deffer_impl_flat_d` draws (NDC up to 1.48), but skipping that
+pass does not remove the streaks. The remaining candidates are the core
+`render_graph(0)` geometry and the combine pass's full-screen quad. The
+`XR_METAL_RTDUMP='$user$'` dump pins `_user_position` to a parallelogram strip
+(x≈1505→2312 top, 1447→2286 bottom) while `_user_albedo`/`base_*` are full-left —
+the position RT strip is a separate anomaly from the albedo streaks.
+
 ## Known issues / queue
 
 - **Daytime verification** (user priority #3) pending — daytime lighting check after the band.
@@ -190,6 +229,20 @@ width/height — sun/shadow projections are wrong by (h/w)². Not the band
 | `XR_P5_NOSTENCIL=1` | neutralize stencil tests globally |
 | `XR_P5_NOSCISSOR=1` | ignore engine scissor rects |
 | `XR_METAL_NOCULL=1`, `XR_METAL_FRONT=1`, `XR_METAL_NODEPTH=1` | state overrides for state-theory bisection |
+| `XR_P5_NORAIN=1/2` | skip visible rain layer / also the rain normal pass |
+| `XR_P5_NOSKY=1/2` | skip skybox / also the RenderSky lens flare |
+| `XR_P5_NOFLARE=1` | skip the combine-pass lens flare (`RenderFlares`) |
+| `XR_P5_NODETAIL=1` | skip grass/detail manager |
+| `XR_P5_NOLOD=1` | skip FLOD imposter billboards |
+| `XR_P5_NOPART=1` | skip particle sprites |
+| `XR_P5_NOIMPLD=1` | skip implicit-detail terrain draws (`deffer_impl_flat_d`) |
+| `XR_P5_NOWATER=1` | skip water surface draws |
+| `XR_P5_NOTREE=1` | skip tree geometry draws |
+| `XR_P5_NOBASE=1` | skip base terrain/building draws |
+| `XR_P5_NOWMARK=1` | skip wallmark decals |
+| `XR_P5_NOBLOOM=1` | skip bloom chain |
+| `XR_P5_NOPP=1` | skip postprocess chain |
+| `XR_METAL_REFLDBG=<substr>` | dump uniform offset/size/stride/elements for matching shaders |
 
 ## Testing workflow
 

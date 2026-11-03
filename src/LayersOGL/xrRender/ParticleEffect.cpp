@@ -647,6 +647,11 @@ void CParticleEffect::Render(CBackend& cmd_list, float, bool use_fast_geo)
 #ifdef _GPA_ENABLED
     TAL_SCOPED_TASK_NAMED("CParticleEffect::Render()");
 #endif // _GPA_ENABLED
+    // p6 streak hunt: XR_P5_NOPART=1 skips particle sprites (thin quads that
+    // fan from the camera origin when their VS/vertex layout is broken).
+    static const int s_nopart = getenv("XR_P5_NOPART") ? atoi(getenv("XR_P5_NOPART")) : 0;
+    if (s_nopart)
+        return;
 
 #ifdef USE_OGL
     // Due to the big impact on performance

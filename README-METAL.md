@@ -141,8 +141,12 @@ maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
   screenshot reads `BAND@1.000` (top/mid/bot=3023) — **no band**. So the RT,
   composite and present all accept the full width; the band is caused by
   engine per-draw state that the fill resets. Engine never sets a depth bias
-  (only the fill does), so bias is innocent. Remaining differences: **cull
-  mode** and the **engine PSO** (VS/PS). wvp42 tests global no-cull.
+  (only the fill does), so bias is innocent.
+- **wvp42 — cull mode innocent**: `XR_METAL_NOCULL=1` leaves the band
+  pixel-identical (2313/2297/2286, tilt 0.96°). So of the state the fill resets
+  (viewport/scissor/DSS/cull/fill-mode/bias/PSO), only the **engine PSO**
+  remains. wvp43 dumps the terrain PS MSL to inspect for screen-space
+  discard/clip logic.
 
 **Active theory (post-wvp37):** the tilt kills every framebuffer-space
 mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a

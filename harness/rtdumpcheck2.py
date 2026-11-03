@@ -3,26 +3,27 @@
 
 Prints per RT: size/bpp, coverage % in the band (x 2400..3000) and left (x 24..624),
 and min..max lit-x at five rows (reveals parallelogram vs straight-edge shapes).
+Handles any RT height (the drawable size varies: 1676/1680/1684) and 4/8-byte px.
 """
 import os, glob
 import numpy as np
 
+W = 3024
 for f in sorted(glob.glob('/tmp/rtdump/*.rgba')):
     sz = os.path.getsize(f)
     name = os.path.basename(f)[:-5]
-    W = H = bpp = None
-    for w, h in ((3024, 1680), (3024, 1684)):
-        if sz == w * h * 4:
-            W, H, bpp = w, h, 4
-            break
-        if sz == w * h * 8:
-            W, H, bpp = w, h, 8
-            break
-    if W is None:
+    H = bpp = None
+    for b in (4, 8):
+        if sz % (W * b) == 0:
+            h = sz // (W * b)
+            if 1600 <= h <= 1700:
+                H, bpp = h, b
+                break
+    if H is None:
         print('%-22s size %d (unexpected, skip)' % (name, sz))
         continue
     dt = np.uint8 if bpp == 4 else np.uint16
-    a = np.fromfile(f, dtype=dt).reshape(H, W, bpp // 4)
+    a = np.fromfile(f, dtype=dt).reshape(H, W, 4)
     if bpp == 4:
         nz = (a[:, :, :3].astype(np.uint16).sum(axis=2) > 24)
     else:

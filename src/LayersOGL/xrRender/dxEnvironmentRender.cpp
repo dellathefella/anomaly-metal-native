@@ -285,15 +285,16 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     // Rebuild it from the descriptor render's created textures (cube maps
     // after the TARGET_CUBE_ARRAY fix).
     {
-        dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
-        fprintf(stderr, "- p6 skyfallback: pD=%p tex0=%p tex1=%p\n", (void*)pD,
-                pD ? (void*)pD->sky_texture._get() : nullptr,
-                pD ? (void*)pD->sky_texture_env._get() : nullptr);
-        if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
+        dxEnvDescriptorRender* pA = (dxEnvDescriptorRender*)&*env.Current[0]->m_pDescriptor;
+        dxEnvDescriptorRender* pB = (dxEnvDescriptorRender*)&*env.Current[1]->m_pDescriptor;
+        fprintf(stderr, "- p6 skyfallback: pA=%p texA=%p pB=%p texB=%p\n", (void*)pA,
+                pA ? (void*)pA->sky_texture._get() : nullptr, (void*)pB,
+                pB ? (void*)pB->sky_texture._get() : nullptr);
+        if (pA && pA->sky_texture._get() && pB && pB->sky_texture._get())
         {
             sky_r_textures.clear();
-            sky_r_textures.emplace_back(tsky0_tstage, pD->sky_texture);
-            sky_r_textures.emplace_back(tsky1_tstage, pD->sky_texture_env);
+            sky_r_textures.emplace_back(tsky0_tstage, pA->sky_texture);
+            sky_r_textures.emplace_back(tsky1_tstage, pB->sky_texture);
             auto e0 = sky_r_textures[0].second->surface_get();
             auto e1 = sky_r_textures[1].second->surface_get();
 #if defined(USE_METAL)

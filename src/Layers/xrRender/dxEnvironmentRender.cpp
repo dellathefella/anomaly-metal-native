@@ -320,6 +320,9 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
 	// it from the descriptor render's created cube textures.
 	{
 		dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
+		fprintf(stderr, "- p6 skyfallbackS: pD=%p tex0=%p tex1=%p\n", (void*)pD,
+		        pD ? (void*)pD->sky_texture._get() : nullptr,
+		        pD ? (void*)pD->sky_texture_env._get() : nullptr);
 		if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
 		{
 			mixRen.sky_r_textures.clear();

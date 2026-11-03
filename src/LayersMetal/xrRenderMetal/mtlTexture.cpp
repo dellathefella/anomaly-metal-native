@@ -208,6 +208,10 @@ void* CRender::texture_load(pcstr fRName, u32& ret_msize, u32& ret_desc, u32& re
     static int s_texDbgN = 0;
     if (++s_texDbgN <= 300 || s_texDbgN % 100 == 0)
         Msg("- p6 texdbg: #%d '%s' %ux%u", s_texDbgN, fn, (u32)ext.x, (u32)ext.y);
+    // p6 sky-hunt: log the sky texture's gli target (cube vs 2D) and dims.
+    if (fn && strstr(fn, "sky"))
+        fprintf(stderr, "- p6 skytexcreate: '%s' target=%d %ux%u levels=%u\n", fn,
+                (int)texture.target(), (u32)ext.x, (u32)ext.y, levels);
 
     switch (texture.target())
     {
@@ -216,6 +220,14 @@ void* CRender::texture_load(pcstr fRName, u32& ret_msize, u32& ret_desc, u32& re
         pTexture = dev.NewTexture2D(u32(ext.x), u32(ext.y), levels, fmt.mtl, /*fbOnly*/ false, /*readable*/ true);
         break;
     case gli::TARGET_CUBE:
+        ret_desc = mtdCube;
+        pTexture = dev.NewTextureCube(u32(ext.x), levels, fmt.mtl, /*fbOnly*/ false, /*readable*/ true);
+        break;
+    case gli::TARGET_CUBE_ARRAY:
+        // p6 sky fix: Anomaly's sky DDS files are cube arrays (gli target 7).
+        // The switch only handled TARGET_CUBE (6), so sky textures fell to the
+        // default and returned null -> the 1x1 default -> black sky. The sky
+        // corpus has a single cube layer; upload it as a plain cube.
         ret_desc = mtdCube;
         pTexture = dev.NewTextureCube(u32(ext.x), levels, fmt.mtl, /*fbOnly*/ false, /*readable*/ true);
         break;

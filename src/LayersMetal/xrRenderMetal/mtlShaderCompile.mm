@@ -1142,6 +1142,9 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 			}
 			psMsl.append(line);
 			pos = f.lineEnd;
+			if (ps.name.find("sky2") != std::string::npos)
+				fprintf(stderr, "- p6 v2pline: remap=%d widen=%d [%s]\n", (int)remap,
+				        psWiden[i], line.c_str());
 		}
 		psMsl.append(ps.msl, pos, ps.msl.size() - pos);
 

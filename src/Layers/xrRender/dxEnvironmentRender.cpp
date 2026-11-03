@@ -165,6 +165,7 @@ void dxEnvDescriptorRender::OnDeviceCreate(CEnvDescriptor& owner)
 	if (owner.sky_texture_name.size())
 	{
 		sky_texture.create(owner.sky_texture_name.c_str());
+		Msg("- p6 skycreate: name=%s tex=%p", owner.sky_texture_name.c_str(), sky_texture._get());
 		if (g_pGamePersistent->Environment().m_paused)
 		{
 			mixRen.sky_r_textures.clear();

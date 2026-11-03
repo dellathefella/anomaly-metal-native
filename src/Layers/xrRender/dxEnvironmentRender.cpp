@@ -315,6 +315,21 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
 	RCache.set_Geometry(sh_2geom);
 	RCache.set_Shader(sh_2sky);
 	//	RCache.set_Textures			(&env.CurrentEnv->sky_r_textures);
+	// p6 sky fix: the Metal factory's env mixer lerp is a no-op, so the mixer's
+	// sky_r_textures stays empty and the sky samples the 1x1 default (black).
+	// Rebuild it from the descriptor render's created cube textures.
+	if (mixRen.sky_r_textures.size() < 2)
+	{
+		dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
+		if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
+		{
+			mixRen.sky_r_textures.clear();
+			mixRen.sky_r_textures.emplace_back(0, pD->sky_texture);
+			mixRen.sky_r_textures.emplace_back(1, pD->sky_texture_env);
+			fprintf(stderr, "- p6 skyfallbackS: tex0=%p tex1=%p\n",
+			        (void*)pD->sky_texture._get(), (void*)pD->sky_texture_env._get());
+		}
+	}
 	RCache.set_Textures(&mixRen.sky_r_textures);
 	RCache.Render(D3DPT_TRIANGLELIST, v_offset, 0, 12, i_offset, 20);
 

@@ -5749,7 +5749,7 @@ namespace
 			static const time_t s_csT0 = time(nullptr);
 			static float s_csMaxNdc = -9.f;
 			if (s_cstat && s_csWin < 6 && indexed && ds.vb && ds.ib && !pm.staging.empty() &&
-			    g_dbgDrawOK >= s_csNext && (time(nullptr) - s_csT0) > 235)
+			    g_dbgDrawOK >= s_csNext && g_mtlPresentCount > 6000)
 			{
 				const char* rtN2 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rtN2 && strstr(rtN2, "position"))
@@ -5832,7 +5832,7 @@ namespace
 			static const time_t s_bbT0 = time(nullptr);
 			if (s_bb && s_bbLogged < 120 && indexed && ds.vb && ds.ib &&
 			    !pm.staging.empty() && g_dbgDrawOK >= s_bbNext &&
-			    (time(nullptr) - s_bbT0) > 235)
+			    g_mtlPresentCount > 6000)
 			{
 				const char* rtN3 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 				if (rtN3 && strstr(rtN3, "position"))

@@ -100,6 +100,22 @@ maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
   position pass submits far fewer per frame (terrain is batched) so it never
   fired. Now flushes at window end and logs head+tail draw order — used to
   identify a late zero-painting draw.
+- **wvp37 (fresh dumps, RT 3024×1676 — the drawable height varies per run)**:
+  the position-pass draw order is terrain/tree/lmh materials
+  (`deffer_tree_bump-hq`, `deffer_base_lmh_bump_d-hq`, `deffer_base_bump_d-hq`,
+  `deffer_base_lmh_bump-hq`, …) — **no sky/null "zero-painter" draw** in the
+  tail. Geometry coverage is a quadrilateral: left edge = terrain silhouette
+  (1053→1355, steep) and right edge = the band (2313→2286, ~0.93° tilt).
+  `base_0/1/2` are the **back buffers** (`rt_Base`) and share the exact same
+  right edge — the band survives into the final screen target. `accum` ends at
+  2292 (same edge). `normal` reads full-left only because its clear value is
+  non-zero (not geometry coverage).
+- **DRAWBBOX/CLIPSTAT probes exist** (`XR_METAL_DRAWBBOX`, `XR_METAL_CLIPSTAT`):
+  they compute the full-vertex NDC-x bbox of gbuffer draws from the exact
+  staging bytes. Draws whose bbox reaches the band yet store nothing prove a
+  per-fragment kill; no such draws prove the CPU culling boundary itself is
+  the tilted line. Terrain VB is `float4 POSITION` at offset 0, so the raw
+  fetch is valid for this probe.
 
 **Active theory (post-wvp37):** the tilt kills every framebuffer-space
 mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a

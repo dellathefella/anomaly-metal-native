@@ -633,6 +633,27 @@ void CRender::OnCameraUpdated()
     // Frustum
     ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 
+    // p6 band-hunt: XR_METAL_CULLWIDE=<f> — rebuild ViewBase from a matrix with
+    // the horizontal x-scale divided by (1+f), widening the cull wedge well past
+    // the render FOV. Band closes => right-side geometry is being SUBMISSION-
+    // culled by this frustum (the extraction itself is provably plane-correct,
+    // so a consumer is at fault). No change => CPU culling exonerated too.
+    {
+        static const float s_cw = [] {
+            const char* e = std::getenv("XR_METAL_CULLWIDE");
+            return e ? (float)std::atof(e) : 0.0f;
+        }();
+        if (s_cw > 0.0f)
+        {
+            Fmatrix wide = Device.mFullTransform;
+            wide._11 /= (1.0f + s_cw);
+            wide._21 /= (1.0f + s_cw);
+            wide._31 /= (1.0f + s_cw);
+            wide._41 /= (1.0f + s_cw);
+            ViewBase.CreateFromMatrix(wide, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+        }
+    }
+
     // p6 band-hunt: publish ViewBase + stamp for the endEncoder-driven dump
     // (xrMetalDumpFrustum in mtlRuntime). If OnCameraUpdated ever runs, the
     // stamp advances; a frozen stamp across dumps = stale culling frustum.

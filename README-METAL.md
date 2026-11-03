@@ -73,12 +73,39 @@ the camera). Fixed-NDC fill reaches x=2645 through the same PSO path (wvp21,
 1.27M red px in position RT + screenshot); staged m_WVP projects to
 maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
 
-**Active theory:** the tilt kills every framebuffer-space mechanism
-(viewport/scissor/attachments cannot tilt) — only clip-space or matrix x/y
-coupling can. `XR_METAL_WVPCMP=1` (wvp28) compares the ring-slot bytes the VS
-actually reads at `m_WVP` against `Device.mFullTransform` per position-pass
-draw: match ⇒ matrix path closed; mismatch ⇒ the wrong matrix is dumped and
-identified.
+**wvp31–wvp37 additions (all verified in-game, current build):**
+
+- **Full-RT coverage map** (`XR_METAL_RTDUMP='$user$'`, wvp32): `_user_albedo`
+  and `_user_normal` are full-left but end at the *same tilted edge* as the
+  screen band (2313@y33 → 2286@y1650); `base_0/1/2` (HUD) reach x=3023;
+  `generic1` 100%; `generic0`/`accum` empty at dump time; `_user_position` is
+  a separate anomaly (content only in strip x∈[1500..2312], tilted both edges).
+  ⇒ the band is a **geometry-pass coverage hole**, and the visible color source
+  is albedo/normal, not position.
+- **Viewport/scissor on EVERY screen-sized pass** (`XR_METAL_POSVP=1` widened
+  to all passes, wvp33): all vp=(0,0,3024x1684); scissor only small HUD rects
+  on `base_*`. Viewport theory dead on the current build.
+- **CPU submission culling double-exonerated** (`XR_METAL_CULLWIDE=1.0`):
+  widening applied BOTH at r2 `OnCameraUpdated` ViewBase (wvp34) AND at the
+  `r__dsgraph_render_subspace` temp frustum that world geometry actually uses
+  (wvp35) — band unchanged. Frustum extraction (`CreateFromMatrix`) audited
+  element-by-element against the dumped planes: textbook-correct.
+- **Matrix bytes on GPU == `mFullTransform`** at the VS-read offset 272
+  (`XR_METAL_WVPCMP=1`, wvp33); all 80 dumped VS transforms orthodox
+  `POSITION * matrix`.
+- **Rain shares the clip**: bright rain-streak pixels end at x≈2300–2309,
+  nothing past 2325 (screenshot scan) — terrain and rain (both drawn in the
+  position pass) are cut by the same camera-fixed line.
+- **PPLIST probe fixed** (wvp37): the old flush waited for 400 draws, but the
+  position pass submits far fewer per frame (terrain is batched) so it never
+  fired. Now flushes at window end and logs head+tail draw order — used to
+  identify a late zero-painting draw.
+
+**Active theory (post-wvp37):** the tilt kills every framebuffer-space
+mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a
+camera-locked plane, or a late in-pass draw painting zeros can. Matrix path is
+closed (wvpcmp). Next discriminator: ordered draw list of the position pass
+(`XR_METAL_PPLIST=1`) to find the last-drawn pair(s) covering x>2297.
 
 **Secondary bug found:** `mtl_R_sun.cpp` passes `Device.fASPECT` (=height/width
 in Monolith convention, 0.5582) straight into `glm::perspective`, which expects

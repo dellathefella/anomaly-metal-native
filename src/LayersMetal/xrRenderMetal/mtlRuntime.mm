@@ -3194,26 +3194,31 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 	{
 		if (!enc)
 			return;
-		// p6 band-hunt: XR_METAL_POSVP=1 — log the EXACT viewport/scissor applied
-		// to position-pass draws (rectdbg hid it: only logs on RT-mismatch). If
-		// vpW < RT width, the geometry pass is rendering into a narrow sub-rect
-		// => the screen-fixed right band.
+		// p6 band-hunt: XR_METAL_POSVP=1 — log viewport/scissor applied to EVERY
+		// screen-sized pass (wvp30 proved albedo/normal carry the band edge; the
+		// geometry pass writing them may not be named "position"). Narrow vpW on
+		// the gbuffer pass => the screen-fixed right band.
 		{
 			static const bool s_pvp = !!getenv("XR_METAL_POSVP");
 			if (s_pvp && rt[0] && dev)
 			{
 				const char* rn = MtlDbgRTGetName(rt[0]);
-				if (rn && strstr(rn, "position"))
+				if (rn)
 				{
 					uint32_t rw = 0, rh = 0;
 					dev->TextureDims(rt[0], &rw, &rh);
-					static std::set<std::string> s_pvpSeen;
-					char sig[128];
-					snprintf(sig, sizeof sig, "%.0f|%.0f|%.0f|%.0f|%d|%d|%d|%d|%d|%u", vpX,
-					         vpY, vpW, vpH, (int)scissorEn, scL, scT, scR, scB, rw);
-					if (s_pvpSeen.size() < 24 && s_pvpSeen.insert(sig).second)
-						Log("- p6 posvp: rt=%ux%u vp=(%.0f,%.0f,%.0fx%.0f) sc=%d(%d,%d,%d,%d)",
-						    rw, rh, vpX, vpY, vpW, vpH, (int)scissorEn, scL, scT, scR, scB);
+					if (rw >= 1600 && rh >= 800)
+					{
+						static std::set<std::string> s_pvpSeen;
+						char sig[192];
+						snprintf(sig, sizeof sig, "%s|%.0f|%.0f|%.0f|%.0f|%d|%d|%d|%d|%d|%u",
+						         rn, vpX, vpY, vpW, vpH, (int)scissorEn, scL, scT, scR, scB, rw);
+						if (s_pvpSeen.size() < 48 && s_pvpSeen.insert(sig).second)
+							Log("- p6 posvp: rt=%s %ux%u vp=(%.0f,%.0f,%.0fx%.0f) "
+							    "sc=%d(%d,%d,%d,%d)",
+							    rn, rw, rh, vpX, vpY, vpW, vpH, (int)scissorEn, scL, scT, scR,
+							    scB);
+					}
 				}
 			}
 		}
@@ -5507,6 +5512,46 @@ namespace
 			g_lastSlotOff = slotOff; // p5 accgpu: readable from the canary block
 			uint8_t* dst = (uint8_t*)[pm.ring contents] + slotOff;
 			std::memcpy(dst, pm.staging.data(), copySize);
+			// p6 band-hunt: XR_METAL_PPLIST=1 — record the ORDER of shader pairs
+			// drawn in the position pass (GPU-order draw sequence). The thing
+			// that paints zeros over the right slice (if any) must come LAST.
+			{
+				static const bool s_ppl = !!getenv("XR_METAL_PPLIST");
+				static std::vector<std::string> s_entries;
+				static bool s_flushed = false;
+				if (s_ppl && !s_flushed)
+				{
+					if (pm.rt[0] && g_mtlPresentCount > 6000 && g_mtlPresentCount < 6060)
+					{
+						const char* rn = MtlDbgRTGetName(pm.rt[0]);
+						if (rn && strstr(rn, "position") && s_entries.size() < 4000)
+						{
+							char buf[160];
+							snprintf(buf, sizeof buf, "%s|%u",
+							         pair ? pair->name.c_str() : "?", primCount);
+							s_entries.push_back(buf);
+						}
+					}
+					// wvp37: flush at window END — the position pass submits far
+					// fewer than 400 draws/frame (terrain is batched), so the old
+					// 400-draw flush never fired. Log head (first draws) + tail
+					// (LAST draws — the zero-painter must be last).
+					else if (g_mtlPresentCount >= 6060 && !s_entries.empty())
+					{
+						s_flushed = true;
+						Log("- p6 pplist: n=%zu", s_entries.size());
+						std::string line;
+						for (size_t i = 0; i < s_entries.size() && i < 12; i++)
+							line += s_entries[i] + "; ";
+						Log("- p6 pplist head: %s", line.c_str());
+						line.clear();
+						size_t start = s_entries.size() > 30 ? s_entries.size() - 30 : 0;
+						for (size_t i = start; i < s_entries.size(); i++)
+							line += s_entries[i] + "; ";
+						Log("- p6 pplist tail: %s", line.c_str());
+					}
+				}
+			}
 			// p6 band-hunt: XR_METAL_WVPCMP=1 — compare the ring-slot bytes the
 			// VS ACTUALLY reads at m_WVP against Device.mFullTransform (the
 			// intended matrix). match=1 everywhere => GPU matrix innocent, end
@@ -5564,6 +5609,9 @@ namespace
 									}
 									break;
 								}
+							if (!foundW)
+								s_wsN++;
+						}
 					}
 				}
 			}

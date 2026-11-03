@@ -682,7 +682,24 @@ void R_dsgraph_structure::r_dsgraph_render_subspace(IRender_Sector* _sector, Fma
                                                     BOOL _dynamic, BOOL _precise_portals)
 {
 	CFrustum temp;
-	temp.CreateFromMatrix(mCombined, FRUSTUM_P_ALL & (~FRUSTUM_P_NEAR));
+	// p6 band-hunt: XR_METAL_CULLWIDE=<f> — this is the frustum WORLD geometry
+	// is actually submitted against (rebuilt here from mCombined every render,
+	// overriding r2 OnCameraUpdated's ViewBase). Widen the horizontal wedge.
+	static const float s_cw = [] {
+		const char* e = std::getenv("XR_METAL_CULLWIDE");
+		return e ? (float)std::atof(e) : 0.0f;
+	}();
+	if (s_cw > 0.0f)
+	{
+		Fmatrix wide = mCombined;
+		wide._11 /= (1.0f + s_cw);
+		wide._21 /= (1.0f + s_cw);
+		wide._31 /= (1.0f + s_cw);
+		wide._41 /= (1.0f + s_cw);
+		temp.CreateFromMatrix(wide, FRUSTUM_P_ALL & (~FRUSTUM_P_NEAR));
+	}
+	else
+		temp.CreateFromMatrix(mCombined, FRUSTUM_P_ALL & (~FRUSTUM_P_NEAR));
 	r_dsgraph_render_subspace(_sector, &temp, mCombined, _cop, _dynamic, _precise_portals);
 }
 

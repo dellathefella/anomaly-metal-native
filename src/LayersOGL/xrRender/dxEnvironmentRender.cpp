@@ -282,22 +282,26 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_Shader(sh_2sky);
     // p6 sky fix: the Metal factory's env mixer lerp is a no-op, so
     // sky_r_textures stays empty and every sky draw samples the 1x1 default
-    // (black sky). Populate it from the descriptor render's created textures.
+    // (black sky). Populate it from the descriptor render's created textures
+    // (now cube maps after the TARGET_CUBE_ARRAY fix).
     if (sky_r_textures.empty())
     {
         dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
-        sky_r_textures.emplace_back(tsky0_tstage, pD->sky_texture);
-        sky_r_textures.emplace_back(tsky1_tstage, pD->sky_texture_env);
-        auto e0 = sky_r_textures[0].second->surface_get();
-        auto e1 = sky_r_textures[1].second->surface_get();
+        if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
+        {
+            sky_r_textures.emplace_back(tsky0_tstage, pD->sky_texture);
+            sky_r_textures.emplace_back(tsky1_tstage, pD->sky_texture_env);
+            auto e0 = sky_r_textures[0].second->surface_get();
+            auto e1 = sky_r_textures[1].second->surface_get();
 #if defined(USE_METAL)
-        tsky0->surface_set(e0);
-        tsky1->surface_set(e1);
+            tsky0->surface_set(e0);
+            tsky1->surface_set(e1);
 #elif defined(USE_OGL)
-        tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
-        tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
+            tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
+            tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
 #endif
-        fprintf(stderr, "- p6 skyfallback: tex0=%p tex1=%p\n", (void*)e0, (void*)e1);
+            fprintf(stderr, "- p6 skyfallback: tex0=%p tex1=%p\n", (void*)e0, (void*)e1);
+        }
     }
 #if defined(USE_DX11) || defined(USE_METAL)
     RCache.set_Textures(&sky_r_textures);

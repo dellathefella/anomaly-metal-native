@@ -4981,6 +4981,19 @@ namespace
 			pd.colorFormat = -1; // depth-only pass
 		MtlPdDepthFromEncoder(pm, pd);
 		pd.blend = pm.blend;
+		// p6 band-hunt: log the engine PSO's blend/depth fields for terrain
+		// pairs. A stale enabled blend with a zeroing factor is the last
+		// untested PSO difference vs the fill probe's blend-disabled PSO.
+		if (pairName && strstr(pairName->name.c_str(), "deffer_base_bump"))
+		{
+			static int s_bdN = 0;
+			if (s_bdN++ < 6)
+				Log("- p6 blenddbg: pair=%s blendEn=%d src=%d dst=%d op=%d srcA=%d dstA=%d "
+				    "opA=%d mask=%u depthEn=%d depthWrite=%d blendAlpha=%d",
+				    pairName->name.c_str(), (int)pd.blend.enabled, pd.blend.src, pd.blend.dst,
+				    pd.blend.op, pd.blend.srcA, pd.blend.dstA, pd.blend.opA, pd.blend.writeMask,
+				    (int)pd.depthEnabled, (int)pd.depthWrite, (int)pd.blendAlpha);
+		}
 
 		// A draw without geometry (stride 0) aborts Metal's descriptor
 		// validation hard (no NSError) — skip such draws like null-shader

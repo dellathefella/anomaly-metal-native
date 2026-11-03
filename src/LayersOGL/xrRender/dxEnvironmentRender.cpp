@@ -281,14 +281,14 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_Geometry(sh_2geom);
     RCache.set_Shader(sh_2sky);
     // p6 sky fix: the Metal factory's env mixer lerp is a no-op, so
-    // sky_r_textures stays empty and every sky draw samples the 1x1 default
-    // (black sky). Populate it from the descriptor render's created textures
-    // (now cube maps after the TARGET_CUBE_ARRAY fix).
-    if (sky_r_textures.empty())
+    // sky_r_textures stays the 1x1 defaults and every sky draw samples black.
+    // Rebuild it from the descriptor render's created textures (cube maps
+    // after the TARGET_CUBE_ARRAY fix).
     {
         dxEnvDescriptorRender* pD = (dxEnvDescriptorRender*)&*env.CurrentEnv->m_pDescriptor;
         if (pD && pD->sky_texture._get() && pD->sky_texture_env._get())
         {
+            sky_r_textures.clear();
             sky_r_textures.emplace_back(tsky0_tstage, pD->sky_texture);
             sky_r_textures.emplace_back(tsky1_tstage, pD->sky_texture_env);
             auto e0 = sky_r_textures[0].second->surface_get();

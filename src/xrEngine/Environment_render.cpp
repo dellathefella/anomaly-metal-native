@@ -210,7 +210,11 @@ void CEnvironment::RenderLast()
 	if (0 == g_pGameLevel) return;
 #endif
 	// 2
-	eff_Rain->Render();
+	// p6 coherence hunt: XR_P5_NORAIN=1 skips the rain draw so the radial
+	// streak artifact can be isolated from the rest of the scene.
+	static const int s_norain = getenv("XR_P5_NORAIN") ? atoi(getenv("XR_P5_NORAIN")) : 0;
+	if (!s_norain)
+		eff_Rain->Render();
 	eff_Thunderbolt->Render();
 }
 

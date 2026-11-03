@@ -5665,7 +5665,7 @@ namespace
 			const char* pnD = pair ? pair->name.c_str() : "?";
 			const char* rtN = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
 			if (s_posClip < 4 && indexed && ds.vb && ds.ib && rtN && strstr(rtN, "position") &&
-			    g_dbgDrawOK > 1500000ull * (unsigned)(s_posClip + 1))
+			    g_mtlPresentCount > 6000 && primCount > 1000)
 			{
 				s_posClip++;
 				id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;

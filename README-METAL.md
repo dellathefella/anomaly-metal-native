@@ -116,6 +116,25 @@ maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
   per-fragment kill; no such draws prove the CPU culling boundary itself is
   the tilted line. Terrain VB is `float4 POSITION` at offset 0, so the raw
   fetch is valid for this probe.
+- **wvp39 — DECISIVE: the band is a per-fragment kill.** DRAWBBOX logs terrain
+  draws whose vertex bbox reaches into and beyond the band
+  (`deffer_base_bump-hq prim=2139 ndc=[0.92..1.02] px[2901..3050]`,
+  `prim=660 ndc=[-0.34..0.87]`, `deffer_impl_flat_d ndc=[0.96..1.51]`), and
+  CLIPSTAT confirms `band=1722 out=1285 maxndc=3.624`. So geometry IS
+  submitted and its vertices project into the band, yet the gbuffer stores
+  nothing there ⇒ fragments are killed, not CPU-culled.
+- **wvp40 — depth and stencil re-exonerated on the CURRENT build**:
+  `XR_METAL_NODEPTH=1 XR_P5_NOSTENCIL=1` leaves the band pixel-identical
+  (2312/2296/2286, tilt 0.92°). Depth buffer is cleared to 1.0 (far) each
+  frame, so fragments beyond the band pass a LessEqual test anyway. Terrain
+  VB is `float3 POSITION` at offset 0 (posclip decl[0] type=2 off=0),
+  confirming the DRAWBBOX raw fetch is valid.
+- **Remaining per-fragment suspects** (after depth/stencil/scissor/viewport/
+  blend/write-mask/PS-discard are all exonerated): the engine PSO vs the fill
+  probe's own PSO, and the engine's per-draw depth bias (the fill resets bias
+  to 0). wvp41 re-runs the fill probe on the current build with RECTBYPASS to
+  confirm the RT accepts fragments beyond the band and log direct scissor
+  calls.
 
 **Active theory (post-wvp37):** the tilt kills every framebuffer-space
 mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a

@@ -125,7 +125,11 @@ particles_systems::library_interface const& dxEnvironmentRender::particles_syste
 void dxEnvDescriptorRender::OnDeviceCreate(CEnvDescriptor& owner)
 {
     if (owner.sky_texture_name.size())
+    {
         sky_texture.create(owner.sky_texture_name.c_str());
+        fprintf(stderr, "- p6 skycreateGL: name=%s tex=%p\n", owner.sky_texture_name.c_str(),
+                sky_texture._get());
+    }
 
     if (owner.sky_texture_env_name.size())
         sky_texture_env.create(owner.sky_texture_env_name.c_str());

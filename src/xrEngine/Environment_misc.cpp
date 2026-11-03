@@ -346,8 +346,8 @@ void CEnvDescriptor::load(CEnvironment& environment, CInifile& config)
 
 void CEnvDescriptor::on_device_create()
 {
-	Msg("- p6 envcreate: sky_name=[%s] env_name=[%s] clouds=[%s]",
-	    sky_texture_name.c_str(), sky_texture_env_name.c_str(), clouds_texture_name.c_str());
+	fprintf(stderr, "- p6 envcreate: sky_name=[%s] env_name=[%s] clouds=[%s]\n",
+	        sky_texture_name.c_str(), sky_texture_env_name.c_str(), clouds_texture_name.c_str());
 	m_pDescriptor->OnDeviceCreate(*this);
 	/*
 	if (sky_texture_name.size())

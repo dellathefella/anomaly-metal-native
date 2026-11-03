@@ -143,10 +143,15 @@ maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
   engine per-draw state that the fill resets. Engine never sets a depth bias
   (only the fill does), so bias is innocent.
 - **wvp42 — cull mode innocent**: `XR_METAL_NOCULL=1` leaves the band
-  pixel-identical (2313/2297/2286, tilt 0.96°). So of the state the fill resets
-  (viewport/scissor/DSS/cull/fill-mode/bias/PSO), only the **engine PSO**
-  remains. wvp43 dumps the terrain PS MSL to inspect for screen-space
-  discard/clip logic.
+  pixel-identical (2313/2297/2286, tilt 0.96°).
+- **wvp44 — blend/write-mask innocent**: `blenddbg` shows the terrain PSOs
+  have `blendEn=0`, `mask=15` (all channels), `depthEn=0`, `depthWrite=0`,
+  `blendAlpha=0`. So of the state the fill resets (viewport/scissor/DSS/cull/
+  fill-mode/bias/blend/PSO), **only the engine PSO's VS/PS + vertex descriptor
+  remains** as the difference vs the fill's hardcoded VS/PS.
+- **Next discriminator**: draw the engine geometry with the engine VS + the
+  fill PS (red). If it paints the band, the VS is fine and the PS kills; if
+  not, the VS kills.
 
 **Active theory (post-wvp37):** the tilt kills every framebuffer-space
 mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a

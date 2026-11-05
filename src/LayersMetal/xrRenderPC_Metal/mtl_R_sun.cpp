@@ -46,6 +46,9 @@ void render_sun_old::init()
     o.active = ps_r2_ls_flags.test(R2FLAG_SUN) && (u_diffuse2s(sun_color.r, sun_color.g, sun_color.b) > EPS);
     if (RImplementation.o.sunstatic)
         o.active = false;
+    fprintf(stderr, "- p6 suninit: active=%d sunflag=%d color=(%.3f %.3f %.3f) sunstatic=%d\n",
+            (int)o.active, (int)ps_r2_ls_flags.test(R2FLAG_SUN), sun_color.r, sun_color.g,
+            sun_color.b, (int)RImplementation.o.sunstatic);
 
     if (!o.active)
         return;
@@ -70,7 +73,11 @@ void render_sun_old::render_sun()
         // glm::perspective expects width/height. Passing fASPECT straight in
         // squashes the sun/shadow frustum by (h/w)^2, which corrupts the accum
         // RT and produces the radial streaks.
-        ex_project = glm::perspective(deg2rad(Device.fFOV), 1.0f / Device.fASPECT, VIEWPORT_NEAR, _far_);
+        // X-Ray/D3D uses a zero-to-one depth projection; glm::perspective is
+        // negative-to-one (GL). The sun frustum corners are z∈[0,1], so the
+        // projection must be RH_ZO or the frustum points are wrong.
+        ex_project = glm::perspectiveRH_ZO(deg2rad(Device.fFOV), 1.0f / Device.fASPECT,
+                                           VIEWPORT_NEAR, _far_);
         ex_full = ex_project * glm::make_mat4x4(&Device.mView.m[0][0]);
         ex_full_inverse = glm::inverse(ex_full);
     }
@@ -121,7 +128,12 @@ void render_sun_old::render_sun()
         if (_abs(glm::dot(L_up, L_dir)) > .99f) L_up = glm::vec3(0.f, 0.f, 1.f);
         L_right = glm::normalize(glm::cross(L_up, L_dir));
         L_up = glm::normalize(glm::cross(L_dir, L_right));
-        mdir_View = glm::lookAt(L_pos, L_dir, L_up);
+        // glm::lookAt(eye, center, up) takes the TARGET POINT, not a direction.
+        // Passing L_dir (a unit vector) as center makes the sun camera look at
+        // the origin instead of along the sun direction, collapsing the shadow
+        // frustum (empty shadow map, all depth=1). DX9 build_camera_dir takes a
+        // direction, so the equivalent target is L_pos + L_dir.
+        mdir_View = glm::lookAt(L_pos, L_pos + L_dir, L_up);
 
         // projection: box
         Fbox frustum_bb;
@@ -133,6 +145,20 @@ void render_sun_old::render_sun()
         }
         Fbox& bb = frustum_bb;
         bb.grow(EPS);
+
+        // p6 shadow-hunt: log the sun frustum bounding box and the first
+        // frustum point so we can tell whether the camera frustum inverse is
+        // sane (empty shadow map => bb degenerate/clipped).
+        {
+            static int s_bbN = 0;
+            if (s_bbN++ < 6 && !hull.points.empty())
+                fprintf(stderr,
+                        "- p6 sunbb: min=(%.2f %.2f %.2f) max=(%.2f %.2f %.2f) "
+                        "p0=(%.2f %.2f %.2f) Lpos=(%.2f %.2f %.2f) Ldir=(%.2f %.2f %.2f)\n",
+                        bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z,
+                        hull.points[0].x, hull.points[0].y, hull.points[0].z,
+                        L_pos.x, L_pos.y, L_pos.z, L_dir.x, L_dir.y, L_dir.z);
+        }
 
         mdir_Project = glm::ortho(bb.min.x, bb.max.x, bb.min.y, bb.max.y,
                                   bb.min.z - tweak_ortho_xform_initial_offs, bb.max.z);
@@ -541,7 +567,11 @@ void render_sun_old::render_sun_near()
     // calculate view-frustum bounds in world space
     glm::mat4 ex_full_inverse;
     {
-        glm::mat4 ex_project = glm::perspective(deg2rad(Device.fFOV), Device.fASPECT,VIEWPORT_NEAR, ps_r2_sun_near);
+        // Device.fASPECT is height/width; glm::perspective wants width/height.
+        // Passing it straight in squashes the sun/shadow frustum and leaves the
+        // shadow map empty (all depth=1), so the direct sun writes nothing.
+        glm::mat4 ex_project = glm::perspectiveRH_ZO(deg2rad(Device.fFOV), 1.0f / Device.fASPECT,
+                                                     VIEWPORT_NEAR, ps_r2_sun_near);
         ex_full_inverse = glm::inverse(ex_project * glm::make_mat4x4(&Device.mView.m[0][0]));
     }
 
@@ -600,7 +630,8 @@ void render_sun_old::render_sun_near()
         if (_abs(glm::dot(L_right, L_dir)) > .99f) L_right = glm::vec3(0.f, 0.f, 1.f);
         L_up = glm::normalize(glm::cross(L_dir, L_right));
         L_right = glm::normalize(glm::cross(L_up, L_dir));
-        mdir_View = glm::lookAt(L_pos, L_dir, L_up);
+        // glm::lookAt(eye, center, up): target point, not direction (see render_sun).
+        mdir_View = glm::lookAt(L_pos, L_pos + L_dir, L_up);
 
         //	Simple
         Fbox frustum_bb;
@@ -612,6 +643,16 @@ void render_sun_old::render_sun_near()
         }
         Fbox& bb = frustum_bb;
         bb.grow(EPS);
+        {
+            static int s_bbN2 = 0;
+            if (s_bbN2++ < 6)
+                fprintf(stderr,
+                        "- p6 sunbbN: pts=%zu min=(%.2f %.2f %.2f) max=(%.2f %.2f %.2f) "
+                        "cam=(%.2f %.2f %.2f)\n",
+                        hull.points.size(), bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y,
+                        bb.max.z, Device.vCameraPosition.x, Device.vCameraPosition.y,
+                        Device.vCameraPosition.z);
+        }
         mdir_Project = glm::ortho(bb.min.x, bb.max.x, bb.min.y, bb.max.y,
                                   bb.min.z - tweak_ortho_xform_initial_offs, bb.max.z);
 
@@ -739,6 +780,14 @@ void render_sun_old::render_sun_filtered() const
 
 void render_sun_old::render()
 {
+    // p6 shadow-hunt: is the sun pass active at all? An inactive sun skips
+    // render_sun_near (the shadow-map renderer) => empty shadow map.
+    {
+        static int s_sunAct = 0;
+        if (s_sunAct++ < 6)
+            fprintf(stderr, "- p6 sunact: active=%d sunfilter=%d\n", (int)o.active,
+                    (int)RImplementation.o.sunfilter);
+    }
     if (!o.active)
         return;
 

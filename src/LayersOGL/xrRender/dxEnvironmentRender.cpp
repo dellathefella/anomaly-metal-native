@@ -264,6 +264,14 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     u32 i_offset, v_offset;
     u32 C = color_rgba(iFloor(env.CurrentEnv->sky_color.x * 255.f), iFloor(env.CurrentEnv->sky_color.y * 255.f),
         iFloor(env.CurrentEnv->sky_color.z * 255.f), iFloor(env.CurrentEnv->weight * 255.f));
+    // p6 sky-hunt: print the sky tint/weight actually used by the sky draw.
+    {
+        static int s_skycl = 0;
+        if (s_skycl++ < 8)
+            fprintf(stderr, "- p6 skycolor: rgb=(%.3f %.3f %.3f) weight=%.3f C=%08x\n",
+                    env.CurrentEnv->sky_color.x, env.CurrentEnv->sky_color.y,
+                    env.CurrentEnv->sky_color.z, env.CurrentEnv->weight, C);
+    }
 
     // Fill index buffer
     u16* pib = RImplementation.Index.Lock(20 * 3, i_offset);

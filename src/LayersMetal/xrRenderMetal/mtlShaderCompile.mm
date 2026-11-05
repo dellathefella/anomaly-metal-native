@@ -547,7 +547,10 @@ static std::string MtlPatchNoShadow(const std::string& msl, const char* name)
 {
 	if (!getenv("XR_P5_NOSHADOW") || !name || !strstr(name, "accum_sun"))
 		return msl;
-	static const std::regex cmpRe(R"(s_smap\.sample_compare\([^)]*\))");
+	// sample_compare(sampler, X.xy / float2(X.w), X.z / X.w) — nested float2()
+	// parens, so a flat [^)]* stops early and emits invalid MSL.
+	static const std::regex cmpRe(
+	    R"(s_smap\.sample_compare\(s_smap_smplr, [^)]*float2\([^)]*\)[^)]*\))");
 	return std::regex_replace(msl, cmpRe, "1.0");
 }
 
@@ -558,7 +561,9 @@ static std::string MtlPatchNoMaterial(const std::string& msl, const char* name)
 {
 	if (!getenv("XR_P5_NOMATERIAL") || !name || !strstr(name, "accum_sun"))
 		return msl;
-	static const std::regex matRe(R"(s_material\.sample\([^)]*\))");
+	// s_material.sample(sampler, float3(...)) — nested float3()/normalize()
+	// parens; match the whole call.
+	static const std::regex matRe(R"(s_material\.sample\(s_material_smplr, float3\(.*?\)\))");
 	return std::regex_replace(msl, matRe, "float4(1.0)");
 }
 
@@ -605,6 +610,19 @@ static std::string MtlPatchNoAccum(const std::string& msl, const char* name)
 		return msl;
 	static const std::regex accRe(R"(s_accumulator\.sample\([^)]*\))");
 	return std::regex_replace(msl, accRe, "float4(0.0)");
+}
+
+// p6 sun-hunt: XR_P5_NOLIGHT=1 replaces the accum-sun PS material lookup with
+// float4(1.0). If the accum RT becomes non-empty, plight_infinity (material
+// table / sampled position+normal) is the zero source.
+static std::string MtlPatchNoLight(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOLIGHT") || !name || !strstr(name, "accum_sun"))
+		return msl;
+	// s_material.sample(sampler, float3(...)) — nested float3()/normalize()
+	// parens; match the whole call.
+	static const std::regex matRe(R"(s_material\.sample\(s_material_smplr, float3\(.*?\)\))");
+	return std::regex_replace(msl, matRe, "float4(1.0)");
 }
 
 // p6 streak hunt: XR_P5_POSW=1 forces the terrain VS position w to 1.0.
@@ -672,6 +690,7 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	res.msl = MtlPatchNoMaskVs(res.msl, name);
 	res.msl = MtlPatchNoAccum(res.msl, name);
 	res.msl = MtlPatchPosW(res.msl, name);
+	res.msl = MtlPatchNoLight(res.msl, name);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -752,6 +771,7 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 	patched = MtlPatchNoMaskVs(patched, name);
 	patched = MtlPatchNoAccum(patched, name);
 	patched = MtlPatchPosW(patched, name);
+	patched = MtlPatchNoLight(patched, name);
 	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)

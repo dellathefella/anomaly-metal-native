@@ -312,6 +312,34 @@ void* CRender::texture_load(pcstr fRName, u32& ret_msize, u32& ret_desc, u32& re
         }
     }
 
+    // p6 sky-hunt: XR_P5_SKYDUMP=1 reads back the first cube face of every
+    // sky texture to /tmp/sky_<name>.rgba so we can see whether the upload
+    // actually landed (black texture => black sky).
+    if (getenv("XR_P5_SKYDUMP") && fn && strstr(fn, "sky"))
+    {
+        const u32 fw = u32(ext.x), fh = u32(ext.y);
+        const u32 bpp = HW.MtlDev.TextureBpp(pTexture);
+        if (bpp)
+        {
+            std::vector<u8> rb(size_t(fw) * fh * bpp);
+            std::string rerr;
+            if (HW.MtlDev.ReadbackSlice(pTexture, rb.data(), fw * bpp, fw, fh, 0, 0, rerr))
+            {
+                mkdir("/tmp", 0755);
+                char path[256];
+                snprintf(path, sizeof path, "/tmp/sky_%u.rgba", s_texDbgN);
+                FILE* f = fopen(path, "wb");
+                if (f) { fwrite(rb.data(), 1, rb.size(), f); fclose(f); }
+                size_t nz = 0;
+                for (size_t k = 0; k < rb.size(); k++) if (rb[k]) nz++;
+                fprintf(stderr, "- p6 skydump: %s %ux%u bpp=%u nz=%zu/%zu -> %s\n",
+                        fn, fw, fh, bpp, nz, rb.size(), path);
+            }
+            else
+                fprintf(stderr, "- p6 skydump: %s readback failed: %s\n", fn, rerr.c_str());
+        }
+    }
+
     FS.r_close(S);
 
     xr_strlwr(fn);

@@ -217,10 +217,33 @@ strip (x≈1505→2312 top, 1447→2286 bottom) while `_user_albedo`/`base_*` ar
 full-left — the position RT strip was the same transposed-WVP collapse and is
 gone with the fix.
 
+## Open bug: empty shadow map / dark direct sun
+
+The scene renders coherently but is very dark: the sun accum pass writes
+nothing. Verified with `XR_P5_POSTACC=2`:
+
+- `XR_P5_NOACCOUT=1` (PS output forced to `float4(1.0)`) makes the accum RT
+  **51.5% non-zero** — the cuboid VS, stencil, depth and blend all rasterize.
+- The real PS (and `XR_P5_NOSHADOW=1` / `XR_P5_NOLIGHT=1`) leaves the accum RT
+  empty, so the PS light/shadow product is zero.
+- `postsmap`/`smaprb` show `$user$smap_depth` is **all depth=1** (empty shadow
+  map), so every `sample_compare` fails and `s`=0.
+
+Shadow-map frustum fixes applied in `mtl_R_sun.cpp` (both `render_sun` and
+`render_sun_near`): the `glm::perspective` aspect (`1/fASPECT`), the D3D
+zero-to-one depth (`perspectiveRH_ZO` instead of GL `perspective`), and
+`glm::lookAt(L_pos, L_pos + L_dir, up)` (a target point, not a direction).
+The shadow map is still empty; the new cascade renderer
+(`render_phase_sun.cpp`) uses `XRMatrixOrthoOffCenterLH` + `build_camera_dir`
+and the cascade `lightXZshift` centering is the remaining suspect.
+
 ## Known issues / queue
 
 - **Daytime verification** (user priority #3) pending — daytime lighting check after the band.
 - **Sky is an invisible stub** → void areas read black (planned in t5: sky/sun/accum_sun GL-parity).
+  Sky textures now upload (cube arrays, `XR_P5_SKYDUMP` shows non-zero faces); the
+  sky tint is bright (0.85) but the sky still reads dark — the sky PS/tonemap path
+  is the remaining suspect.
 - **Pause-menu selector misalignment** — wide-screen ratio branch fires at 1.8:1 + RT height 1684
   vs window 1680 discrepancy (`layer.drawableSize` vs `Device.dwHeight`).
 - **Texture-retention stall**: RSS grows to ~10 GB and the game freezes after ~4–5 min in-game.

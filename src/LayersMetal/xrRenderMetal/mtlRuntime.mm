@@ -4691,6 +4691,15 @@ void MtlSetDepth(uint32_t enable, uint32_t func, uint32_t writeMask)
 	MtlPassManager& pm = PM();
 	pm.depthEn = enable != 0;
 	pm.depthFunc = (int)func;
+	// p6 sun-hunt: XR_P5_SUNZ=1 forces GREATER/GREATEREQUAL depth tests to
+	// ALWAYS. The sun accum quad sits at z=EPS_S and X-Ray's inverted-Z pass
+	// expects GREATER; Metal's scene depth is non-inverted (near=0, far=1),
+	// so the test fails everywhere and the accum RT stays empty.
+	{
+		static const int s_sunz = getenv("XR_P5_SUNZ") ? atoi(getenv("XR_P5_SUNZ")) : 0;
+		if (s_sunz && (func == 5 || func == 7))
+			pm.depthFunc = 8;
+	}
 	if (writeMask != 0xFFFFFFFFu)
 		pm.depthWrite = writeMask != 0;
 	if (pm.enc)

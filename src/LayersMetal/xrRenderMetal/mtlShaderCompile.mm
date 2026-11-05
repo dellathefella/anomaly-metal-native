@@ -540,6 +540,101 @@ static std::string MtlPatchShadowDref(const std::string& msl, const char* name)
 	return out;
 }
 
+// p6 streak hunt: XR_P5_NOSHADOW=1 neutralizes every shadow-map tap in the
+// accum-sun PS (s_smap.sample_compare(...) -> 1.0). The accum RT is the proven
+// streak source (FILLRT=accum removes them); this isolates the shadow path.
+static std::string MtlPatchNoShadow(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOSHADOW") || !name || !strstr(name, "accum_sun"))
+		return msl;
+	static const std::regex cmpRe(R"(s_smap\.sample_compare\([^)]*\))");
+	return std::regex_replace(msl, cmpRe, "1.0");
+}
+
+// p6 streak hunt: XR_P5_NOMATERIAL=1 neutralizes the accum-sun PS material 3D
+// texture lookup (s_material.sample(...) -> float4(1.0)). The accum RT is the
+// proven streak source; this isolates the material/hemi lookup.
+static std::string MtlPatchNoMaterial(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOMATERIAL") || !name || !strstr(name, "accum_sun"))
+		return msl;
+	static const std::regex matRe(R"(s_material\.sample\([^)]*\))");
+	return std::regex_replace(msl, matRe, "float4(1.0)");
+}
+
+// p6 streak hunt: XR_P5_NOACCOUT=1 forces the accum-sun PS output to a constant
+// float4(1.0). If the streaks vanish, the accum uniforms (Ldynamic_color/dir)
+// are the source; if they persist, the accum RT is written by another pass.
+static std::string MtlPatchNoAccOut(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOACCOUT") || !name || !strstr(name, "accum_sun"))
+		return msl;
+	static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+	return std::regex_replace(msl, outRe, "out.out_var_SV_TARGET = float4(1.0);");
+}
+
+// p6 streak hunt: XR_P5_NOMASK=1 forces the accum-mask PS (accum_direct_blend)
+// output to float4(1.0). If the streaks vanish, the blend-copy mask shader is
+// the source of the accum-RT garbage.
+static std::string MtlPatchNoMask(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOMASK") || !name || !strstr(name, "accum_mask"))
+		return msl;
+	static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+	return std::regex_replace(msl, outRe, "out.out_var_SV_TARGET = float4(1.0);");
+}
+
+// p6 streak hunt: XR_P5_NOMASKVS=1 forces the accum-mask VS clip position to a
+// constant full-screen triangle. If the streaks vanish, the mask VS geometry
+// (m_WVP transform of the blend-copy quad) is the source.
+static std::string MtlPatchNoMaskVs(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOMASKVS") || !name || !strstr(name, "accum_mask"))
+		return msl;
+	static const std::regex posRe(R"(out\.gl_Position = [^;]*;)");
+	return std::regex_replace(msl, posRe,
+	                          "out.gl_Position = float4(in.in_var_POSITION.xy, 0.0, 1.0);");
+}
+
+// p6 streak hunt: XR_P5_NOACCUM=1 replaces the combine PS accum sample with
+// float4(0). If the streaks vanish, the accum RT (or its binding) is the
+// source — independent of the FILLRT probe, which also touches other RTs.
+static std::string MtlPatchNoAccum(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_NOACCUM") || !name || !strstr(name, "combine"))
+		return msl;
+	static const std::regex accRe(R"(s_accumulator\.sample\([^)]*\))");
+	return std::regex_replace(msl, accRe, "float4(0.0)");
+}
+
+// p6 streak hunt: XR_P5_POSW=1 forces the terrain VS position w to 1.0.
+// The DX9 decl stores POSITION as float3; the MSL VS reads float4 and Metal
+// leaves w undefined (observed 0), so POSITION*m_WVP loses the translation
+// and geometry collapses to a radial fan from the camera origin.
+static std::string MtlPatchPosW(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_POSW") || !name)
+		return msl;
+	if (!strstr(name, "deffer") && !strstr(name, "impl") && !strstr(name, "tree") &&
+	    !strstr(name, "water") && !strstr(name, "sky"))
+		return msl;
+	static const std::regex wvpRe(R"(in\.in_var_POSITION \* _Globals\.m_WVP)");
+	static const std::regex wvRe(R"(in\.in_var_POSITION \* _Globals\.m_WV)");
+	// detail/impl VS: dot(array[inst], POSITION) uses POSITION.w as the
+	// homogeneous coordinate; garbage w distorts the instance transform.
+	static const std::regex dotRe(R"(, in\.in_var_POSITION\))");
+	std::string s = std::regex_replace(msl, wvpRe,
+	                                   "float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WVP");
+	s = std::regex_replace(s, wvRe,
+	                       "float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WV");
+	s = std::regex_replace(s, dotRe,
+	                       ", float4(in.in_var_POSITION.xyz, 1.0))");
+	static std::set<std::string> s_poswLogged;
+	if (s != msl && s_poswLogged.insert(name ? name : "?").second)
+		fprintf(stderr, "- xrMetal posw: patched %s\n", name ? name : "?");
+	return s;
+}
+
 bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, const char* name,
                        const char* translatedHlsl, const char* entry, std::string& error)
 {
@@ -570,6 +665,13 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	// launch264: restore the proj-sample reference depth before the MSL
 	// reaches the compiler, reflection, V2P patching or the disk cache.
 	res.msl = MtlPatchShadowDref(res.msl, name);
+	res.msl = MtlPatchNoShadow(res.msl, name);
+	res.msl = MtlPatchNoMaterial(res.msl, name);
+	res.msl = MtlPatchNoAccOut(res.msl, name);
+	res.msl = MtlPatchNoMask(res.msl, name);
+	res.msl = MtlPatchNoMaskVs(res.msl, name);
+	res.msl = MtlPatchNoAccum(res.msl, name);
+	res.msl = MtlPatchPosW(res.msl, name);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -640,7 +742,16 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 {
 	// launch264: disk-cache entries compiled before the dref fix carry the
 	// z-dropped proj samples; patch idempotently like the realign below.
-	const std::string patched = MtlPatchShadowDref(msl, name);
+	// p6 streak hunt: apply the same probe patches on the disk-cache path so
+	// NOSHADOW/NOMATERIAL/NOACCOUT take effect for cached accum shaders.
+	std::string patched = MtlPatchShadowDref(msl, name);
+	patched = MtlPatchNoShadow(patched, name);
+	patched = MtlPatchNoMaterial(patched, name);
+	patched = MtlPatchNoAccOut(patched, name);
+	patched = MtlPatchNoMask(patched, name);
+	patched = MtlPatchNoMaskVs(patched, name);
+	patched = MtlPatchNoAccum(patched, name);
+	patched = MtlPatchPosW(patched, name);
 	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)

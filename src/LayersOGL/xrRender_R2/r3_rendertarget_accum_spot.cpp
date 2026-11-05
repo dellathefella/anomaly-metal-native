@@ -7,6 +7,12 @@ namespace xray::render::RENDER_NAMESPACE
 
 void CRenderTarget::accum_spot(CBackend& cmd_list, light* L)
 {
+    // p6 streak hunt: XR_P5_NOSPOT=1 skips spot/omni light accumulation.
+    // These passes also write rt_Accumulator; the sun pass is already proven
+    // innocent (NOACCOUT constant output still streaks), so isolate them.
+    static const int s_nospot = getenv("XR_P5_NOSPOT") ? atoi(getenv("XR_P5_NOSPOT")) : 0;
+    if (s_nospot)
+        return;
     phase_accumulator(cmd_list);
     RImplementation.Stats.l_visible++;
 

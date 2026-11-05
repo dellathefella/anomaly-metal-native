@@ -164,14 +164,25 @@ in Monolith convention, 0.5582) straight into `glm::perspective`, which expects
 width/height — sun/shadow projections are wrong by (h/w)². Not the band
 (position pass is clean of it) but queued after.
 
-## Open bug: radial streaks from the screen centre
+## Fixed: radial streaks from the screen centre
 
-A fan of thin green/brown lines radiates from the screen centre (x≈1512) across
-the right half, in both the final frame and the raw `$user$albedo` RT. It is
-screen-fixed and survives camera motion. The fan converges at the camera origin,
-so the geometry has vertices collapsing to the eye point.
+A fan of thin green/brown lines radiated from the screen centre (x≈1512) across
+the right half, in both the final frame and the raw `$user$albedo` RT. It was
+screen-fixed and survived camera motion. The fan converged at the camera origin,
+so the geometry had vertices collapsing to the eye point.
 
-**Exonerated by verified in-game bisect runs** (each knob leaves the streaks
+**Root cause (fixed):** the Metal constants cache wrote the engine `Fmatrix`
+**row-major**, while the GL backend uploads its **transpose**
+(`glr_constants_cache.h`: `it[0].set(_11,_21,_31,_41)…`). The MSL
+`float4x4`/`float3x4` constants are column-major, so writing the row-major
+Fmatrix made every matrix transposed: the terrain WVP lost its translation and
+geometry collapsed to a fan from the camera origin. `XR_METAL_REPLAY` proved it
+— replaying the captured terrain draw with the engine VB/WVP bytes rasterized
+to a 5-pixel bbox at screen centre (`px=[1498..1528] py=[843..844]`). The fix
+transposes the Fmatrix rows in `mtl_constants_cache.h` to match GL; verified
+in-game screenshots now render coherent grass/terrain/HUD with no streaks.
+
+**Exonerated by verified in-game bisect runs** (each knob left the streaks
 pixel-identical):
 
 | Knob | Pass skipped |
@@ -194,14 +205,17 @@ pixel-identical):
 | `XR_P5_NOSHAFTS=1` | volumetric sun shafts |
 | `r3_water_refl 0` / `r2_soft_water off` | water SSR |
 
-**Still standing:** the streaks live in the geometry/albedo pass and are not any
-of the optional passes above. `XR_METAL_DRAWBBOX` shows the right-half coverage
-is dominated by `deffer_impl_flat_d` draws (NDC up to 1.48), but skipping that
-pass does not remove the streaks. The remaining candidates are the core
-`render_graph(0)` geometry and the combine pass's full-screen quad. The
-`XR_METAL_RTDUMP='$user$'` dump pins `_user_position` to a parallelogram strip
-(x≈1505→2312 top, 1447→2286 bottom) while `_user_albedo`/`base_*` are full-left —
-the position RT strip is a separate anomaly from the albedo streaks.
+**Note on the old FILLRT evidence:** `XR_METAL_FILLRT=accum` appeared to remove
+the streaks, but the fill probe fires at the scene encoder's close (3
+attachments), so it overwrote the g-buffer RTs — a probe artifact. Direct
+`XR_P5_NOACCUM=1` (combine accum sample → 0) left the streaks intact, and the
+postaccum readback showed the accum RT empty. The streaks were always the
+transposed-WVP geometry, not the accum RT.
+
+The `XR_METAL_RTDUMP='$user$'` dump pins `_user_position` to a parallelogram
+strip (x≈1505→2312 top, 1447→2286 bottom) while `_user_albedo`/`base_*` are
+full-left — the position RT strip was the same transposed-WVP collapse and is
+gone with the fix.
 
 ## Known issues / queue
 

@@ -4,6 +4,11 @@ namespace xray::render::RENDER_NAMESPACE
 {
 void CRenderTarget::accum_reflected(CBackend& cmd_list, light* L)
 {
+    // p6 streak hunt: XR_P5_NOREFL=1 skips reflected-light accumulation,
+    // another writer of rt_Accumulator.
+    static const int s_norefl = getenv("XR_P5_NOREFL") ? atoi(getenv("XR_P5_NOREFL")) : 0;
+    if (s_norefl)
+        return;
     phase_accumulator(cmd_list);
     RImplementation.Stats.l_visible++;
 

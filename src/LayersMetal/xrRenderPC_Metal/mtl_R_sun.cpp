@@ -66,7 +66,11 @@ void render_sun_old::render_sun()
     glm::mat4 ex_full, ex_project, ex_full_inverse;
     {
         float _far_ = std::min(ps_r2_sun_far, g_pGamePersistent->Environment().CurrentEnv->far_plane);
-        ex_project = glm::perspective(deg2rad(Device.fFOV), Device.fASPECT, VIEWPORT_NEAR, _far_);
+        // Device.fASPECT is height/width (CameraManager.cpp: fHeight_2/fWidth_2);
+        // glm::perspective expects width/height. Passing fASPECT straight in
+        // squashes the sun/shadow frustum by (h/w)^2, which corrupts the accum
+        // RT and produces the radial streaks.
+        ex_project = glm::perspective(deg2rad(Device.fFOV), 1.0f / Device.fASPECT, VIEWPORT_NEAR, _far_);
         ex_full = ex_project * glm::make_mat4x4(&Device.mView.m[0][0]);
         ex_full_inverse = glm::inverse(ex_full);
     }

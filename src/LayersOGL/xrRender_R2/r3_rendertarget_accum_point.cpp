@@ -4,6 +4,10 @@ namespace xray::render::RENDER_NAMESPACE
 {
 void CRenderTarget::accum_point(CBackend& cmd_list, light* L)
 {
+    // p6 streak hunt: XR_P5_NOSPOT=1 skips point light accumulation.
+    static const int s_nospot = getenv("XR_P5_NOSPOT") ? atoi(getenv("XR_P5_NOSPOT")) : 0;
+    if (s_nospot)
+        return;
     phase_accumulator(cmd_list);
     RImplementation.Stats.l_visible++;
 

@@ -55,7 +55,18 @@ private:
 #endif
             bytes = 0;
         }
-        write(C, L, stage, &A, bytes);
+        // ROOT CAUSE (radial-streak fan): the GL backend uploads the TRANSPOSE
+        // of the Fmatrix (glr_constants_cache.h: it[0].set(_11,_21,_31,_41)...).
+        // The MSL `float4x4`/`float3x4` constants are column-major, so writing
+        // the row-major Fmatrix directly makes every matrix transposed: the
+        // terrain WVP loses its translation and geometry collapses to a fan
+        // from the camera origin. Match GL: store the transposed rows.
+        Fvector4 rows[4];
+        rows[0].set(A._11, A._21, A._31, A._41);
+        rows[1].set(A._12, A._22, A._32, A._42);
+        rows[2].set(A._13, A._23, A._33, A._43);
+        rows[3].set(A._14, A._24, A._34, A._44);
+        write(C, L, stage, rows, bytes);
     }
 
     ICF void set(R_constant* C, const R_constant_load& L, uint32_t stage, const Fvector4& A)

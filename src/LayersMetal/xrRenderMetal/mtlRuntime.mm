@@ -1366,9 +1366,24 @@ fragment Fill4 xrred4_ps()
 				static const char* s_rtd = getenv("XR_METAL_RTDUMP");
 				if (s_rtd && rt[0] && dev && cb)
 				{
-					id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[0];
-					const char* rn = MtlDbgRTGetName(rt[0]);
-					if (rn && strstr(rn, s_rtd) && t0.width >= 1024 && t0.height >= 600)
+					// p6 streak hunt: scan ALL color attachments, not just
+					// color0 — the scene gbuffer's albedo/normal live in rt[1]/rt[2]
+					// and RTDUMP=$user$albedo never fired before.
+					int ai = -1;
+					for (int k = 0; k < 4; k++)
+					{
+						const char* kn = rt[k] ? MtlDbgRTGetName(rt[k]) : nullptr;
+						if (kn && strstr(kn, s_rtd))
+						{
+							ai = k;
+							break;
+						}
+					}
+					if (ai >= 0)
+					{
+						id<MTLTexture> t0 = (__bridge id<MTLTexture>)rt[ai];
+						const char* rn = MtlDbgRTGetName(rt[ai]);
+					if (rn && t0.width >= 1024 && t0.height >= 600)
 					{
 						static std::map<void*, uint64_t> s_rtdCnt;
 						// p6 wvp13: once verified in-game (Present>gate — the
@@ -1379,15 +1394,15 @@ fragment Fill4 xrred4_ps()
 						// 6000 = ~2500 frames after load-end (~3500): in-game.
 						static std::set<void*> s_rtdIngame;
 						const bool rtdFire = g_mtlPresentCount > 6000
-						                         ? s_rtdIngame.insert(rt[0]).second
-						                         : (s_rtdCnt[rt[0]]++ % 300) == 299;
+						                         ? s_rtdIngame.insert(rt[ai]).second
+						                         : (s_rtdCnt[rt[ai]]++ % 300) == 299;
 						if (rtdFire)
 						{
 							[cb commit];
 							[cb waitUntilCompleted];
 							cb = [(__bridge id<MTLCommandQueue>)dev->Queue() commandBuffer];
 							const uint32_t bw = (uint32_t)t0.width, bh = (uint32_t)t0.height;
-							const uint32_t bpp = dev->TextureBpp(rt[0]);
+							const uint32_t bpp = dev->TextureBpp(rt[ai]);
 							if (bpp)
 							{
 								// p6: ReadbackSlice returns RAW format bytes —
@@ -1395,7 +1410,7 @@ fragment Fill4 xrred4_ps()
 								// not 4 (fp16 RTs read back as 8 B/px).
 								std::vector<uint8_t> buf(size_t(bw) * bh * bpp);
 								std::string derr;
-								if (dev->ReadbackSlice(rt[0], buf.data(), bw * bpp, bw, bh, 0, 0,
+								if (dev->ReadbackSlice(rt[ai], buf.data(), bw * bpp, bw, bh, 0, 0,
 								                       derr))
 								{
 									mkdir("/tmp/rtdump", 0755);
@@ -1437,6 +1452,7 @@ fragment Fill4 xrred4_ps()
 									Log("! p6 rtdump: %s readback failed: %s", rn, derr.c_str());
 							}
 						}
+					}
 					}
 				}
 			}
@@ -1485,6 +1501,19 @@ fragment Fill4 xrred4_ps()
 				std::string perr;
 				if (dev->ReadbackSlice(pa, pb.data(), pw * 8, pw, ph, 0, 0, perr))
 				{
+					// p6 streak hunt: XR_P5_POSTACC=2 writes the raw accum RT
+					// (RGBA16F) to /tmp/rtdump/accum_post.rgba so the fan can be
+					// inspected directly after the sun pass.
+					if (atoi(getenv("XR_P5_POSTACC")) == 2)
+					{
+						mkdir("/tmp/rtdump", 0755);
+						FILE* af = fopen("/tmp/rtdump/accum_post.rgba", "wb");
+						if (af)
+						{
+							fwrite(pb.data(), 1, pb.size(), af);
+							fclose(af);
+						}
+					}
 					size_t pnz = 0;
 					uint8_t chx[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 					size_t bands[4] = { 0, 0, 0, 0 };
@@ -8385,9 +8414,12 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 									nBand++;
 								nSmp++;
 							}
-							if (nBand >= 40 && nFront * 2 > nSmp && nBand > g_rpBand)
+							// p6 streak hunt: capture the biggest front-facing
+							// terrain draw even if it doesn't cover the band —
+							// the fan geometry may project left of the band.
+							if (nFront * 2 > nSmp && primCount > g_rpBand)
 							{
-								g_rpBand = nBand;
+								g_rpBand = primCount;
 								g_rpFront = nBand;
 								std::memcpy(g_rpWvp, m, 64);
 								g_rpVb = ds.vb;

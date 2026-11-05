@@ -563,10 +563,21 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
             else
                 inv_XDcombine.invert(xform);
 
+            // p6 streak hunt: XR_P5_NOCUBOID=1 replaces the sun-light cuboid with
+            // a full-screen NDC quad. If the streaks vanish, the cuboid geometry
+            // (inv_XDcombine transform) is the source of the accum-RT garbage.
+            static const int s_nocuboid = getenv("XR_P5_NOCUBOID") ? atoi(getenv("XR_P5_NOCUBOID")) : 0;
             for (u32 i = 0; i < ver_count; ++i)
             {
                 Fvector3 tmp_vec;
-                inv_XDcombine.transform(tmp_vec, accum_direct::corners[i]);
+                if (s_nocuboid)
+                {
+                    tmp_vec.set((i & 1) ? 1.f : -1.f, (i & 2) ? 1.f : -1.f, 0.f);
+                }
+                else
+                {
+                    inv_XDcombine.transform(tmp_vec, accum_direct::corners[i]);
+                }
                 pv->set(tmp_vec.x, tmp_vec.y, tmp_vec.z, 1);
                 pv++;
             }

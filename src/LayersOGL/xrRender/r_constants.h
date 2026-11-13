@@ -90,8 +90,9 @@ struct ECORE_API R_constant_load
     u32 offset;
     u32 size;
     u32 stride;
+    u32 extent; // bytes covered by ALL elements (arrays: stride * count)
 
-    R_constant_load() : index(u16(-1)), cls(u16(-1)), offset(u32(-1)), size(0), stride(0) {};
+    R_constant_load() : index(u16(-1)), cls(u16(-1)), offset(u32(-1)), size(0), stride(0), extent(0) {};
 #else
 #   error No graphics API selected or enabled!
 #endif

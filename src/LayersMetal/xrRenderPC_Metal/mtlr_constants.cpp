@@ -82,6 +82,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
             L.offset = u.offset;
             L.size = u.elements > 1 ? u.stride : u.size; // element size for seta paths
             L.stride = u.stride;
+            L.extent = u.elements > 1 ? u.stride * u.elements : u.size;
         }
         else
         {
@@ -93,6 +94,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
             L.offset = u.offset;
             L.size = u.elements > 1 ? u.stride : u.size;
             L.stride = u.stride;
+            L.extent = u.elements > 1 ? u.stride * u.elements : u.size;
         }
     }
 

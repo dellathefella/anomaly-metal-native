@@ -3834,7 +3834,8 @@ void MtlFrameEnd()
 		static const char* s_rts = getenv("XR_METAL_RTSTATS");
 		static const bool s_rtsEnd = getenv("XR_METAL_RTSTATS_END") != nullptr;
 		static int s_rtsF = 0;
-		if (s_rts && s_rtsEnd && PM().cb && (s_rtsF++ % 240) == 120)
+		static const int s_rtsPer = getenv("XR_METAL_RTSTATS_PERIOD") ? atoi(getenv("XR_METAL_RTSTATS_PERIOD")) : 240;
+		if (s_rts && s_rtsEnd && PM().cb && (s_rtsF++ % s_rtsPer) == (s_rtsPer > 1 ? s_rtsPer / 2 : 0))
 			MtlRtStatsCapture(PM(), s_rts);
 	}
 	// p6 band-hunt: XR_METAL_RTSIZES=1 — periodic census of every RT bound
@@ -6650,6 +6651,18 @@ namespace
 			static const char* s_pc = getenv("XR_METAL_PAIRCOUNT");
 			if (s_pc && pair && strstr(pair->name.c_str(), s_pc))
 				g_pairCountFrame++;
+		}
+		// XR_METAL_RTTRACE=<rt substr>: per frame (every 30th presented frame)
+		// list the pairs drawn into a matching RT0, in order.
+		{
+			static const char* s_tr = getenv("XR_METAL_RTTRACE");
+			if (s_tr && pm.rt[0] && (g_mtlPresentCount % 30) == 7)
+			{
+				const char* rn = MtlDbgRTGetName(pm.rt[0]);
+				if (rn && strstr(rn, s_tr))
+					fprintf(stderr, "- rttrace f%llu %s <- %s prims=%u\n", (unsigned long long)g_mtlPresentCount, rn,
+					        pair ? pair->name.c_str() : "?", primCount);
+			}
 		}
 		// XR_METAL_RTSTATS_AFTER=<pair substr>: capture XR_METAL_RTSTATS targets
 		// right after a matching draw (every 240th match).

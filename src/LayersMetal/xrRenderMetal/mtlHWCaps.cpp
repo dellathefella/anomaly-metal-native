@@ -49,7 +49,7 @@ void CHWCaps::Update()
 
     max_ffp_lights = 0;
 
-    iGPUNum = 2;
+    iGPUNum = 1; // one Apple GPU: 2 split the luminance pool into two AFR chains whose exposure alternated per frame (flashing)
 
     useCombinedSamplers = true;
 }

@@ -441,14 +441,18 @@ IC void CBackend::set_Constants(R_constant_table* C)
         for (const ref_constant& Cs : C->table)
         {
             const R_constant& c = *Cs;
-            if (c.vs.offset != u32(-1) && c.vs.offset + c.vs.size > vsSize)
-                vsSize = c.vs.offset + c.vs.size;
-            if (c.pp.offset != u32(-1) && c.pp.offset + c.pp.size > vsSize)
-                vsSize = c.pp.offset + c.pp.size;
-            if (c.ps.offset != u32(-1) && c.ps.offset + c.ps.size > psSize)
-                psSize = c.ps.offset + c.ps.size;
-            if (c.pp.offset != u32(-1) && c.pp.offset + c.pp.size > psSize)
-                psSize = c.pp.offset + c.pp.size;
+            // extent, not size: for arrays size is ONE element, so a
+            // weight[2] at the end of the cbuffer lost element 1 (bloom
+            // filter centre tap read stale ring bytes -> white/black frames).
+            auto ext = [](const R_constant_load& L) { return std::max(L.size, L.extent); };
+            if (c.vs.offset != u32(-1) && c.vs.offset + ext(c.vs) > vsSize)
+                vsSize = c.vs.offset + ext(c.vs);
+            if (c.pp.offset != u32(-1) && c.pp.offset + ext(c.pp) > vsSize)
+                vsSize = c.pp.offset + ext(c.pp);
+            if (c.ps.offset != u32(-1) && c.ps.offset + ext(c.ps) > psSize)
+                psSize = c.ps.offset + ext(c.ps);
+            if (c.pp.offset != u32(-1) && c.pp.offset + ext(c.pp) > psSize)
+                psSize = c.pp.offset + ext(c.pp);
         }
     }
     MtlConstBegin(vsSize, psSize);

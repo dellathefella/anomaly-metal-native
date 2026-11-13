@@ -21,11 +21,11 @@ namespace mtlxr = xray::render::RENDER_NAMESPACE;
 
 // d3d9compat.hpp enum values (duplicated here to keep this TU include-light;
 // guarded by static_asserts below against the header in the .cpp-side TU).
-#define MTL_D3DTADDRESS_WRAP 1
-#define MTL_D3DTADDRESS_CLAMP 2
-#define MTL_D3DTADDRESS_BORDER 3
-#define MTL_D3DTADDRESS_MIRROR 4
-#define MTL_D3DTADDRESS_CLAMPV 5
+#define MTL_D3DTADDRESS_WRAP 1 // D3DTEXTUREADDRESS (d3d9compat.hpp)
+#define MTL_D3DTADDRESS_MIRROR 2
+#define MTL_D3DTADDRESS_CLAMP 3
+#define MTL_D3DTADDRESS_BORDER 4
+#define MTL_D3DTADDRESS_MIRRORONCE 5
 #define MTL_D3DTEXF_NONE 0
 #define MTL_D3DTEXF_POINT 1
 #define MTL_D3DTEXF_LINEAR 2

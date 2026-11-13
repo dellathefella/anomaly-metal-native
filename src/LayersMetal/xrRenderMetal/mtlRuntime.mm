@@ -193,11 +193,11 @@ static void mtlLog(const char* fmt, ...)
 #define D3DPT_POINTLIST 1
 #endif
 
-#define MTL_D3DTADDRESS_WRAP 1
-#define MTL_D3DTADDRESS_CLAMP 2
-#define MTL_D3DTADDRESS_BORDER 3
-#define MTL_D3DTADDRESS_MIRROR 4
-#define MTL_D3DTADDRESS_CLAMPV 5
+#define MTL_D3DTADDRESS_WRAP 1 // D3DTEXTUREADDRESS (d3d9compat.hpp)
+#define MTL_D3DTADDRESS_MIRROR 2
+#define MTL_D3DTADDRESS_CLAMP 3
+#define MTL_D3DTADDRESS_BORDER 4
+#define MTL_D3DTADDRESS_MIRRORONCE 5
 
 // launch114: the Metal debug layer raises its validation failures through
 // NSAssertionHandler; the engine's fatal path then ABORTS the process,
@@ -4367,6 +4367,48 @@ static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts)
 					if (v[c] > mx[c]) mx[c] = v[c];
 				}
 			}
+			// XR_METAL_RTDUMP=<dir>: also write a <=768px-wide PPM of channels
+			// 0-2 (x scale from env XR_METAL_RTDUMP_SCALE, default 1).
+			if (const char* dumpDir = getenv("XR_METAL_RTDUMP"))
+			{
+				static std::map<std::string, int> s_dumpN;
+				const float sc = getenv("XR_METAL_RTDUMP_SCALE") ? (float)atof(getenv("XR_METAL_RTDUMP_SCALE")) : 1.f;
+				std::string fn = nm;
+				for (char& ch : fn)
+					if (!isalnum((unsigned char)ch)) ch = '_';
+				fn = std::string(dumpDir) + "/" + fn + "_" + std::to_string(s_dumpN[nm]++) + ".ppm";
+				const NSUInteger step = W > 768 ? (W + 767) / 768 : 1;
+				const NSUInteger ow = W / step, oh = H / step;
+				if (FILE* f = fopen(fn.c_str(), "wb"))
+				{
+					fprintf(f, "P6\n%lu %lu\n255\n", (unsigned long)ow, (unsigned long)oh);
+					for (NSUInteger y = 0; y < oh; ++y)
+						for (NSUInteger x = 0; x < ow; ++x)
+						{
+							const size_t i = (y * step) * W + x * step;
+							float v[4] = {};
+							switch (pf)
+							{
+							case MTLPixelFormatRGBA16Float: for (int c = 0; c < 4; ++c) v[c] = (float)((const __fp16*)p)[i * 4 + c]; break;
+							case MTLPixelFormatRG16Float: for (int c = 0; c < 2; ++c) v[c] = (float)((const __fp16*)p)[i * 2 + c]; break;
+							case MTLPixelFormatR16Float: v[0] = v[1] = v[2] = (float)((const __fp16*)p)[i]; break;
+							case MTLPixelFormatR32Float: v[0] = v[1] = v[2] = ((const float*)p)[i]; break;
+							case MTLPixelFormatRGBA32Float: for (int c = 0; c < 4; ++c) v[c] = ((const float*)p)[i * 4 + c]; break;
+							case MTLPixelFormatBGRA8Unorm:
+								v[0] = p[i * 4 + 2] / 255.f; v[1] = p[i * 4 + 1] / 255.f; v[2] = p[i * 4 + 0] / 255.f; break;
+							default: for (int c = 0; c < 3; ++c) v[c] = p[i * 4 + c] / 255.f; break;
+							}
+							unsigned char o[3];
+							for (int c = 0; c < 3; ++c)
+							{
+								float q = std::isfinite(v[c]) ? v[c] * sc : 0.f;
+								o[c] = (unsigned char)(std::min(std::max(q, 0.f), 1.f) * 255.f + 0.5f);
+							}
+							fwrite(o, 1, 3, f);
+						}
+					fclose(f);
+				}
+			}
 			std::string s;
 			char b[64];
 			for (int c = 0; c < nc; ++c)
@@ -5046,7 +5088,15 @@ void MtlSetVertexLayout(const void* elements, uint32_t count)
 {
 	MtlPassManager& pm = PM();
 	pm.declElems = (const D3DVERTEXELEMENT9*)elements;
-	pm.declCount = count;
+	// Callers pass the element count including the D3DDECL_END terminator
+	// (Stream 0xFF, Type UNUSED=17, Usage 0). Left in, it matched POSITION
+	// inputs of XYZRHW (POSITIONT) quads as an unknown type -> Float3 at
+	// offset 0, so every pre-transformed quad read position.w as 1.0
+	// (combine_1 tc.y = p.w: terrain smeared into vertical streaks).
+	uint32_t n = 0;
+	while (n < count && pm.declElems && pm.declElems[n].Stream != 0xFF && pm.declElems[n].Type != 17)
+		++n;
+	pm.declCount = n;
 }
 
 // --- draws --------------------------------------------------------------------------
@@ -5147,7 +5197,8 @@ namespace
 
 		// p5 launch217: PP-draw vertex layout dump — NaN hunt (COLOR0/1
 		// read as float32 would reinterpret 0xFF7F7F7F as NaN bits).
-		if (pairName && strstr(pairName->name.c_str(), "postprocess"))
+		static const char* s_vld = getenv("XR_METAL_VLDUMP");
+		if (pairName && strstr(pairName->name.c_str(), s_vld ? s_vld : "postprocess"))
 		{
 			static int s_vlN = 0;
 			if (s_vlN++ < 3)
@@ -5163,7 +5214,7 @@ namespace
 				for (const auto& a : pd.attrs)
 					at += "loc" + std::to_string(a.index) + "/o" + std::to_string(a.offset) +
 					      "/f" + std::to_string((int)a.format) + " ";
-				Log("* p5 ppVL: stride=%u vsin=[%s] decl=[%s] attrs=[%s]", stride, vsi.c_str(),
+				fprintf(stderr, "* p5 ppVL: %s stride=%u vsin=[%s] decl=[%s] attrs=[%s]\n", pairName->name.c_str(), stride, vsi.c_str(),
 				    dl.c_str(), at.c_str());
 			}
 		}
@@ -5538,6 +5589,15 @@ namespace
 				{
 					desc = DefaultSamplerDesc(pm.globalBias);
 					sd = &desc;
+				}
+				{
+					static const char* s_sd = getenv("XR_METAL_SAMPDUMP");
+					static int s_sdN = 0;
+					if (s_sd && strstr(psRefl.name.c_str(), s_sd) && s_sdN++ < 16)
+						fprintf(stderr, "- sampdump %s frag=%d slot=%u ss=%u rec=%d addr=%d,%d filt=%d,%d,%d aniso=%d bias=%g lod=%g..%g cmp=%d border=%d\n",
+						        psRefl.name.c_str(), (int)fragment, slot, ss, sd != nullptr && pm.recorded,
+						        sd->addressU, sd->addressV, sd->minFilter, sd->magFilter, sd->mipFilter,
+						        sd->maxAnisotropy, sd->lodBias, sd->minLod, sd->maxLod, sd->compareFunc, sd->borderColor);
 				}
 				id<MTLSamplerState> samp =
 					(__bridge id<MTLSamplerState>)pm.dev->SamplerFull(*sd);

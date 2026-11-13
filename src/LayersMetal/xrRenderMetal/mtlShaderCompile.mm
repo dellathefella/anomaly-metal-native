@@ -730,10 +730,30 @@ static std::string MtlPatchSkyConst(const std::string& msl, const char* name)
 		static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
 		std::string s = std::regex_replace(msl, outRe,
 		    getenv("XR_P5_LUMDBG")[0] == '2' ? "out.out_var_SV_TARGET = float4(_176);"
+		  : getenv("XR_P5_LUMDBG")[0] == 'p' ? "out.out_var_SV_TARGET = float4(min(s_tonemap.sample(s_tonemap_smplr, _57).x + 0.01, 50.0));"
+		  : getenv("XR_P5_LUMDBG")[0] == 'q' ? "out.out_var_SV_TARGET = float4(float(s_tonemap.get_width()) * 1000.0 + float(s_tonemap.get_height()));"
+		  : getenv("XR_P5_LUMDBG")[0] == 'r' ? "out.out_var_SV_TARGET = float4(min(s_tonemap.read(uint2(0, 0)).x + 0.01, 50.0));"
+		  : getenv("XR_P5_LUMDBG")[0] == 'n' ? "constexpr sampler xr_nsm(filter::nearest); out.out_var_SV_TARGET = float4(min(s_tonemap.sample(xr_nsm, _57).x + 0.01, 50.0));"
+		  : getenv("XR_P5_LUMDBG")[0] == 'l' ? "constexpr sampler xr_lsm(filter::linear); out.out_var_SV_TARGET = float4(min(s_tonemap.sample(xr_lsm, _57).x + 0.01, 50.0));"
+		  : getenv("XR_P5_LUMDBG")[0] == 'y' ? "out.out_var_SV_TARGET = float4(_Globals.MiddleGray.y);"
+		  : getenv("XR_P5_LUMDBG")[0] == 'w' ? "out.out_var_SV_TARGET = float4(_Globals.MiddleGray.w * 1000.0);"
+		  : getenv("XR_P5_LUMDBG")[0] == 's' ? "out.out_var_SV_TARGET = float4(_Globals.MiddleGray.x / ((_176 * _Globals.MiddleGray.y) + _Globals.MiddleGray.z));"
 		                                     : "out.out_var_SV_TARGET = float4(_Globals.MiddleGray.x / _Globals.MiddleGray.z);");
 		fprintf(stderr, "- xrMetal lumdbg: patched %s\n", name);
 		return s;
 	}
+	// XR_P5_C1DBG=d|t|p: combine_1 low output = diffuse / texcoord / position.
+	if (const char* c1 = getenv("XR_P5_C1DBG"))
+		if (name && strstr(name, "combine_1") && msl.find("fragment ") != std::string::npos)
+		{
+			static const std::regex o0(R"(out\.out_var_SV_TARGET0 = [^;]*;)");
+			const char* rep = c1[0] == 'd' ? "out.out_var_SV_TARGET0 = float4(_126.xyz, 0.0);"
+			                : c1[0] == 't' ? "out.out_var_SV_TARGET0 = float4(_116, 0.0, 0.0);"
+			                               : "out.out_var_SV_TARGET0 = float4(abs(_118.xyz) * 0.05, 0.0);";
+			std::string s = std::regex_replace(msl, o0, rep);
+			fprintf(stderr, "- xrMetal c1dbg: patched %s (%d)\n", name, (int)(s != msl));
+			return s;
+		}
 	// XR_P5_CONSTPS=<substr>: same constant-red output for any PS name match.
 	if (const char* cps = getenv("XR_P5_CONSTPS"))
 		if (name && strstr(name, cps) && msl.find("fragment ") != std::string::npos)

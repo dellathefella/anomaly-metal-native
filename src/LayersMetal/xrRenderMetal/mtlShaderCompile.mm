@@ -519,6 +519,24 @@ bool MtlShaderCompilerInit()
 // patched text matches none of the patterns.
 static std::string MtlPatchShadowDref(const std::string& msl, const char* name)
 {
+	// Sun shafts (r2 accum_volumetric_sun*): sample_hw_pcf lowers to
+	// `s_smap.sample(S, X.xy, level(0.0)).x` with X already divided by w and
+	// the reference depth in X.z. D3D9 HW-PCF compared implicitly; the r2
+	// script binds a plain sampler, so use an MSL constexpr compare sampler.
+	if (name && strstr(name, "accum_volumetric_sun") && msl.find("s_smap") != std::string::npos)
+	{
+		static const std::regex volRe(R"(s_smap\.sample\((\w+), (\w+)\.xy, level\(0\.0\)\)\.x)");
+		if (!std::regex_search(msl, volRe))
+			return msl;
+		std::string out = std::regex_replace(msl, volRe,
+		    "s_smap.sample_compare(xr_smap_cmp, $2.xy, $2.z, level(0))");
+		static const std::regex declRe(R"(texture2d<float> s_smap(?=[ \t]*\[\[texture\())");
+		out = std::regex_replace(out, declRe, "depth2d<float> s_smap");
+		const size_t f = out.find("fragment ");
+		if (f != std::string::npos)
+			out.insert(f, "constexpr sampler xr_smap_cmp(compare_func::less_equal, filter::linear, address::clamp_to_edge);\n");
+		return out;
+	}
 	if (!name || !strstr(name, "accum_sun"))
 		return msl; // dref semantics only apply to the sun shadow map
 	if (msl.find("s_smap") == std::string::npos)
@@ -754,6 +772,15 @@ static std::string MtlPatchSkyConst(const std::string& msl, const char* name)
 			fprintf(stderr, "- xrMetal c1dbg: patched %s (%d)\n", name, (int)(s != msl));
 			return s;
 		}
+	// XR_P5_VOLDBG=1: sun-shafts PS outputs (intensity, ray steps/100, P.z/100, 1).
+	if (getenv("XR_P5_VOLDBG") && name && strstr(name, "accum_volumetric_sun") && msl.find("fragment ") != std::string::npos)
+	{
+		static const std::regex o0(R"(out\.out_var_SV_TARGET = [^;]*;)");
+		std::string s = std::regex_replace(msl, o0,
+		    "out.out_var_SV_TARGET = float4(_Globals.sun_shafts_intensity.x, float(_103) * 0.01, _83 * 0.01, 1.0);");
+		fprintf(stderr, "- xrMetal voldbg: patched %s (%d)\n", name, (int)(s != msl));
+		return s;
+	}
 	// XR_P5_CONSTPS=<substr>: same constant-red output for any PS name match.
 	if (const char* cps = getenv("XR_P5_CONSTPS"))
 		if (name && strstr(name, cps) && msl.find("fragment ") != std::string::npos)

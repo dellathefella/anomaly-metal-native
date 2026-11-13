@@ -423,12 +423,23 @@ CRenderTarget::CRenderTarget()
         // Accum volumetric
         if (options.advancedpp)
         {
+#if defined(USE_METAL)
+            // Metal compiles the DX9 r2\ set, which has no *_nomsaa variants
+            // (the GL names fell back to stub_default: shafts drew nothing).
+            pcstr volName = RImplementation.o.oldshadowcascades ? "accum_volumetric_sun" : "accum_volumetric_sun_cascade";
+            s_accum_direct_volumetric.create(volName);
+#else
             s_accum_direct_volumetric.create("accum_volumetric_sun_nomsaa");
+#endif
             manually_assign_texture(s_accum_direct_volumetric, "s_smap", smapTarget);
 
             if (options.minmax_sm)
             {
+#if defined(USE_METAL)
+                s_accum_direct_volumetric_minmax.create(volName);
+#else
                 s_accum_direct_volumetric_minmax.create("accum_volumetric_sun_nomsaa_minmax");
+#endif
                 manually_assign_texture(s_accum_direct_volumetric_minmax, "s_smap", smapTarget);
             }
 

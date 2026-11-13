@@ -737,7 +737,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
         //	Igor: draw volumetric here
         // if (ps_r2_ls_flags.test(R2FLAG_SUN_SHAFTS))
         if (RImplementation.o.advancedpp && (ps_r_sun_shafts > 0) && sub_phase == SE_SUN_FAR)
-            accum_direct_volumetric(sub_phase, Offset, m_shadow);
+            accum_direct_volumetric(sub_phase, Offset, m_shadow, i_offset);
     }
 }
 
@@ -1152,7 +1152,7 @@ void CRenderTarget::accum_direct_lum(CBackend& cmd_list)
     }
 }
 
-void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32 Offset, const Fmatrix& mShadow)
+void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32 Offset, const Fmatrix& mShadow, u32 i_offset)
 {
     PIX_EVENT(accum_direct_volumetric);
 
@@ -1200,6 +1200,10 @@ void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32 Offset, con
         {
             RCache.set_CullMode(CULL_CCW);
         }
+        if (getenv("XR_METAL_VOLNOST"))
+            RCache.set_Stencil(FALSE);
+        if (const char* vc = getenv("XR_METAL_VOLCULL"))
+            RCache.set_CullMode(vc[0] == 'n' ? CULL_NONE : vc[0] == 'w' ? CULL_CW : CULL_CCW);
         RCache.set_c("Ldynamic_dir", L_dir.x, L_dir.y, L_dir.z, 0.f);
         RCache.set_c("Ldynamic_color", L_clr.x, L_clr.y, L_clr.z, 0.f);
         RCache.set_c("m_shadow", mShadow);
@@ -1213,16 +1217,10 @@ void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32 Offset, con
         float _h = float(Device.dwHeight);
         float o_w = (.5f / _w);
         float o_h = (.5f / _h);
-        Fmatrix m_TexelAdjust =
-        {
-            0.5f, 0.0f, 0.0f, 0.0f,
-            0.0f, 0.5f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            //	Removing half pixel offset
-            0.5f + o_w, 0.5f + o_h, 0.0f, 1.0f
-            //0.5f, 0.5f , 0.0f, 1.0f
-        };
-        m_Texgen.mul(m_TexelAdjust, RCache.xforms.m_wvp);
+        // DX9 r2 shader set: D3D screen texgen (v down, Metal pixel centres
+        // need no half-texel offset) — original R2 used u_compute_texgen_screen.
+        (void)o_w; (void)o_h;
+        u_compute_texgen_screen(RCache, m_Texgen);
         RCache.set_c("m_texgen", m_Texgen);
         //		RCache.set_c				("m_sunmask",			m_clouds_shadow);
 
@@ -1282,7 +1280,12 @@ void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32 Offset, con
             if (RImplementation.o.oldshadowcascades)
                 RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
             else
-                RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, 0, 16);
+            {
+                // phase_vol_accumulator's clear rebinds geometry (a 20-byte
+                // stride quad was drawn with the cuboid's Offset/indices).
+                RCache.set_Geometry(g_combine_cuboid);
+                RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, i_offset, 16); // cascade facetable lives at i_offset
+            }
         }
         /*else
         {

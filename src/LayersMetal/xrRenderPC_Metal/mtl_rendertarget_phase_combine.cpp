@@ -317,13 +317,13 @@ void CRenderTarget::phase_combine()
     {
         if (PP_Complex)
         {
-            // p5: was rt_Color — but combine_2 (s_image) and PP (s_base0) both
-            // sample the combined image out of the generic buffers (as the msaa
-            // branch does via the MSAA resolve). !msaa has no producer for
-            // $user$generic0 (combine_2's s_image), so copy combine_1's output
-            // into it, and target rt_Generic — the buffer PP (s_base0) reads.
-            MtlBlitConvert(rt_Color->pRT, rt_Generic_0->pRT);
-            u_setrt(RCache, rt_Generic, nullptr, nullptr, rt_Base_Depth); // LDR RT
+            // DX9 R2 layout: combine_1 renders the lit scene + sky into
+            // rt_Generic_0 (combine_2's s_image), and combine_2 writes the LDR
+            // image into rt_Color, which Anomaly's r2\postprocess.s samples
+            // as s_base0/s_base1 ("$user$albedo", hard-coded in the script).
+            // A previous blit of rt_Color (raw albedo) over rt_Generic_0 here
+            // replaced the lit image with unlit albedo — no sun, no sky.
+            u_setrt(RCache, rt_Color, nullptr, nullptr, rt_Base_Depth); // LDR RT
         }
         else
             u_setrt(RCache, Device.dwWidth, Device.dwHeight, get_base_rt(), 0, 0, get_base_zb());

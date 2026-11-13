@@ -308,6 +308,16 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
 #if defined(USE_METAL)
             tsky0->surface_set(e0);
             tsky1->surface_set(e1);
+            // lerp() — the only other place that binds the ambient env cubemaps
+            // ($user$env_s0/1, sampled by combine_1) — is a no-op on this engine,
+            // so without this combine_1's env slots were unbound (ambient = 0).
+            if (!g_pGamePersistent->OnRenderPPUI_query())
+            {
+                auto* ea = pA->sky_texture_env._get();
+                auto* eb = pB->sky_texture_env._get();
+                t_envmap_0->surface_set(ea ? ea->surface_get() : nullptr);
+                t_envmap_1->surface_set(eb ? eb->surface_get() : nullptr);
+            }
 #elif defined(USE_OGL)
             tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
             tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);

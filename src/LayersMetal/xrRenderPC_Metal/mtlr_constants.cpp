@@ -104,7 +104,11 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
         // ***Register sampler*** (mirrors the GL sampler branch; the DX9
         // stage == the reflected sampler binding).
         pcstr name = r.name.c_str();
-        const u16 r_index = static_cast<u16>(r.samplerSlot);
+        // GL parity (glr_constants.cpp): non-pixel stages live at
+        // rstVertex+slot. Without the offset a VS sampler (sky2.vs s_tonemap)
+        // collides with PS stage 0 (s_sky0) and the VS samples the cubemap.
+        const u16 r_index = static_cast<u16>(
+            r.samplerSlot + ((destination & RC_dest_pixel) ? 0 : CTexture::rstVertex));
 
         ref_constant C = get(name);
         if (!C)

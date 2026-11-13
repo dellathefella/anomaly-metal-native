@@ -42,6 +42,19 @@ void render_sun::init()
                 RImplementation.o.mt_calculate, RImplementation.o.mt_render);
     }
 
+    // XR_METAL_SUNINIT=1: log every flip of the sun's active state.
+    {
+        static const bool s_si = getenv("XR_METAL_SUNINIT") != nullptr;
+        static int s_last = -1;
+        if (s_si && int(o.active) != s_last)
+        {
+            fprintf(stderr, "- suninit flip: frame=%u active=%d col=(%.4f %.4f %.4f) diffuse2s=%.5f\n",
+                    Device.dwFrame, (int)o.active, sun_color.r, sun_color.g, sun_color.b,
+                    u_diffuse2s(sun_color.r, sun_color.g, sun_color.b));
+            s_last = int(o.active);
+        }
+    }
+
     if (!o.active)
         return;
 

@@ -564,7 +564,7 @@ namespace xray::metal
 	}
 
 	void* MetalDevice::NewTexture3D(uint32_t w, uint32_t h, uint32_t d, uint32_t mips, int pixelFormat,
-	                                bool shaderReadable)
+	                                bool shaderReadable, bool swizzleLLLA)
 	{
 		if (!m_impl->device || w == 0 || h == 0 || d == 0)
 			return nullptr;
@@ -572,6 +572,9 @@ namespace xray::metal
 		td.textureType = MTLTextureType3D;
 		td.depth = d;
 		td.usage = MTLTextureUsageShaderRead; // volumes are sampled, never rendered to
+		if (swizzleLLLA)
+			td.swizzle = MTLTextureSwizzleChannelsMake(MTLTextureSwizzleRed, MTLTextureSwizzleRed,
+			                                           MTLTextureSwizzleRed, MTLTextureSwizzleGreen);
 		id<MTLTexture> tex = [m_impl->device newTextureWithDescriptor:td];
 		return (__bridge void*)m_impl->retain(tex);
 	}

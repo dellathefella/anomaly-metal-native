@@ -92,8 +92,10 @@ namespace xray::metal
 		// Depth32Float=252...). mips=0 -> full mip chain.
 		void* NewTexture2D(uint32_t w, uint32_t h, uint32_t mips, int pixelFormat,
 		                   bool framebufferOnly, bool shaderReadable); // id<MTLTexture>
+		// swizzleLLLA: sample an RG8 texture as (R,R,R,G), emulating D3D9
+		// A8L8 (luminance+alpha) for DX9-convention shaders (r2 material table).
 		void* NewTexture3D(uint32_t w, uint32_t h, uint32_t d, uint32_t mips, int pixelFormat,
-		                   bool shaderReadable); // volume (water_sbumpvolume)
+		                   bool shaderReadable, bool swizzleLLLA = false); // volume (water_sbumpvolume)
 		void* NewTextureCube(uint32_t size, uint32_t mips, int pixelFormat,
 		                     bool framebufferOnly, bool shaderReadable); // sky/envmap
 		void* NewTexture2DArray(uint32_t w, uint32_t h, uint32_t count, uint32_t mips, int pixelFormat,

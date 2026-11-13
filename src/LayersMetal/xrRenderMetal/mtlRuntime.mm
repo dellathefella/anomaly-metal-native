@@ -69,6 +69,7 @@ static id<MTLBuffer> g_visAccumBuf = nil;
 // periodic content scan can attribute dead render targets to R2 phases.
 // (launch166: definition moved above MtlPassManager for the VIS gate.)
 static std::map<void*, std::string> g_mtlRtNames;
+static uint32_t g_pairCountFrame = 0; // XR_METAL_PAIRCOUNT
 // p5 diag: entry + silent-exit counters (EmitDraw returns false without these
 // counters on some paths; scene-draw starvation hunt).
 static uint64_t g_dbgDrawEnter = 0, g_dbgDrawNoCb = 0, g_dbgDrawNoEnc = 0, g_dbgDrawNoIb = 0;
@@ -362,6 +363,7 @@ namespace
 	using metal::VertexAttr;
 
 	constexpr uint32_t kMaxStage = 36; // CTexture::mtMaxCombinedShaderTextures
+	constexpr uint32_t kVertexStageBase = 16; // CTexture::rstVertex (Metal/GL layout)
 	constexpr uint64_t kRingSize = 64ull * 1024 * 1024;
 
 	inline uint32_t Align16(uint32_t v) { return (v + 15u) & ~15u; }
@@ -3522,7 +3524,12 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		case 1: return 29; // FLOAT2 -> Float2
 		case 2: return 30; // FLOAT3 -> Float3
 		case 3: return 31; // FLOAT4 -> Float4
-		case 4: return 9;  // D3DCOLOR -> UChar4Normalized (byte order R,G,B,A)
+		// D3DCOLOR is 0xAARRGGBB little-endian => bytes B,G,R,A in memory, and
+		// D3D9 delivers it to the VS as (R,G,B,A). The Metal path compiles the
+		// DX9 r2\ shaders, which rely on that (unpack_bx4(I.Nh) has no .bgra,
+		// unlike the gl\ set's unpack_D3DCOLOR). Plain UChar4Normalized swapped
+		// X/Z of every static normal/tangent/binormal and R/B of vertex colors.
+		case 4: return 42; // D3DCOLOR -> UChar4Normalized_BGRA
 		case 5: return 3;  // UBYTE4 -> UChar4
 		case 6: return 16; // SHORT2 -> Short2
 		case 7: return 18; // SHORT4 -> Short4
@@ -3780,6 +3787,8 @@ void MtlSetLastDrawable(void* tex) { PM().lastDrawable = (__bridge id<MTLTexture
 void* MtlLastDrawable() { return PM().lastDrawable ? (__bridge void*)PM().lastDrawable : nullptr; }
 
 // --- frame -------------------------------------------------------------------
+static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts);
+
 void MtlFrameBegin()
 {
 	MtlPassManager& pm = PM();
@@ -3803,6 +3812,31 @@ void MtlFrameBegin()
 void MtlFrameEnd()
 {
 	PM().endEncoder();
+	{
+		static const char* s_pc = getenv("XR_METAL_PAIRCOUNT");
+		static std::map<uint32_t, uint32_t> s_hist;
+		static uint32_t s_frames = 0;
+		if (s_pc)
+		{
+			s_hist[g_pairCountFrame]++;
+			g_pairCountFrame = 0;
+			if (++s_frames % 240 == 0)
+			{
+				std::string h;
+				for (auto& kv : s_hist)
+					h += " " + std::to_string(kv.first) + "draws:" + std::to_string(kv.second) + "fr";
+				fprintf(stderr, "- paircount %s per-frame histogram:%s\n", s_pc, h.c_str());
+				s_hist.clear();
+			}
+		}
+	}
+	{
+		static const char* s_rts = getenv("XR_METAL_RTSTATS");
+		static const bool s_rtsEnd = getenv("XR_METAL_RTSTATS_END") != nullptr;
+		static int s_rtsF = 0;
+		if (s_rts && s_rtsEnd && PM().cb && (s_rtsF++ % 240) == 120)
+			MtlRtStatsCapture(PM(), s_rts);
+	}
 	// p6 band-hunt: XR_METAL_RTSIZES=1 — periodic census of every RT bound
 	// this frame: name + dims. The x=2304 band should match a sub-width
 	// surface somewhere in the chain.
@@ -4246,6 +4280,105 @@ void MtlDbgBisectProbe(void* rt, void* rt2, void* zb)
 	}
 }
 
+static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts)
+{
+	std::vector<std::string> toks;
+	{
+		std::string all(s_rts), cur;
+		for (char c : all)
+		{
+			if (c == ',') { if (!cur.empty()) toks.push_back(cur); cur.clear(); }
+			else cur += c;
+		}
+		if (!cur.empty()) toks.push_back(cur);
+	}
+	for (const auto& kv : g_mtlRtNames)
+	{
+		bool hit = false;
+		for (const auto& t : toks)
+			hit |= kv.second.find(t) != std::string::npos;
+		if (!hit || !kv.first)
+			continue;
+		id<MTLTexture> t = (__bridge id<MTLTexture>)kv.first;
+		const MTLPixelFormat pf = t.pixelFormat;
+		int bpp = 0;
+		switch (pf)
+		{
+		case MTLPixelFormatRGBA16Float: bpp = 8; break;
+		case MTLPixelFormatR32Float: bpp = 4; break;
+		case MTLPixelFormatR16Float: bpp = 2; break;
+		case MTLPixelFormatRG16Float: bpp = 4; break;
+		case MTLPixelFormatRGBA32Float: bpp = 16; break;
+		case MTLPixelFormatBGRA8Unorm:
+		case MTLPixelFormatRGBA8Unorm: bpp = 4; break;
+		default: break;
+		}
+		if (!bpp || t.textureType != MTLTextureType2D || t.sampleCount != 1)
+			continue;
+		const NSUInteger W = t.width, H = t.height;
+		id<MTLBuffer> sb = [t.device newBufferWithLength:W * H * bpp options:MTLResourceStorageModeShared];
+		id<MTLBlitCommandEncoder> be = [pm.cb blitCommandEncoder];
+		[be copyFromTexture:t sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+		         sourceSize:MTLSizeMake(W, H, 1) toBuffer:sb destinationOffset:0
+		destinationBytesPerRow:W * bpp destinationBytesPerImage:W * H * bpp];
+		[be endEncoding];
+		const std::string nm = kv.second;
+		[pm.cb addCompletedHandler:^(id<MTLCommandBuffer>) {
+			const uint8_t* p = (const uint8_t*)sb.contents;
+			double sum[4] = {}, mx[4] = { -1e30, -1e30, -1e30, -1e30 }, topS[4] = {};
+			const size_t topN = (size_t)W * (H * 15 / 100);
+			double botS[4] = {};
+			const size_t botStart = (size_t)W * (H - H * 15 / 100);
+			int nan = 0, nc = 4;
+			const size_t n = (size_t)W * H;
+			for (size_t i = 0; i < n; ++i)
+			{
+				float v[4] = {};
+				switch (pf)
+				{
+				case MTLPixelFormatRGBA16Float:
+					for (int c = 0; c < 4; ++c) v[c] = (float)((const __fp16*)p)[i * 4 + c];
+					break;
+				case MTLPixelFormatRG16Float:
+					nc = 2;
+					for (int c = 0; c < 2; ++c) v[c] = (float)((const __fp16*)p)[i * 2 + c];
+					break;
+				case MTLPixelFormatR16Float: nc = 1; v[0] = (float)((const __fp16*)p)[i]; break;
+				case MTLPixelFormatR32Float: nc = 1; v[0] = ((const float*)p)[i]; break;
+				case MTLPixelFormatRGBA32Float:
+					for (int c = 0; c < 4; ++c) v[c] = ((const float*)p)[i * 4 + c];
+					break;
+				case MTLPixelFormatBGRA8Unorm:
+					v[0] = p[i * 4 + 2] / 255.f; v[1] = p[i * 4 + 1] / 255.f;
+					v[2] = p[i * 4 + 0] / 255.f; v[3] = p[i * 4 + 3] / 255.f;
+					break;
+				default:
+					for (int c = 0; c < 4; ++c) v[c] = p[i * 4 + c] / 255.f;
+					break;
+				}
+				for (int c = 0; c < nc; ++c)
+				{
+					if (std::isnan(v[c])) { nan++; continue; }
+					sum[c] += v[c];
+					if (i < topN) topS[c] += v[c];
+					if (i >= botStart) botS[c] += v[c];
+					if (v[c] > mx[c]) mx[c] = v[c];
+				}
+			}
+			std::string s;
+			char b[64];
+			for (int c = 0; c < nc; ++c)
+			{
+				snprintf(b, sizeof b, " %c=%.4g/%.4g(top %.4g bot %.4g)", "rgba"[c], sum[c] / (double)n, mx[c], topN ? topS[c] / (double)topN : 0.0, topN ? botS[c] / (double)topN : 0.0);
+				s += b;
+			}
+			fprintf(stderr, "- rtstats %s@%p %lux%lu fmt=%d mean/max:%s nan=%d\n", nm.c_str(), (__bridge void*)t,
+			        (unsigned long)W, (unsigned long)H, (int)pf, s.c_str(), nan);
+		}];
+	}
+
+}
+
 void MtlClearColor(void* rt, float r, float g, float b, float a)
 {
 	MtlPassManager& pm = PM();
@@ -4265,6 +4398,63 @@ void MtlClearColor(void* rt, float r, float g, float b, float a)
 	if (!pm.cb || !rt)
 		return;
 	pm.endEncoder();
+	// XR_METAL_RTSTATS=tok1,tok2: per-channel mean/max (+ top-15%-rows mean)
+	// of every RT whose name contains a token. Sampled at the generic0 clear
+	// (after accumulation, before combine) every 240 clears, or at frame end
+	// with XR_METAL_RTSTATS_END=1. Logged to stderr from the CB handler.
+	{
+		static const char* s_rts = getenv("XR_METAL_RTSTATS");
+		static const bool s_rtsEnd = getenv("XR_METAL_RTSTATS_END") != nullptr;
+		static int s_rtsN = 0;
+		const char* cn = (s_rts && !s_rtsEnd) ? MtlDbgRTGetName(rt) : nullptr;
+		if (cn && strstr(cn, "generic0") && (s_rtsN++ % 240) == 120)
+			MtlRtStatsCapture(pm, s_rts);
+	}
+	// XR_METAL_STENCILPROBE=1: histogram of the scene stencil right before
+	// combine (generic0 clear) — whole frame and the top 15% rows (sky in
+	// the harness shots). combine_1 tests "1 <= stencil".
+	{
+		static const bool s_stp = getenv("XR_METAL_STENCILPROBE") != nullptr;
+		static int s_stpN = 0;
+		const char* cn = s_stp ? MtlDbgRTGetName(rt) : nullptr;
+		if (cn && strstr(cn, "generic0") && pm.zb && (s_stpN++ % 240) == 120)
+		{
+			id<MTLTexture> z = (__bridge id<MTLTexture>)pm.zb;
+			if (z.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
+			{
+				const NSUInteger W = z.width, H = z.height;
+				id<MTLBuffer> sb = [z.device newBufferWithLength:W * H options:MTLResourceStorageModeShared];
+				id<MTLBlitCommandEncoder> be = [pm.cb blitCommandEncoder];
+				[be copyFromTexture:z sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+				         sourceSize:MTLSizeMake(W, H, 1) toBuffer:sb destinationOffset:0
+				destinationBytesPerRow:W destinationBytesPerImage:W * H
+				            options:MTLBlitOptionStencilFromDepthStencil];
+				[be endEncoding];
+				[pm.cb addCompletedHandler:^(id<MTLCommandBuffer>) {
+					const uint8_t* s = (const uint8_t*)sb.contents;
+					unsigned all[256] = {}, top[256] = {};
+					const NSUInteger topRows = H * 15 / 100;
+					for (NSUInteger y = 0; y < H; ++y)
+						for (NSUInteger x = 0; x < W; ++x)
+						{
+							const uint8_t v = s[y * W + x];
+							all[v]++;
+							if (y < topRows)
+								top[v]++;
+						}
+					std::string a, t;
+					char b[48];
+					for (int v = 0; v < 256; ++v)
+					{
+						if (all[v]) { snprintf(b, sizeof b, " %02X:%u", v, all[v]); a += b; }
+						if (top[v]) { snprintf(b, sizeof b, " %02X:%u", v, top[v]); t += b; }
+					}
+					fprintf(stderr, "- stencilprobe %lux%lu all[%s ] top15%%[%s ]\n",
+					        (unsigned long)W, (unsigned long)H, a.c_str(), t.c_str());
+				}];
+			}
+		}
+	}
 	MTLRenderPassDescriptor* rpd = [MTLRenderPassDescriptor new];
 	rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)rt;
 	rpd.colorAttachments[0].loadAction = MTLLoadActionClear;
@@ -4673,7 +4863,12 @@ void MtlApplyRecordedState(const mtlState* state)
 	pm.blend.dstA = (int)bs.DestBlendAlpha;
 	pm.blend.opA = (int)bs.BlendOpAlpha;
 	pm.blend.writeMask = bs.ColorMask & 0xF;
-	pm.cull = (int)state->Cull();
+	// Cull: D3D9 semantics (see mtlState.h). R2 issues set_CullMode(CULL_NONE)
+	// before its full-screen passes, whose quads come in both GL and DX11
+	// vertex orders in this port; re-applying the CCW default culled one family
+	// (combine_2 or the bloom/luminance chain, depending on the VS y convention).
+	if (state->CullRecorded())
+		pm.cull = (int)state->Cull();
 	pm.recorded = state;
 	if (pm.enc)
 		pm.applyEncoderState();
@@ -5209,7 +5404,12 @@ namespace
 				if (r.isSamplerOnly)
 					continue;
 				const uint32_t slot = r.textureSlot;
-				void* tex = slot < kMaxStage ? pm.stageTex[slot] : nullptr;
+				// VS textures/samplers are recorded at CTexture::rstVertex+slot
+				// (=16, mtlr_constants.cpp), PS ones at slot; the MSL binding
+				// index is the bare slot for both stages.
+				const uint32_t stageBase = fragment ? 0u : kVertexStageBase;
+				const uint32_t ts = slot + stageBase;
+				void* tex = ts < kMaxStage ? pm.stageTex[ts] : nullptr;
 				if (tex)
 				{
 					id<MTLTexture> t = (__bridge id<MTLTexture>)tex;
@@ -5233,6 +5433,8 @@ namespace
 						auto fit = pm.fbRemap.find((__bridge void*)t);
 						if (fit != pm.fbRemap.end())
 							t = (__bridge id<MTLTexture>)fit->second;
+					}
+					{
 						// p5 launch193: the luminance-adaptation chain feeds
 						// combine_1's tonemap multiplier (tm_scale). Its source
 						// (bloom1<-generic1 threshold) is legitimately black at
@@ -5305,7 +5507,7 @@ namespace
 				uint32_t ss = r.samplerSlot;
 				if (ss == UINT32_MAX)
 					ss = slot; // translator mirrors sampler to the texture slot
-				if (ss >= kMaxStage)
+				if (ss + stageBase >= kMaxStage)
 					ss = 0;
 				// Sampler state: recorded per-stage state if the last applied
 				// mtlState has it, else the linear-clamp default.
@@ -5313,7 +5515,7 @@ namespace
 				MetalDevice::SamplerDesc desc;
 				if (pm.recorded)
 				{
-					const auto& sst = pm.recorded->SamplerState(ss);
+					const auto& sst = pm.recorded->SamplerState(ss + stageBase);
 					if (sst.valid)
 					{
 						desc = MakeSamplerDesc(sst, pm.globalBias);
@@ -6313,6 +6515,39 @@ namespace
 			if (s_nobase && s_nobase[0] == '1' && pair &&
 			    strstr(pair->name.c_str(), "base"))
 				return true;
+			// XR_METAL_VBDUMP=<pair substr>: log the first indices + the float4
+			// vertices they fetch, from the exact buffers/offsets of this draw.
+			{
+				static const char* s_vbd = getenv("XR_METAL_VBDUMP");
+				static int s_vbdN = 0;
+				if (s_vbd && pair && strstr(pair->name.c_str(), s_vbd) && (s_vbdN++ % 300) == 0 &&
+				    ds.vb && ds.ib)
+				{
+					id<MTLBuffer> vbB = (__bridge id<MTLBuffer>)ds.vb;
+					id<MTLBuffer> ibB = (__bridge id<MTLBuffer>)ds.ib;
+					const uint16_t* ix = (const uint16_t*)ibB.contents;
+					const uint8_t* vx = (const uint8_t*)vbB.contents;
+					std::string o;
+					char b[160];
+					snprintf(b, sizeof b, "startI=%u baseV=%u stride=%u ibLen=%lu vbLen=%lu idx:", startI, baseV,
+					         ds.vbStride, (unsigned long)ibB.length, (unsigned long)vbB.length);
+					o += b;
+					for (uint32_t k = 0; k < 6 && (startI + k) * 2 < ibB.length; ++k)
+					{
+						const uint32_t vi = ix[startI + k] + baseV;
+						const size_t off = (size_t)vi * ds.vbStride;
+						if (off + 16 <= vbB.length)
+						{
+							const float* f = (const float*)(vx + off);
+							snprintf(b, sizeof b, " [%u->(%.1f %.1f %.1f %.1f)]", ix[startI + k], f[0], f[1], f[2], f[3]);
+						}
+						else
+							snprintf(b, sizeof b, " [%u->OOB]", ix[startI + k]);
+						o += b;
+					}
+					fprintf(stderr, "- vbdump %s %s\n", pair->name.c_str(), o.c_str());
+				}
+			}
 			// launch298: debug-layer catch — the engine legitimately submits
 			// primCount 0 subdraws; indexed draw with indexCount 0 is a hard
 			// validation failure (UB in release). Skip like stride-0.
@@ -6328,6 +6563,49 @@ namespace
 		}
 		else if (primCount)
 			[pm.enc drawPrimitives:pt vertexStart:startV vertexCount:primCount];
+		// XR_METAL_PAIRCOUNT=<substr>: count matching draws per frame (logged
+		// from MtlFrameEnd as a histogram over 240 frames).
+		{
+			static const char* s_pc = getenv("XR_METAL_PAIRCOUNT");
+			if (s_pc && pair && strstr(pair->name.c_str(), s_pc))
+				g_pairCountFrame++;
+		}
+		// XR_METAL_RTSTATS_AFTER=<pair substr>: capture XR_METAL_RTSTATS targets
+		// right after a matching draw (every 240th match).
+		{
+			static const char* s_rtsAfter = getenv("XR_METAL_RTSTATS_AFTER");
+			static const char* s_rtsList = getenv("XR_METAL_RTSTATS");
+			static int s_rtsAN = 0;
+			if (s_rtsAfter && s_rtsList && pair && strstr(pair->name.c_str(), s_rtsAfter) &&
+			    (s_rtsAN++ % 60) == 2)
+			{
+				std::string ld;
+				if (psR)
+					for (const auto& u : psR->uniforms)
+						if ((u.name == "Ldynamic_color" || u.name == "Ldynamic_dir") &&
+						    Align16(pm.vsSize) + u.offset + 16 <= pm.staging.size())
+						{
+							float q[4];
+							std::memcpy(q, pm.staging.data() + Align16(pm.vsSize) + u.offset, 16);
+							char b[96];
+							snprintf(b, sizeof b, " %s@%u=(%.4g %.4g %.4g %.4g)", u.name.c_str(), u.offset, q[0], q[1],
+							         q[2], q[3]);
+							ld += b;
+						}
+				for (int sl = 0; sl < 4; ++sl)
+				{
+					void* tx = pm.stageTex[sl];
+					const char* tn = tx ? MtlDbgRTGetName(tx) : nullptr;
+					char b[96];
+					snprintf(b, sizeof b, " st%d=%s@%p", sl, tn ? tn : (tx ? "?" : "null"), tx);
+					ld += b;
+				}
+				fprintf(stderr, "- rtstats after %s%s\n", pair->name.c_str(), ld.c_str());
+				pm.endEncoder();
+				MtlRtStatsCapture(pm, s_rtsList);
+				pm.identityDirty = true;
+			}
+		}
 		// p5 launch256: combine-draw binding probe — is the accum RT actually
 		// bound to the combine PS, and to which slot? (postaccum proved writes
 		// survive to combine entry; the black screenshot says combine drops them.)
@@ -8101,8 +8379,10 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 				// fragment stage slot actually resolves to for this draw.
 				// p5 launch226: + the two black-output suspects (albedo MRT
 				// writer + sun accumulation) and their PS constants.
+				static const char* s_cbd0 = getenv("XR_METAL_CBDUMP");
 				if (strstr(pn, "postprocess") || strstr(pn, "combine_1") ||
-				    strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun"))
+				    strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun") ||
+				    (s_cbd0 && strstr(pn, s_cbd0)))
 				{
 					std::string sl;
 					for (int si = 0; si < 8; si++)
@@ -8126,7 +8406,9 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 					}
 					Log("* p5 ppslots: pair=%s [%s]", pn, sl.c_str());					// p5 launch209: yellow = real (1,1,0) values — dump raw
 					// p5 launch226: PS constants for the black-output suspects.
-					if (strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun"))
+					static const char* s_cbd = getenv("XR_METAL_CBDUMP");
+					if (strstr(pn, "deffer_base_flat") || strstr(pn, "accum_sun") ||
+					    (s_cbd && strstr(pn, s_cbd)))
 					{
 						// p5 launch230: region sizes + FULL member bytes —
 						// m_shadow@976 needs 64B; the old 16B probe hid whether

@@ -42,9 +42,13 @@ void CRenderTarget::build_textures()
 
     // Build material(s)
     {
-        // Surface: RG8 volume (addr: x=dot(L,N), y=dot(L,H), z=material)
+        // Surface: RG8 volume (addr: x=dot(L,N), y=dot(L,H), z=material).
+        // The Metal path compiles the DX9 r2\ shaders, whose plight_* sample
+        // s_material WITHOUT a swizzle and rely on D3D A8L8 returning
+        // (L,L,L,A) = (diffuse,diffuse,diffuse,spec). Plain RG8 would sample as
+        // (diffuse,spec,0,1): blue always 0, alpha always 1. Swizzle to match.
         t_material_surf = dev.NewTexture3D(TEX_material_LdotN, TEX_material_LdotH, TEX_material_Count, 1,
-                                           mtlPF_RG8Unorm, /*readable*/ true);
+                                           mtlPF_RG8Unorm, /*readable*/ true, /*swizzleLLLA*/ true);
         t_material = RImplementation.Resources->_CreateTexture(r2_material);
         t_material->surface_set(t_material_surf);
         t_material->size_set(TEX_material_LdotN, TEX_material_LdotH);

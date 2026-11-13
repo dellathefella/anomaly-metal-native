@@ -67,6 +67,9 @@ public:
     };
 
 private:
+    // Cull follows D3D9 state-block semantics: only a pass that recorded
+    // D3DRS_CULLMODE (r_CullMode) overrides the dynamic RCache.set_CullMode.
+    bool m_cullRecorded = false;
     D3DCULL rasterizerCullMode;
     D3D_DEPTH_STENCIL_STATE m_pDepthStencilState;
     D3D_BLEND_STATE m_pBlendState;
@@ -92,6 +95,7 @@ public:
     const D3D_DEPTH_STENCIL_STATE& DepthStencil() const { return m_pDepthStencilState; }
     const D3D_BLEND_STATE& Blend() const { return m_pBlendState; }
     D3DCULL Cull() const { return rasterizerCullMode; }
+    bool CullRecorded() const { return m_cullRecorded; }
     float MipLODBias() const { return m_uiMipLODBias; }
     const sSamplerState& SamplerState(uint32_t stage) const { return m_samplerArray[stage]; }
 };

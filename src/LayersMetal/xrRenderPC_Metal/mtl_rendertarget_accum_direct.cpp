@@ -581,6 +581,29 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
                 pv->set(tmp_vec.x, tmp_vec.y, tmp_vec.z, 1);
                 pv++;
             }
+            // XR_METAL_SUNVOL=1: CPU-project the cuboid with View*Proj and log
+            // its NDC bounds (is the sun volume on screen at all?).
+            static const bool s_sunvol = getenv("XR_METAL_SUNVOL") != nullptr;
+            static u32 s_sunvolN = 0;
+            if (s_sunvol && (s_sunvolN++ % 300) == 0)
+            {
+                Fmatrix vp;
+                vp.mul(Device.mProject, Device.mView);
+                float mnx = 1e9f, mxx = -1e9f, mny = 1e9f, mxy = -1e9f, mnz = 1e9f, mxz = -1e9f;
+                int behind = 0;
+                const Fvector4* v = pv - ver_count;
+                for (u32 i = 0; i < ver_count; ++i)
+                {
+                    Fvector4 c;
+                    vp.transform(c, v[i]);
+                    if (c.w <= 0.f) { behind++; continue; }
+                    mnx = _min(mnx, c.x / c.w); mxx = _max(mxx, c.x / c.w);
+                    mny = _min(mny, c.y / c.w); mxy = _max(mxy, c.y / c.w);
+                    mnz = _min(mnz, c.z / c.w); mxz = _max(mxz, c.z / c.w);
+                }
+                fprintf(stderr, "- sunvol sub=%u v0=(%.1f %.1f %.1f) ndc x[%.2f..%.2f] y[%.2f..%.2f] z[%.3f..%.3f] behind=%d/%u\n",
+                    sub_phase, v[0].x, v[0].y, v[0].z, mnx, mxx, mny, mxy, mnz, mxz, behind, ver_count);
+            }
             RImplementation.Vertex.Unlock(ver_count, g_combine_cuboid.stride());
         }
 
@@ -666,7 +689,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
             // RCache.set_Stencil	(TRUE,D3DCMP_LESSEQUAL,dwLightMarkerID,0xff,0x00);
             cmd_list.set_Stencil(TRUE, D3DCMP_LESSEQUAL, dwLightMarkerID, 0xff, st_mask,
                 D3DSTENCILOP_KEEP, st_pass, D3DSTENCILOP_KEEP);
-            cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, 0, 16);
+            cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, i_offset, 16);
         }
         else
         {
@@ -674,7 +697,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
             // RCache.set_Stencil	(TRUE,D3DCMP_EQUAL,dwLightMarkerID,0xff,0x00);
             cmd_list.set_Stencil(TRUE, D3DCMP_EQUAL, dwLightMarkerID, 0xff, st_mask,
                 D3DSTENCILOP_KEEP, st_pass, D3DSTENCILOP_KEEP);
-            cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, 0, 16);
+            cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, i_offset, 16);
 
             // per sample
             if (RImplementation.o.msaa_opt)
@@ -691,7 +714,7 @@ void CRenderTarget::accum_direct_cascade(CBackend& cmd_list, u32 sub_phase, Fmat
                 cmd_list.set_Stencil(TRUE, D3DCMP_EQUAL, dwLightMarkerID | 0x80, 0xff, st_mask,
                     D3DSTENCILOP_KEEP, st_pass, D3DSTENCILOP_KEEP);
                 cmd_list.set_CullMode(CULL_NONE);
-                cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, 0, 16);
+                cmd_list.Render(D3DPT_TRIANGLELIST, Offset, 0, 8, i_offset, 16);
             }
             else
             {

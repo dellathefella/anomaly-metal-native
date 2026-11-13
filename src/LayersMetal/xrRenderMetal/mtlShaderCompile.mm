@@ -612,11 +612,126 @@ static std::string MtlPatchNoAccum(const std::string& msl, const char* name)
 	return std::regex_replace(msl, accRe, "float4(0.0)");
 }
 
+// The Metal port draws the sun as the R3-style light cuboid (accum_sun.vs:
+// projective tc = m_texgen * P, needs a per-pixel /w), but compiles Anomaly's
+// DX9 r2\ sun pixel shaders, which were written for a full-screen quad and
+// take a plain float2 screen UV. The V2P aligner just narrowed tc to .xy, so
+// every g-buffer fetch in the sun pass read the wrong texels (N ~ 0 => no
+// sunlight). Derive the screen UV from the fragment position instead — valid
+// for both the cuboid and a full-screen quad.
+static std::string MtlPatchSunScreenUV(const std::string& msl, const char* name)
+{
+	if (!name)
+		return msl;
+	const bool target = !strcmp(name, "accum_sun_far_nomsaa") ||
+	                    !strcmp(name, "accum_sun_near_nomsaa_minmax") ||
+	                    !strcmp(name, "accum_sun_near_nomsaa_nominmax");
+	if (!target || msl.find("fragment ") == std::string::npos ||
+	    msl.find("float2 in_var_TEXCOORD0 [[user(locn0)]];") == std::string::npos ||
+	    msl.find("texture2d<float> s_position") == std::string::npos ||
+	    msl.find("xr_fragcoord") != std::string::npos)
+		return msl;
+	std::string s = msl;
+	const std::string decl = "float2 in_var_TEXCOORD0 [[user(locn0)]];";
+	s.replace(s.find(decl), decl.size(), decl + "\n    float4 xr_fragcoord [[position]];");
+	const std::string use = "in.in_var_TEXCOORD0";
+	const std::string uv = "(in.xr_fragcoord.xy / float2(s_position.get_width(), s_position.get_height()))";
+	for (size_t at = s.find(use); at != std::string::npos; at = s.find(use, at + uv.size()))
+		s.replace(at, use.size(), uv);
+	fprintf(stderr, "- xrMetal sunuv: patched %s\n", name);
+	return s;
+}
+
+// Replace every call `<prefix>(...)` (balanced parens) with `repl` in shaders
+// whose name contains `who`. Used by the XR_P5_SHADOW1 / XR_P5_MAT1 oracles.
+static std::string MtlReplaceCalls(const std::string& msl, const char* prefix, const char* repl)
+{
+	std::string out;
+	size_t pos = 0;
+	const size_t plen = strlen(prefix);
+	for (;;)
+	{
+		const size_t at = msl.find(prefix, pos);
+		if (at == std::string::npos)
+			break;
+		size_t i = at + plen; // just past '('
+		int depth = 1;
+		while (i < msl.size() && depth > 0)
+		{
+			if (msl[i] == '(') depth++;
+			else if (msl[i] == ')') depth--;
+			++i;
+		}
+		out.append(msl, pos, at - pos);
+		out += repl;
+		pos = i;
+	}
+	out.append(msl, pos, std::string::npos);
+	return out;
+}
+
+static std::string MtlPatchLightOracles(const std::string& msl, const char* name)
+{
+	if (!name || !strstr(name, "accum_sun"))
+		return msl;
+	std::string s = msl;
+	if (getenv("XR_P5_SHADOW1"))
+		s = MtlReplaceCalls(s, "s_smap.sample_compare(", "1.0");
+	if (getenv("XR_P5_MAT1"))
+		s = MtlReplaceCalls(s, "s_material.sample(", "float4(1.0)");
+	if (getenv("XR_P5_MATCOORD"))
+		s = MtlReplaceCalls(s, "s_material.sample(",
+		                    "s_material.sample(s_material_smplr, float3(0.9, 0.5, 0.1))");
+	// XR_P5_SUNDBG=1 (accum_sun_near_nomsaa_nominmax only): write the material
+	// lookup coordinates (x=dot(L,N), y=dot(H,N), z=P.w) to the output.
+	if (getenv("XR_P5_SUNDBG") && strstr(name, "accum_sun_near_nomsaa_nominmax") &&
+	    s.find("float3 _76") != std::string::npos)
+	{
+		static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+		s = std::regex_replace(s, outRe,
+		    (getenv("XR_P5_SUNDBG")[0] == '3'
+		        ? "out.out_var_SV_TARGET = float4(s_normal.read(uint2(in.in_var_TEXCOORD0 * float2(s_normal.get_width(), s_normal.get_height()))).xyz, float(s_normal.get_width()) / 4096.0);"
+		        : getenv("XR_P5_SUNDBG")[0] == '2'
+		        ? "out.out_var_SV_TARGET = float4(s_normal.sample(s_position_smplr, in.in_var_TEXCOORD0).xyz, _57.w);"
+		        : "out.out_var_SV_TARGET = float4(dot(-_76, _70), _70.x, _70.y, _57.w);"));
+	}
+	// XR_P5_SUNCB=1: write Ldynamic_dir.xyz + Ldynamic_color.x (as read by the GPU).
+	if (getenv("XR_P5_SUNCB") && strstr(name, "accum_sun_near_nomsaa_nominmax"))
+	{
+		static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+		s = std::regex_replace(s, outRe,
+		    "out.out_var_SV_TARGET = float4(_Globals.Ldynamic_dir.xyz, _Globals.Ldynamic_color.x);");
+	}
+	if (s != msl)
+		fprintf(stderr, "- xrMetal lightoracle: patched %s\n", name);
+	return s;
+}
+
 // p6 sky-hunt: XR_P5_SKYCONST=1 forces the sky2 PS output to a constant red.
 // If the sky renders red, the sky draw/pipeline works and the cube textures or
 // tonemap are the dark source.
 static std::string MtlPatchSkyConst(const std::string& msl, const char* name)
 {
+	// XR_P5_SKYZ=1: sky2 VS emits z = 0.5w instead of z = w (far-plane clip test).
+	if (getenv("XR_P5_SKYZ") && name && strstr(name, "sky2") &&
+	    msl.find("[[position]]") != std::string::npos)
+	{
+		static const std::regex zw(R"((_\d+)\.z = \1\.w;)");
+		std::string s = std::regex_replace(msl, zw, "$1.z = $1.w * 0.5;");
+		if (s != msl)
+			fprintf(stderr, "- xrMetal skyz: patched %s\n", name);
+		return s;
+	}
+	// XR_P5_CONSTPS=<substr>: same constant-red output for any PS name match.
+	if (const char* cps = getenv("XR_P5_CONSTPS"))
+		if (name && strstr(name, cps) && msl.find("fragment ") != std::string::npos)
+		{
+			static const std::regex anyOut(R"(out\.(out_var_SV_TARGET\d*) = [^;]*;)");
+			std::string s = std::regex_replace(msl, anyOut, "out.$1 = float4(1.0, 0.0, 0.0, 1.0);");
+			if (s != msl)
+				fprintf(stderr, "- xrMetal constps: patched %s\n", name);
+			return s;
+		}
 	if (!getenv("XR_P5_SKYCONST") || !name || !strstr(name, "sky2"))
 		return msl;
 	static const std::regex out0(R"(out\.out_var_SV_TARGET0 = [^;]*;)");
@@ -746,6 +861,8 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	res.msl = MtlPatchShadowClip(res.msl, name);
 	res.msl = MtlPatchNoLight(res.msl, name);
 	res.msl = MtlPatchSkyConst(res.msl, name);
+	res.msl = MtlPatchSunScreenUV(res.msl, name);
+	res.msl = MtlPatchLightOracles(res.msl, name);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -829,6 +946,8 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 	patched = MtlPatchShadowClip(patched, name);
 	patched = MtlPatchNoLight(patched, name);
 	patched = MtlPatchSkyConst(patched, name);
+	patched = MtlPatchSunScreenUV(patched, name);
+	patched = MtlPatchLightOracles(patched, name);
 	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)

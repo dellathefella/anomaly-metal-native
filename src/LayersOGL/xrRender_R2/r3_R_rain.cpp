@@ -59,6 +59,14 @@ void render_rain::init()
         rain_factor = 0.f;
 
     o.active  = ps_r2_ls_flags.test(R3FLAG_DYN_WET_SURF);
+#if defined(USE_METAL)
+    // Dynamic wet surfaces are an R3 feature. The Metal renderer compiles
+    // Anomaly's DX9 r2\ shader set, which has no rain_layer / rain_patch_* /
+    // rain_apply_* shaders, so those passes ran placeholder stubs that
+    // multiplied garbage into the albedo/normal g-buffer around the player
+    // (the dark/red near-ground band). Visible rain streaks are unaffected.
+    o.active = false;
+#endif
     o.active &= rain_factor >= EPS_L;
     o.active &= !RImplementation.p4_saved_cam_pos.similar(Device.vCameraPosition, EPS_L) ||
         !RImplementation.p4_saved_cam_dir.similar(Device.vCameraDirection, EPS_L);
@@ -337,6 +345,9 @@ void render_rain::flush()
         RImplementation.release_context(context_id);
     }
 
+#if defined(USE_METAL)
+    return; // no r2\ wet-surface shaders on Metal (see init())
+#endif
     if (!ps_r2_ls_flags.test(R3FLAG_DYN_WET_SURF))
         return;
 

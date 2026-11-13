@@ -95,6 +95,30 @@ ICF void CBackend::set_States(SState* _state)
     state = _state->state;
 #if defined(USE_DX11)
     state->Apply(*this);
+#elif defined(USE_METAL)
+    state->Apply();
+    // GL parity: glState::Apply pushes the pass state through RCache.set_*,
+    // so RCache's dirty-check caches always mirror the device. mtlState::Apply
+    // writes the pass manager directly; without this sync the caches go stale
+    // and a later RCache.set_Stencil/set_CullMode/set_ColorWriteEnable/set_Z
+    // whose value matches the stale cache is silently skipped (e.g. the sky
+    // stencil/z state leaking into combine => stale g-buffer over the sky).
+    {
+        const auto& ds = state->DepthStencil();
+        stencil_enable = ds.StencilEnable;
+        stencil_func = ds.StencilFunc;
+        stencil_ref = ds.StencilRef;
+        stencil_mask = ds.StencilMask;
+        stencil_writemask = ds.StencilWriteMask;
+        stencil_fail = ds.StencilFailOp;
+        stencil_pass = ds.StencilPassOp;
+        stencil_zfail = ds.StencilDepthFailOp;
+        z_enable = ds.DepthEnable;
+        z_func = ds.DepthFunc;
+        if (state->CullRecorded())
+            cull_mode = state->Cull();
+        colorwrite_mask = state->Blend().ColorMask;
+    }
 #else
         state->Apply();
 #endif

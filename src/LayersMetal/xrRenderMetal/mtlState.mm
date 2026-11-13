@@ -100,6 +100,7 @@ void mtlState::UpdateRenderState(uint32_t name, uint32_t value)
     {
     case D3DRS_CULLMODE:
         rasterizerCullMode = (D3DCULL)value;
+        m_cullRecorded = true;
         break;
 
     case D3DRS_ZENABLE:

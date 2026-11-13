@@ -32,7 +32,10 @@ v2p_postpr main ( v_postpr I )
 
 	I.P.xy += 0.5;
 	O.P.x = I.P.x * screen_res.z * 2.0 - 1.0;
-	O.P.y = I.P.y * screen_res.w * 2.0 - 1.0;
+	// Pixel y=0 -> clip +1 (D3D/Metal NDC is y-up), as in stub_notransform_t.vs.
+	// Without the flip, full-screen passes came out mirrored with reversed
+	// winding, and quads into small RTs (bloom/luminance) landed outside them.
+	O.P.y = 1.0 - I.P.y * screen_res.w * 2.0;
 	O.P.zw = I.P.zw;
 
 	O.Tex0	= I.Tex0;

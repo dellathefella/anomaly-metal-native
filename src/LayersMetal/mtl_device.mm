@@ -707,7 +707,12 @@ namespace xray::metal
 		{
 			// compareFunction alone enables depth-compare sampling on macOS
 			// (MTLSamplerCompareMode is not in this SDK).
-			if (desc.compareFunc <= (int)MTLCompareFunctionNever)
+			// desc.compareFunc is already a mapped MTLCompareFunction (0..7,
+			// see MtlMapCompare). The old guard accepted only Never (0), so
+			// every depth-compare sampler (s_smap, cmpFn=4 -> LessEqual=3)
+			// was rejected and the shadow taps returned 0 — the sun accum PS
+			// multiplied the whole scene to black.
+			if (desc.compareFunc <= (int)MTLCompareFunctionAlways)
 				sd.compareFunction = (MTLCompareFunction)desc.compareFunc;
 			else
 				fprintf(stderr, "! xrRenderMetal: SamplerFull bad compareFunc %d ignored\n",

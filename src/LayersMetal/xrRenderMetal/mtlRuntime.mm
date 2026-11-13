@@ -1700,24 +1700,25 @@ fragment Fill4 xrred4_ps()
 						s_mtN++;
 						id<MTLTexture> mtx = (__bridge id<MTLTexture>)mt;
 						const uint32_t mw = (uint32_t)mtx.width, mh = (uint32_t)mtx.height;
-						std::vector<uint8_t> mb(size_t(mw) * mh * 4);
+						const uint32_t mbpp = dev->TextureBpp(mt);
+						std::vector<uint8_t> mb(size_t(mw) * mh * (mbpp ? mbpp : 1));
 						std::string merr;
-						if (dev->ReadbackSlice(mt, mb.data(), mw * 4, mw, mh, 0, 0, merr))
+						if (dev->ReadbackSlice(mt, mb.data(), mw * (mbpp ? mbpp : 1), mw, mh, 0, 0, merr))
 						{
 							size_t mnz = 0;
 							uint8_t chx[3] = { 0, 0, 0 };
-							for (size_t k = 0; k + 3 < mb.size(); k += 4)
+							for (size_t k = 0; k + mbpp <= mb.size(); k += mbpp)
 							{
-								if (mb[k] | mb[k + 1] | mb[k + 2])
+								if (mb[k] | mb[k + 1])
 									mnz++;
-								for (int c = 0; c < 3; c++)
+								for (int c = 0; c < 2 && c < (int)mbpp; c++)
 									if (mb[k + c] > chx[c])
 										chx[c] = mb[k + c];
 							}
-							Log("- p5 mattex: %ux%u f%ld t%ld z%ld m%ld nz=%zu/%zu chmax=(%u,%u,%u)",
+							Log("- p5 mattex: %ux%u f%ld t%ld z%ld m%ld bpp=%u nz=%zu/%zu chmax=(%u,%u,%u)",
 							    mw, mh, (long)mtx.pixelFormat, (long)mtx.textureType,
-							    (long)mtx.depth, (long)mtx.mipmapLevelCount, mnz,
-							    mb.size() / 4, chx[0], chx[1], chx[2]);
+							    (long)mtx.depth, (long)mtx.mipmapLevelCount, mbpp, mnz,
+							    mb.size() / (mbpp ? mbpp : 1), chx[0], chx[1], chx[2]);
 						}
 						else
 							Log("! p5 mattex: readback failed: %s", merr.c_str());
@@ -5954,6 +5955,38 @@ namespace
 
 		BindDraw(pm, pm.enc, *vsR, *psR, slotOff);
 
+		// p6 sky-hunt: dump the sky draw's first vertices + clip position.
+		if (pair && strstr(pair->name.c_str(), "sky2") && ds.vb && pm.vsSize)
+		{
+			static int s_skyD = 0;
+			if (s_skyD++ < 4)
+			{
+				const uint8_t* vb = (const uint8_t*)[(__bridge id<MTLBuffer>)ds.vb contents];
+				const float* mwvp = nullptr;
+				for (const auto& u : vsR->uniforms)
+					if (u.name == "m_WVP" && u.offset + 64 <= pm.vsSize)
+					{
+						mwvp = reinterpret_cast<const float*>(pm.staging.data() + u.offset);
+						break;
+					}
+				if (vb && mwvp)
+				{
+					for (int k = 0; k < 3; k++)
+					{
+						const float* p =
+						    (const float*)(vb + size_t((uint32_t)baseV + k) * ds.vbStride);
+						float vx = p[0] * 1000.f, vy = p[1] * 1000.f, vz = p[2] * 1000.f;
+						float cx = vx * mwvp[0] + vy * mwvp[4] + vz * mwvp[8] + mwvp[12];
+						float cy = vx * mwvp[1] + vy * mwvp[5] + vz * mwvp[9] + mwvp[13];
+						float cz = vx * mwvp[2] + vy * mwvp[6] + vz * mwvp[10] + mwvp[14];
+						float cw = vx * mwvp[3] + vy * mwvp[7] + vz * mwvp[11] + mwvp[15];
+						Log("- p6 skydraw: k=%d v=(%.3f %.3f %.3f) clip=(%.3f %.3f %.3f %.3f)",
+						    k, vx, vy, vz, cx, cy, cz, cw);
+					}
+				}
+			}
+		}
+
 		// p5 diag: dump the first draws (which shader, what geometry, which RT).
 		{
 			static int s_ed_logged = 0;
@@ -8101,8 +8134,11 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 						// truncation (1024 vs 1040) directly.
 						static std::map<std::string, int> s_t5sz;
 						if (s_t5sz[pn]++ < 2)
-							Log("* p5 t5sz: pair=%s vsSize=%u psSize=%u psBase=%u staging=%zu",
-							    pn, pm.vsSize, pm.psSize, pm.psBase, pm.staging.size());
+							Log("* p5 t5sz: pair=%s vsSize=%u psSize=%u psBase=%u staging=%zu "
+							    "psCb=%u psU=%zu vsCb=%u vsU=%zu",
+							    pn, pm.vsSize, pm.psSize, pm.psBase, pm.staging.size(),
+							    psR ? psR->cbufferSize : 0, psR ? psR->uniforms.size() : 0,
+							    vsR ? vsR->cbufferSize : 0, vsR ? vsR->uniforms.size() : 0);
 						int unc = 0;
 						const size_t ps0 = Align16(pm.vsSize);
 						for (const auto& u : psR->uniforms)

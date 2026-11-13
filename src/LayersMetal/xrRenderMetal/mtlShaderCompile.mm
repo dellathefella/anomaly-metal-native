@@ -612,6 +612,54 @@ static std::string MtlPatchNoAccum(const std::string& msl, const char* name)
 	return std::regex_replace(msl, accRe, "float4(0.0)");
 }
 
+// p6 sky-hunt: XR_P5_SKYCONST=1 forces the sky2 PS output to a constant red.
+// If the sky renders red, the sky draw/pipeline works and the cube textures or
+// tonemap are the dark source.
+static std::string MtlPatchSkyConst(const std::string& msl, const char* name)
+{
+	if (!getenv("XR_P5_SKYCONST") || !name || !strstr(name, "sky2"))
+		return msl;
+	static const std::regex out0(R"(out\.out_var_SV_TARGET0 = [^;]*;)");
+	static const std::regex out1(R"(out\.out_var_SV_TARGET1 = [^;]*;)");
+	std::string s = std::regex_replace(msl, out0, "out.out_var_SV_TARGET0 = float4(1.0, 0.0, 0.0, 1.0);");
+	s = std::regex_replace(s, out1, "out.out_var_SV_TARGET1 = float4(1.0, 0.0, 0.0, 1.0);");
+	static std::set<std::string> s_skyLogged;
+	if (s != msl && s_skyLogged.insert(name ? name : "?").second)
+		fprintf(stderr, "- xrMetal skyconst: patched %s\n", name ? name : "?");
+	return s;
+}
+
+// p6 shadow-hunt: shadow_direct_*.vs is compiled from a DX9 decl whose
+// POSITION is FLOAT3. Metal fills the missing .w with 0 (verified on-device),
+// so `POSITION * m_WVP` drops the translation and collapses every shadow
+// caster to the origin — the shadow map gets wrong/empty depths. The cascade
+// ortho also emits GL-style clip z in [-1,1] while Metal's clip/depth space is
+// [0,1], so half the casters are clipped and the texel-adjust matrix
+// (0.5z+0.5) no longer matches the stored depth. Fix both here:
+//   w -> 1.0, and z -> 0.5z + 0.5w (GL depth convention, matching the texel
+//   adjust used by accum_direct_cascade).
+static std::string MtlPatchShadowClip(const std::string& msl, const char* name)
+{
+	if (!name || !strstr(name, "shadow_direct"))
+		return msl;
+	if (msl.find("gl_Position [[position]]") == std::string::npos)
+		return msl; // PS or non-VS MSL
+	static const std::regex posRe(R"(out\.gl_Position = in\.in_var_POSITION \* _Globals\.m_WVP;)");
+	static const std::regex posRe2(R"(out\.gl_Position = in\.in_var_POSITION \* _Globals\.m_WV;)");
+	std::string s = std::regex_replace(
+	    msl, posRe,
+	    "out.gl_Position = float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WVP;\n"
+	    "    out.gl_Position.z = out.gl_Position.z * 0.5 + out.gl_Position.w * 0.5;");
+	s = std::regex_replace(
+	    s, posRe2,
+	    "out.gl_Position = float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WV;\n"
+	    "    out.gl_Position.z = out.gl_Position.z * 0.5 + out.gl_Position.w * 0.5;");
+	static std::set<std::string> s_shadowLogged;
+	if (s != msl && s_shadowLogged.insert(name ? name : "?").second)
+		fprintf(stderr, "- xrMetal shadowclip: patched %s\n", name ? name : "?");
+	return s;
+}
+
 // p6 sun-hunt: XR_P5_NOLIGHT=1 replaces the accum-sun PS material lookup with
 // float4(1.0). If the accum RT becomes non-empty, plight_infinity (material
 // table / sampled position+normal) is the zero source.
@@ -641,12 +689,17 @@ static std::string MtlPatchPosW(const std::string& msl, const char* name)
 	// detail/impl VS: dot(array[inst], POSITION) uses POSITION.w as the
 	// homogeneous coordinate; garbage w distorts the instance transform.
 	static const std::regex dotRe(R"(, in\.in_var_POSITION\))");
+	// sky2.vs: (POSITION * 1000.0) * m_WVP — POSITION.w is the packed color
+	// bytes when the decl is float3, collapsing the sky cube.
+	static const std::regex skyRe(R"(in\.in_var_POSITION \* 1000\.0)");
 	std::string s = std::regex_replace(msl, wvpRe,
 	                                   "float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WVP");
 	s = std::regex_replace(s, wvRe,
 	                       "float4(in.in_var_POSITION.xyz, 1.0) * _Globals.m_WV");
 	s = std::regex_replace(s, dotRe,
 	                       ", float4(in.in_var_POSITION.xyz, 1.0))");
+	s = std::regex_replace(s, skyRe,
+	                       "float4(in.in_var_POSITION.xyz, 1.0) * 1000.0");
 	static std::set<std::string> s_poswLogged;
 	if (s != msl && s_poswLogged.insert(name ? name : "?").second)
 		fprintf(stderr, "- xrMetal posw: patched %s\n", name ? name : "?");
@@ -690,7 +743,9 @@ bool MetalCompileStage(MtlStageRefl& out, std::string* outMsl, char target, cons
 	res.msl = MtlPatchNoMaskVs(res.msl, name);
 	res.msl = MtlPatchNoAccum(res.msl, name);
 	res.msl = MtlPatchPosW(res.msl, name);
+	res.msl = MtlPatchShadowClip(res.msl, name);
 	res.msl = MtlPatchNoLight(res.msl, name);
+	res.msl = MtlPatchSkyConst(res.msl, name);
 	fprintf(stderr, "- xrMetal refl: %s cbSize=%u uniforms=%u resources=%u inputs=%u\n", name,
 	        refl.cbufferSize, (unsigned)refl.uniforms.size(), (unsigned)refl.resources.size(),
 	        (unsigned)refl.inputs.size());
@@ -771,7 +826,9 @@ bool MetalCreateStageFromMsl(MtlStageRefl& out, const char* name, const char* ms
 	patched = MtlPatchNoMaskVs(patched, name);
 	patched = MtlPatchNoAccum(patched, name);
 	patched = MtlPatchPosW(patched, name);
+	patched = MtlPatchShadowClip(patched, name);
 	patched = MtlPatchNoLight(patched, name);
+	patched = MtlPatchSkyConst(patched, name);
 	msl = patched.c_str();
 	id<MTLFunction> fn = CreateFunction([NSString stringWithUTF8String:msl], entry, name, error);
 	if (!fn)

@@ -210,8 +210,14 @@ void* CRender::texture_load(pcstr fRName, u32& ret_msize, u32& ret_desc, u32& re
         Msg("- p6 texdbg: #%d '%s' %ux%u", s_texDbgN, fn, (u32)ext.x, (u32)ext.y);
     // p6 sky-hunt: log the sky texture's gli target (cube vs 2D) and dims.
     if (fn && strstr(fn, "sky"))
-        fprintf(stderr, "- p6 skytexcreate: '%s' target=%d %ux%u levels=%u\n", fn,
-                (int)texture.target(), (u32)ext.x, (u32)ext.y, levels);
+    {
+        const glm::vec3 le0(texture.extent(0));
+        fprintf(stderr,
+                "- p6 skytexcreate: '%s' target=%d ext=%ux%u ext0=%ux%u layers=%zu faces=%zu "
+                "levels=%u size0=%zu\n",
+                fn, (int)texture.target(), (u32)ext.x, (u32)ext.y, (u32)le0.x, (u32)le0.y,
+                texture.layers(), texture.faces(), levels, texture.size(0));
+    }
 
     switch (texture.target())
     {

@@ -9,7 +9,7 @@ Suites: 'suite' = the pda/walk/fire set produced by /tmp/verify_suite.py.
 """
 import os, sys, shutil, glob, hashlib
 
-ROOT = '/Users/jdella/Desktop/anomaly-metal-native'
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SHOTS = os.path.join(ROOT, 'Anomaly/appdata/screenshots')
 GOLD = os.path.join(ROOT, 'engine/tests/goldens')
 

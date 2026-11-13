@@ -23,10 +23,17 @@ driving the shared R2 deferred renderer (`src/LayersOGL/xrRender_R2`, compiled i
   `screenshot` — headless-ish automated testing with autosave load.
 - **Input**: keyboard/mouse reach the game (camera control proven via yaw/pitch deltas).
 
-## Open bug: the right-edge black band (user priority #2)
+## Fixed: the right-edge black band (user priority #2)
+
+**Status: fixed.** The band was a symptom of the transposed-`Fmatrix` constants bug fixed in
+`cb8a64c` (Nov 4): every matrix constant was uploaded row-major while GL uploads the transpose,
+so geometry collapsed toward the camera origin and the right side of the g-buffer never received
+fragments. Verified on a fresh in-game run (Nov 12, `k00_marsh`, 55 fps, no camera nudges):
+`harness/bandedge.py` reports `BAND@1.000` (top/mid/bot = 3023) — full-width frame, no band.
+The forensics below predate that fix and are retained only as history.
 
 A vertical black band on the right edge of the screen (~24% of width at the widest), edge tilted
-~1°. Extensive forensics have localized it precisely:
+~1°. Extensive forensics had localized it precisely:
 
 ### Established facts (verified-in-game or raw-RT evidence only)
 
@@ -219,6 +226,40 @@ gone with the fix.
 
 ## Open bug: empty shadow map / dark direct sun
 
+**Progress (Nov 12–13): three concrete bugs fixed; the shadow map now rasterizes
+real depths and the accum-sun PS receives its constants and textures.**
+
+1. **Sampler compare guard** (`mtl_device.mm`): `SamplerFull` accepted only
+   `MTLCompareFunctionNever` (`<= 0`), so every depth-compare sampler (`s_smap`,
+   mapped to LessEqual=3) was rejected with `bad compareFunc 3 ignored`.
+   On-device verification confirmed Metal's `sample_compare` LessEqual semantics
+   (`dref <= texel` = lit, the shadow convention). The guard now accepts 0..7.
+2. **Shadow VS clip convention** (`mtlShaderCompile.mm`): `shadow_direct_*.vs`
+   reads a FLOAT3 POSITION as float4; Metal fills the missing `.w` with 0
+   (verified on-device), so `POSITION * m_WVP` dropped the translation and
+   collapsed shadow casters. The cascade ortho also emits GL-style clip z in
+   [-1,1] while Metal's clip/depth space is [0,1]. `MtlPatchShadowClip` now
+   forces `w=1` and remaps `z -> 0.5z + 0.5w` for shadow VS only.
+3. **Pass constant table** (`Blender_Recorder_Metal.cpp`): the Metal `r_Pass`
+   mirror omitted `dest.constants = _CreateConstantTable(ctable)` (GL/DX9
+   `PassEnd` has it), so every pass's constant table was empty and `psSize`
+   collapsed to 0 — the accum-sun PS read stale ring bytes
+   (`Ldynamic_color=0`, sun output 0). Added the assignment.
+
+Verified after these fixes: `smaprb` shows real depths (`dmin≈0.2`, `dmax=1`),
+`postsmap` `fmin≈0.91–0.96`, and the accum RT reaches ~47% coverage with shadow
+taps neutralized. The accum-sun PS now binds the correct textures (`position`,
+`normal`, material volume, `smap_depth`) and stages `psCb=1040 psU=31`.
+
+**Remaining:** with `XR_P5_FORCE_SUN=1` the accum RT still has RGB=0 /
+alpha=3.27 (the mask), so the sun PS RGB product is zero. The material volume is
+alive (`mattex` non-zero) and the constants/textures are correct; the zero source
+is the material volume sample or the shadow term. `XR_P5_NOLIGHT` /
+`XR_P5_NOSHADOW` / `XR_P5_MATCONST` isolation patches currently collapse the PS
+reflection to empty (`psCb=0`), so they are not usable as oracles yet. Next: dump
+the material volume slice 1 with the correct 2-byte stride and trace the sampled
+value in the accum PS.
+
 The scene renders coherently but is very dark: the sun accum pass writes
 nothing. Verified with `XR_P5_POSTACC=2`:
 
@@ -239,7 +280,8 @@ and the cascade `lightXZshift` centering is the remaining suspect.
 
 ## Known issues / queue
 
-- **Daytime verification** (user priority #3) pending — daytime lighting check after the band.
+- **Daytime verification** (user priority #3) pending — the band is fixed; the sun accum PS
+  still writes RGB=0 under `XR_P5_FORCE_SUN`, so daytime lighting is not yet verified.
 - **Sky is an invisible stub** → void areas read black (planned in t5: sky/sun/accum_sun GL-parity).
   Sky textures now upload (cube arrays, `XR_P5_SKYDUMP` shows non-zero faces); the
   sky tint is bright (0.85) but the sky still reads dark — the sky PS/tonemap path

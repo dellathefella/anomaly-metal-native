@@ -11,7 +11,7 @@ level load so a probe can toggle engine features (water SSR, sun shafts, ...).
 import os, sys, time, subprocess
 
 tag = sys.argv[1]
-root = "/Users/jdella/Desktop/anomaly-metal-native"
+root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 cwd = os.path.join(root, "Anomaly")
 logdir = os.path.join(root, "engine", "harness", "logs")
 os.makedirs(logdir, exist_ok=True)
@@ -115,6 +115,10 @@ else:
             print("wait:", line, flush=True)
             break
         time.sleep(3)
+    # optional: tilt the camera up so the sky is in frame (XR_LOOKUP=1)
+    if env.get("XR_LOOKUP") == "1":
+        print("lookup:", mcp("mouse_move 0 -400", 8), flush=True)
+        time.sleep(2)
     print("shot:", mcp("screenshot %s_ing" % tag), flush=True)
     time.sleep(2)
     print("shot2:", mcp("screenshot %s_ing2" % tag), flush=True)

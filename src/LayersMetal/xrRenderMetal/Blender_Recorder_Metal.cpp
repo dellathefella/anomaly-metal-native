@@ -83,6 +83,13 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _gs, LPCSTR _ps, bool bFog, BOO
     RImplementation.Resources->_LinkPP(dest);
     ctable.merge(&dest.pp->constants);
 
+    // p6 sun-hunt: the pass MUST carry the merged constant table. GL/DX9
+    // r_Pass ends with `dest.constants = _CreateConstantTable(ctable)`; the
+    // Metal mirror omitted it, so every pass's ctable stayed empty and the
+    // PS constant block was never staged (psSize=0 -> the accum-sun PS read
+    // stale ring bytes: Ldynamic_color=0, sun output 0).
+    dest.constants = RImplementation.Resources->_CreateConstantTable(ctable);
+
     // Last Stage - disable
     if (0 == xr_stricmp(_ps, "null"))
     {

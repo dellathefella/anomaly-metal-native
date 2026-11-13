@@ -311,7 +311,23 @@ void CHW::Present()
     }
     void* drawable = nullptr;
     std::string error;
-    if (can && !MtlDev.NextDrawable(&drawable, error))
+    // D3D parity (dxRenderDeviceRender::End): second-viewport (3D scope)
+    // frames render no main scene and must not be presented. Presenting them
+    // flashed an unrendered back buffer every other frame (white flicker).
+    // Without a drawable we fall through to the commit-only path below.
+    const bool svpSkip = Device.m_SecondViewport.IsSVPFrame() || Device.m_SecondViewport.isCamReady;
+    {
+        static uint32_t s_pres = 0, s_svp = 0, s_lastFrame = 0, s_sameFrame = 0;
+        s_pres++;
+        s_svp += svpSkip ? 1 : 0;
+        if (Device.dwFrame == s_lastFrame)
+            s_sameFrame++;
+        s_lastFrame = Device.dwFrame;
+        if (getenv("XR_METAL_SVPLOG") && (s_pres % 240) == 0)
+            fprintf(stderr, "- svplog presents=%u svpSkip=%u sameDwFrame=%u active=%d\n", s_pres, s_svp,
+                    s_sameFrame, (int)Device.m_SecondViewport.IsSVPActive());
+    }
+    if (can && !svpSkip && !MtlDev.NextDrawable(&drawable, error))
     {
         drawable = nullptr;
         static int s_ndFail = 0;
@@ -543,7 +559,8 @@ void CHW::Present()
     // runs on its own command buffer (GL readback implicitly synced; Metal
     // does not). rt[0] still holds this frame's final PP target.
     MtlWaitCurrentCB();
-    p4_present_screenshot_mtl();
+    if (!svpSkip) // SVP frames hold no main-scene image
+        p4_present_screenshot_mtl();
 
     CurrentBackBuffer = (CurrentBackBuffer + 1) % BackBufferCount;
 }

@@ -4328,6 +4328,7 @@ static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts)
 			double sum[4] = {}, mx[4] = { -1e30, -1e30, -1e30, -1e30 }, topS[4] = {};
 			const size_t topN = (size_t)W * (H * 15 / 100);
 			double botS[4] = {};
+			double bandS[10] = {};
 			const size_t botStart = (size_t)W * (H - H * 15 / 100);
 			int nan = 0, nc = 4;
 			const size_t n = (size_t)W * H;
@@ -4362,6 +4363,7 @@ static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts)
 					sum[c] += v[c];
 					if (i < topN) topS[c] += v[c];
 					if (i >= botStart) botS[c] += v[c];
+					if (c == 0) bandS[(i / W) * 10 / H] += v[c];
 					if (v[c] > mx[c]) mx[c] = v[c];
 				}
 			}
@@ -4371,6 +4373,16 @@ static void MtlRtStatsCapture(MtlPassManager& pm, const char* s_rts)
 			{
 				snprintf(b, sizeof b, " %c=%.4g/%.4g(top %.4g bot %.4g)", "rgba"[c], sum[c] / (double)n, mx[c], topN ? topS[c] / (double)topN : 0.0, topN ? botS[c] / (double)topN : 0.0);
 				s += b;
+			}
+			{
+				std::string bands;
+				for (int k = 0; k < 10; ++k)
+				{
+					char bb[24];
+					snprintf(bb, sizeof bb, " %.3f", bandS[k] / ((double)n / 10.0));
+					bands += bb;
+				}
+				s += " rbands[" + bands + " ]";
 			}
 			fprintf(stderr, "- rtstats %s@%p %lux%lu fmt=%d mean/max:%s nan=%d\n", nm.c_str(), (__bridge void*)t,
 			        (unsigned long)W, (unsigned long)H, (int)pf, s.c_str(), nan);
@@ -5911,8 +5923,17 @@ namespace
 						std::memcpy(cur, dst + u.offset, 16);
 						if (!(cur[0] > 0.f) || !(cur[2] > 0.f))
 						{
-							const float w = pm.screenW ? pm.screenW : 1.f;
-							const float h = pm.screenH ? pm.screenH : 1.f;
+							// D3D9 pre-transformed (XYZRHW) positions are pixels of the
+							// CURRENT render target. pm.screenW/H is the largest viewport
+							// ever set — the 2048^2 shadow-map viewport made postprocess
+							// and the HUD cover only 1680/2048 of the screen rows.
+							uint32_t rw = 0, rh = 0;
+							if (pm.rt[0])
+								pm.dev->TextureDims(pm.rt[0], &rw, &rh);
+							else if (pm.zb)
+								pm.dev->TextureDims(pm.zb, &rw, &rh);
+							const float w = rw ? (float)rw : (pm.screenW ? pm.screenW : 1.f);
+							const float h = rh ? (float)rh : (pm.screenH ? pm.screenH : 1.f);
 							const float v4[4] = { w, h, 1.f / w, 1.f / h };
 							std::memcpy(dst + u.offset, v4, 16);
 						}
@@ -6598,6 +6619,12 @@ namespace
 					const char* tn = tx ? MtlDbgRTGetName(tx) : nullptr;
 					char b[96];
 					snprintf(b, sizeof b, " st%d=%s@%p", sl, tn ? tn : (tx ? "?" : "null"), tx);
+					ld += b;
+				}
+				{
+					const char* rn0 = pm.rt[0] ? MtlDbgRTGetName(pm.rt[0]) : nullptr;
+					char b[96];
+					snprintf(b, sizeof b, " RT0=%s@%p", rn0 ? rn0 : "?", pm.rt[0]);
 					ld += b;
 				}
 				fprintf(stderr, "- rtstats after %s%s\n", pair->name.c_str(), ld.c_str());

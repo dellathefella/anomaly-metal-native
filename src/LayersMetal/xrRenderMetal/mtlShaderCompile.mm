@@ -722,6 +722,18 @@ static std::string MtlPatchSkyConst(const std::string& msl, const char* name)
 			fprintf(stderr, "- xrMetal skyz: patched %s\n", name);
 		return s;
 	}
+	// XR_P5_LUMDBG=1: bloom_luminance_3 outputs MiddleGray.x / MiddleGray.z
+	// (its adapted target for lum=0) — does the 1x1 exposure write land?
+	if (getenv("XR_P5_LUMDBG") && name && !strcmp(name, "bloom_luminance_3") &&
+	    msl.find("fragment ") != std::string::npos)
+	{
+		static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+		std::string s = std::regex_replace(msl, outRe,
+		    getenv("XR_P5_LUMDBG")[0] == '2' ? "out.out_var_SV_TARGET = float4(_176);"
+		                                     : "out.out_var_SV_TARGET = float4(_Globals.MiddleGray.x / _Globals.MiddleGray.z);");
+		fprintf(stderr, "- xrMetal lumdbg: patched %s\n", name);
+		return s;
+	}
 	// XR_P5_CONSTPS=<substr>: same constant-red output for any PS name match.
 	if (const char* cps = getenv("XR_P5_CONSTPS"))
 		if (name && strstr(name, cps) && msl.find("fragment ") != std::string::npos)

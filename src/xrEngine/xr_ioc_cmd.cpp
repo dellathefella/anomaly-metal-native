@@ -961,6 +961,8 @@ void CCC_Register()
 	// CHUDManager::RenderUI; the settings menu toggles it like any cvar.
 	extern ENGINE_API int gXRShowStats;
 	CMD4(CCC_Integer, "xr_show_stats", &gXRShowStats, 0, 2);
+	extern ENGINE_API float ps_r_metalfx_scale;
+	CMD4(CCC_Float, "r_metalfx_scale", &ps_r_metalfx_scale, 0.5f, 1.0f); // applied on vid_restart / next launch
 	//CMD4(CCC_Integer, "net_dedicated_sleep", &psNET_DedicatedSleep, 0, 64);
 
 	// General video control

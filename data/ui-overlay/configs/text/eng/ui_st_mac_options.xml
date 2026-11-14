@@ -14,4 +14,11 @@
 		<text>On-screen counters. "FPS + ms + RAM" also shows average frame time and resident memory.</text>
 	</string>
 
+	<string id="ui_mm_metalfx_scale">
+		<text>MetalFX upscaling</text>
+	</string>
+	<string id="ui_mm_metalfx_scale_desc">
+		<text>Renders the scene at a lower resolution and upscales it to the window with MetalFX. Lower settings are faster but softer. Applied after a restart.</text>
+	</string>
+
 </string_table>

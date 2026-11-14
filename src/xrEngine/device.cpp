@@ -593,6 +593,9 @@ ENGINE_API BOOL bShowPauseString = TRUE;
 // 2=FPS+frame-ms+RSS. Drawn by CHUDManager::RenderUI; exposed as the
 // 'xr_show_stats' cvar (xr_ioc_cmd.cpp) so the settings menu can toggle it.
 ENGINE_API int gXRShowStats = 0;
+// Metal renderer: internal render scale (1.0 = native). Below 1 the scene is
+// rendered smaller and upscaled to the window with MetalFX at present time.
+ENGINE_API float ps_r_metalfx_scale = 1.0f;
 #include "IGame_Persistent.h"
 
 void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)

@@ -11,6 +11,8 @@
 extern xr_token* vid_mode_token;   // defined in xrEngine/xr_ioc_cmd.cpp
 extern xr_token* vid_quality_token;
 
+extern ENGINE_API float ps_r_metalfx_scale; // xrEngine/device.cpp (global scope: engine symbol)
+
 namespace xray::render::RENDER_NAMESPACE
 {
 // Same SDL display-mode enumeration as the GL path (settings dialog +
@@ -142,18 +144,17 @@ static std::pair<u32, u32> sdl_drawable_size(SDL_Window* wnd)
     return { (u32)w, (u32)h };
 }
 
-// t4 (XR_METAL_SCALE): internal render scale. Engine resolution
-// (Device.dwWidth/Height -> every scene RT) shrinks; the drawable stays at
-// full window size and MtlBlitToDrawable upscales via MetalFX spatial scaler
-// (falls back to the FS-triangle path). Default 1.0 = exact legacy behavior.
+// Internal render scale. Engine resolution (Device.dwWidth/Height -> every
+// scene RT) shrinks; the drawable stays at full window size and
+// MtlBlitToDrawable upscales with the MetalFX spatial scaler (FS-triangle
+// fallback). Source: the saved `r_metalfx_scale` console variable (options
+// menu); the XR_METAL_SCALE environment variable overrides it for testing.
+// Read on every device create/reset, so vid_restart applies a change.
 static float mtl_internal_scale()
 {
-    static float s_val = [] {
-        const char* e = getenv("XR_METAL_SCALE");
-        float f = e ? (float)atof(e) : 1.0f;
-        return f < 0.25f ? 0.25f : (f > 1.0f ? 1.0f : f);
-    }();
-    return s_val;
+    const char* e = getenv("XR_METAL_SCALE");
+    const float f = e ? (float)atof(e) : ps_r_metalfx_scale;
+    return f < 0.25f ? 0.25f : (f > 1.0f ? 1.0f : f);
 }
 
 static void mtl_scaled_res(const std::pair<u32, u32>& sz, u32& engW, u32& engH, u32& drawW,
@@ -164,6 +165,8 @@ static void mtl_scaled_res(const std::pair<u32, u32>& sz, u32& engW, u32& engH, 
     drawH = sz.second;
     engW = sc < 1.f ? std::max(2u, (u32)(sz.first * sc + 0.5f)) : sz.first;
     engH = sc < 1.f ? std::max(2u, (u32)(sz.second * sc + 0.5f)) : sz.second;
+    Msg("* xrRenderMetal: render scale %.2f -> scene %ux%u, window %ux%u%s", sc, engW, engH, drawW, drawH,
+        sc < 1.f ? " (MetalFX upscale)" : "");
 }
 
 void CHW::CreateDevice(SDL_Window* hWnd)

@@ -8927,7 +8927,10 @@ int32_t MtlGetQueryDataStatus(void* query, void* data, uint32_t dataSize)
 	// v1 stub). Real MTLCounterSampleBuffer resolution still lands with p5 t3.
 	if (!query || !data || dataSize < 4)
 		return 2; // E_FAIL
-	*(uint32_t*)data = 1;
+	// "Visible" must clear the callers' thresholds: light::vis_update and
+	// smapvis test `fragments > cullfragments` (4), so the old answer of 1
+	// fragment culled every shadow-casting light (torch, lamps) as invisible.
+	*(uint32_t*)data = 0x10000;
 	return 0; // S_OK — data ready
 }
 } // namespace xray::render::RENDER_NAMESPACE

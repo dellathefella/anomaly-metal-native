@@ -1355,9 +1355,15 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	if (vs.msl.empty() || ps.msl.empty() || vs.entry.empty() || ps.entry.empty())
 		return false;
 	std::vector<V2PField> vf, pf;
-	if (!ParseV2PStruct(vs.msl, "main0_out", "out_var_", vf))
+	// SPIRV-Cross names the stage structs after the entry point: main0_out
+	// for `main`, main_vs_2_0_out for the corpus' main_vs_2_0 entries. A
+	// hard-coded main0 silently skipped every such pair (model_def_lq PSOs
+	// failed on the unaligned COLOR0 locn).
+	const std::string vsOut = (vs.entry == "main" ? std::string("main0") : vs.entry) + "_out";
+	const std::string psIn = (ps.entry == "main" ? std::string("main0") : ps.entry) + "_in";
+	if (!ParseV2PStruct(vs.msl, vsOut.c_str(), "out_var_", vf))
 		return false;
-	if (!ParseV2PStruct(ps.msl, "main0_in", "in_var_", pf))
+	if (!ParseV2PStruct(ps.msl, psIn.c_str(), "in_var_", pf))
 		return false;
 
 	std::map<std::string, size_t> vmap; // VS semantic -> field index
@@ -1411,7 +1417,7 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 	{
 		// Struct: widen narrow fields (type token -> float4) + append missing
 		// outputs, rebuilt sequentially so line offsets stay valid.
-		const size_t shV = vs.msl.find("struct main0_out");
+		const size_t shV = vs.msl.find("struct " + vsOut);
 		if (shV == std::string::npos)
 			return false;
 		const size_t ob = vs.msl.find('{', shV);
@@ -1441,7 +1447,7 @@ bool MtlAlignV2PStages(const MtlStageRefl& vs, const MtlStageRefl& ps, MtlStageR
 			         " [[user(locn" + std::to_string(std::get<1>(a)) + ")]];";
 		vsMsl.append(vs.msl, cb, vs.msl.size() - cb);
 		// Zero-write the added outputs right after the entry's out-init.
-		const std::string init = "main0_out out = {};";
+		const std::string init = vsOut + " out = {};";
 		size_t ip = vsMsl.find(init);
 		if (ip == std::string::npos)
 		{

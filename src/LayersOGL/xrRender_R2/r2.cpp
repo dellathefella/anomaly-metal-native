@@ -866,9 +866,11 @@ void CRender::add_Visual(IRenderVisual* V)
 {
     // p4: monolith immediate path — root/transform come from set_Object/
     // set_Transform (HUDManager/player_hud/ParticlesObject).
-    if (!V || !m_p4_object || !m_p4_xform)
+    // Root may be null (monolith subspace/shadow passes leave val_pObject 0);
+    // apply_object() and the dsgraph handle a null root.
+    if (!V || !m_p4_xform)
         return;
-    get_context(R_dsgraph_structure::IMM_CTX_ID).add_leafs_dynamic(m_p4_object, (dxRender_Visual*)V, *m_p4_xform);
+    get_context(m_p4_ctx).add_leafs_dynamic(m_p4_object, (dxRender_Visual*)V, *m_p4_xform);
 }
 
 void CRender::add_Geometry(IRenderVisual* V)

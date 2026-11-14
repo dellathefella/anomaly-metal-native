@@ -14,6 +14,27 @@
 
 namespace xray::render::RENDER_NAMESPACE
 {
+namespace
+{
+// Monolith IRenderable feed: renderable_Render()/HUD callbacks call back into
+// ::Render->set_Object/set_Transform/add_Visual. Point those at the dsgraph
+// context being built and the current root object for the callback's scope.
+struct P4FeedScope
+{
+    u32 prev_ctx;
+    P4FeedScope(u32 ctx, IRenderable* root) : prev_ctx(RImplementation.m_p4_ctx)
+    {
+        RImplementation.m_p4_ctx = ctx;
+        RImplementation.set_Object(root);
+    }
+    ~P4FeedScope()
+    {
+        RImplementation.set_Object(nullptr);
+        RImplementation.m_p4_ctx = prev_ctx;
+    }
+};
+} // namespace
+
 using namespace R_dsgraph;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -734,7 +755,11 @@ void R_dsgraph_structure::build_subspace()
 
     if (o.is_main_pass && (o.sector_id == IRender_Sector::INVALID_SECTOR_ID))
     {
-        // p4: xrGame drives pHUD itself through the set_HUD feed path
+        if (g_pGameLevel && o.phase == CRender::PHASE_NORMAL)
+        {
+            P4FeedScope feed{ context_id, nullptr };
+            g_hud->Render_Last(); // HUD (monolith render_main, no-sector branch)
+        }
         return;
     }
 
@@ -896,8 +921,10 @@ void R_dsgraph_structure::build_subspace()
                             T->update(renderable);
                         }
 
-                        // Rendering
-                        renderable->renderable_Render(); // p4: monolith signature; feed state is renderer-side
+                        // Rendering. Monolith contract: the renderable's own
+                        // add_Visual() calls take their root from set_Object.
+                        P4FeedScope feed{ context_id, renderable };
+                        renderable->renderable_Render();
                     }
                     break; // exit loop on frustums
                 }
@@ -908,7 +935,8 @@ void R_dsgraph_structure::build_subspace()
                     if (nullptr == renderable)
                         continue; // unknown, but renderable object (r1_glow???)
 
-                    renderable->renderable_Render(); // p4: monolith signature
+                    P4FeedScope feed{ context_id, nullptr }; // monolith subspace passes: no root object
+                    renderable->renderable_Render();
                 }
             }
         }
@@ -938,14 +966,21 @@ void R_dsgraph_structure::build_subspace()
                             viewEntity->spatial.sphere.P, viewEntity->spatial.sphere.R))
                             continue;
 
-                        // renderable
-                        // p4: xrGame drives pHUD itself through the set_HUD feed path
+                        P4FeedScope feed{ context_id, nullptr };
+                        g_hud->Render_Actor_Shadow(); // first-eye actor body into this smap context
+                        break;
                     }
                 } while (0);
             }
 #endif
 
-            // p4: xrGame drives pHUD itself through the set_HUD feed path
+            // First-person HUD (hands/weapon): monolith render_main calls
+            // Render_Last after the dynamic traversal of the normal phase.
+            if (o.is_main_pass && o.phase == CRender::PHASE_NORMAL)
+            {
+                P4FeedScope feed{ context_id, nullptr };
+                g_hud->Render_Last();
+            }
         }
     }
 

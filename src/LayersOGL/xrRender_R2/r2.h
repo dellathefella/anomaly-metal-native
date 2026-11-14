@@ -435,6 +435,12 @@ public:
 
     Fmatrix* m_p4_xform{ nullptr };
     bool m_p4_hud{ false };
+    // dsgraph context the current renderable_Render()/HUD feed belongs to. The
+    // monolith IRenderable API carries no context, so build_subspace sets it
+    // around each callback; add_Visual() inserts there (shadow/light passes
+    // build in their own contexts — inserting into IMM leaked the first-eye
+    // actor body from the actor-shadow pass into the main view).
+    u32 m_p4_ctx{ R_dsgraph_structure::IMM_CTX_ID };
     bool m_p4_invisible{ false };
     IRenderable* m_p4_object{ nullptr };
     // p4: dev keeps previous-frame camera on CRenderDevice; the monolith does

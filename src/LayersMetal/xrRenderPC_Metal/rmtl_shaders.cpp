@@ -16,6 +16,8 @@
 
 #include "mtl_dx9_translate.h"
 
+#include <filesystem>
+
 namespace xray::render::RENDER_NAMESPACE
 {
 void CRender::addShaderOption(const char* name, const char* value)
@@ -88,6 +90,53 @@ std::string physical_path(pcstr fsPath)
     return out;
 }
 } // namespace
+
+// Anomaly ships its r2 shader SOURCES packed in db/shaders.db0. The shader
+// script loader and the DX9 translator's #include resolution both need
+// physical files, so anything that only exists inside an archive is written
+// out as a loose file once (loose files already present win and are kept —
+// that is how the port's r2-extra stubs override). Without this the renderer
+// only saw whatever loose tree happened to be deployed, and Anomaly-specific
+// shaders (3D PDA screen, scope lenses, red-dot sights) were missing.
+void MtlMaterializeShaderSources()
+{
+    pcstr shaderPath = RImplementation.getShaderPath(); // "r2\\"
+    xr_vector<char*>* list = FS.file_list_open("$game_shaders$", shaderPath, FS_ListFiles);
+    if (!list)
+        return;
+    u32 written = 0, failed = 0;
+    for (char* rel : *list)
+    {
+        string_path vname;
+        strconcat(sizeof(vname), vname, shaderPath, rel);
+        const CLocatorAPI::file* f = FS.exist("$game_shaders$", vname);
+        if (!f || f->vfs == 0xffffffff)
+            continue; // already a loose file
+        string_path full;
+        FS.update_path(full, "$game_shaders$", vname);
+        const std::string phys = physical_path(full);
+        IReader* r = FS.r_open("$game_shaders$", vname);
+        if (!r)
+        {
+            failed++;
+            continue;
+        }
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(phys).parent_path(), ec);
+        if (FILE* out = fopen(phys.c_str(), "wb"))
+        {
+            fwrite(r->pointer(), 1, r->length(), out);
+            fclose(out);
+            written++;
+        }
+        else
+            failed++;
+        FS.r_close(r);
+    }
+    FS.file_list_close(list);
+    if (written || failed)
+        Msg("* xrRenderMetal: extracted %u shader source files from archives (%u failed)", written, failed);
+}
 
 HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     pcstr pTarget, u32 Flags, void*& result)
@@ -291,7 +340,7 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     // Translator/patch revision: the CRC above only covers the top-level
     // source file, so DX9-translator rewrites never invalidated cached MSL.
     {
-        const u32 kMtlTranslatorRev = 2; // 2: SM3 float NORMAL for skinning_1
+        const u32 kMtlTranslatorRev = 3; // 2: SM3 float NORMAL for skinning_1; 3: Anomaly archive r2 sources
         fileCrc = crc32(&kMtlTranslatorRev, sizeof(kMtlTranslatorRev), fileCrc);
     }
     fs->seek(0);

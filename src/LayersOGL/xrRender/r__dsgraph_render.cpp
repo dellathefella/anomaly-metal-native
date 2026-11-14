@@ -196,14 +196,10 @@ public:
     {
         // p4: monolith HUD handedness is applied game-side (CCustomHUD mesh
         // transforms); the dev renderer-side flag hook has no feed here.
-        if (!isActive)
-            return;
-
-        // Change culling mode if HUD meshes were flipped
-        if (cullMode != CULL_NONE)
-        {
-            cmd_list.set_CullMode(cullMode == CULL_CW ? CULL_CCW : CULL_CW);
-        }
+        // Upstream flips culling here only for a left-handed (mirrored) HUD.
+        // The monolith mirrors game-side and never flips, so an unconditional
+        // flip culled forward-pass HUD meshes (3D PDA screen, lens overlays).
+        (void)cmd_list;
     }
 };
 

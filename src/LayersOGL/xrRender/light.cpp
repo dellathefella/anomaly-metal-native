@@ -81,7 +81,14 @@ void light::set_texture(LPCSTR name)
 #if (RENDER != R_R3) && (RENDER != R_R4) && (RENDER != R_GL)
     s_volumetric.create("accum_volumetric", name);
 #else //    (RENDER!=R_R3) && (RENDER!=R_R4) && (RENDER!=R_GL)
+#if defined(USE_METAL)
+    // Metal compiles Anomaly's DX9 r2 set, which only has accum_volumetric
+    // (the _nomsaa name exists in the gl/ set only -> "not found in library",
+    // so volumetric spot lights never drew).
+    s_volumetric.create("accum_volumetric", name);
+#else
     s_volumetric.create("accum_volumetric_nomsaa", name);
+#endif
     if (RImplementation.o.msaa)
     {
         u32 bound = 1;

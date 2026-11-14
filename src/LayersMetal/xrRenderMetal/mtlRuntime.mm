@@ -4705,7 +4705,12 @@ void MtlBlitFromBackBuffer(void* dstTex, uint32_t width, uint32_t height)
 	MtlPassManager& pm = PM();
 	if (!pm.cb || !dstTex)
 		return;
-	id<MTLTexture> src = pm.lastDrawable;
+	// D3D "backbuffer" here means the target this frame's draws are landing in
+	// (CLevel::OnRender draws the PDA UI, then snapshots it for the 3D PDA
+	// screen before the world render overwrites it). That is the bound colour
+	// target, not the previously presented drawable — which held last frame's
+	// final image, and is nil while the window is occluded.
+	id<MTLTexture> src = pm.rt[0] && pm.rt[0] != dstTex ? (__bridge id<MTLTexture>)pm.rt[0] : pm.lastDrawable;
 	if (!src)
 		return;
 	pm.endEncoder();

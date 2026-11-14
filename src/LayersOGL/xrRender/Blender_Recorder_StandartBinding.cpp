@@ -346,6 +346,16 @@ static class cl_script_params : public R_constant_setup //--#SM+#--
     void setup(CBackend& cmd_list, R_constant* C) override { cmd_list.set_c(C, g_pGamePersistent->m_pGShaderConstants->m_script_params); }
 } binder_script_params;
 
+// Anomaly 3D PDA screen: display fade-in, psy glitch amount, brightness.
+static class cl_pda_params : public R_constant_setup
+{
+    void setup(CBackend& cmd_list, R_constant* C) override
+    {
+        const auto& d = g_pGamePersistent->pda_shader_data;
+        cmd_list.set_c(C, d.pda_display_factor, d.pda_psy_influence, d.pda_displaybrightness, 0.0f);
+    }
+} binder_pda_params;
+
 static class cl_blend_mode : public R_constant_setup //--#SM+#--
 {
     void setup(CBackend& cmd_list, R_constant* C) override { cmd_list.set_c(C, g_pGamePersistent->m_pGShaderConstants->m_blender_mode); }
@@ -376,6 +386,7 @@ void CBlender_Compile::SetMapping()
     r_Constant("m_hud_params", &binder_hud_params); //--#SM+#--
     r_Constant("m_script_params", &binder_script_params); //--#SM+#--
     r_Constant("m_blender_mode", &binder_blend_mode); //--#SM+#--
+    r_Constant("pda_params", &binder_pda_params); // Anomaly 3D PDA screen (pda_overlay.ps)
 
     // objects data
     r_Constant("m_obj_camo_data", &binder_camo_data); //--#SM+#--

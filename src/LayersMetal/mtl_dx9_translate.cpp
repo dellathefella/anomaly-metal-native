@@ -294,6 +294,32 @@ namespace xray::metal
 		ctx.notes = &res.notes;
 
 		std::string body = ExpandIncludes(source, sourcePath, ctx, 0);
+		// Anomaly-only shaders extracted from the game archive (pda_overlay)
+		// compile against the base tree's common.h, which lacks two helpers
+		// from Anomaly's common_functions.h. Supply them after the shader's
+		// first #include (noise() reads `timers`, so it must follow common.h).
+		if (ctx.ok)
+		{
+			const auto uses = [&](const char* fn) { return std::regex_search(body, std::regex(std::string("\\b") + fn + "\\s*\\(")); };
+			const auto defines = [&](const char* fn) { return std::regex_search(body, std::regex(std::string("\\bfloat\\s+") + fn + "\\s*\\(\\s*float")); };
+			std::string compat;
+			if (uses("rand") && !defines("rand"))
+				compat += "float rand(float n) { return frac(cos(n) * 343.42); }\n";
+			if (uses("noise") && !defines("noise"))
+				compat += "float noise(float2 tc) { return frac(sin(dot(tc, float2(12.0, 78.0) + (timers.x))) * 43758.0) * 0.25f; }\n";
+			const size_t inc = source.find("#include");
+			const size_t eol = inc == std::string::npos ? std::string::npos : source.find('\n', inc);
+			if (!compat.empty() && eol != std::string::npos)
+			{
+				std::string patched = source;
+				patched.insert(eol + 1, compat);
+				Ctx ctx2;
+				ctx2.includeDirs = includeDirs;
+				ctx2.notes = &res.notes;
+				body = ExpandIncludes(patched, sourcePath, ctx2, 0);
+				ctx = ctx2;
+			}
+		}
 		if (!ctx.ok)
 		{
 			res.error = ctx.firstError;

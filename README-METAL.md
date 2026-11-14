@@ -1,381 +1,144 @@
-# Metal Renderer Port — Status
+# Metal renderer for S.T.A.L.K.E.R. Anomaly (macOS / Apple Silicon)
 
-Native Metal renderer for **S.T.A.L.K.E.R. Anomaly 1.5.3** on macOS/ARM64 (Apple Silicon).
-Target: render Anomaly's DX9-convention deferred pipeline natively on Metal, no translation layer.
+A native Metal renderer for **Anomaly 1.5.3**. It runs the X-Ray R2 deferred
+pipeline directly on Metal: Anomaly's DX9 `r2\` HLSL is compiled at runtime
+(DXC → SPIR-V → SPIRV-Cross → MSL) and cached on disk.
 
-`xr_3da` builds to `engine/build-gl/bin/xr_3da`; the Metal layer lives in
-`engine/src/LayersMetal/` (`xrRenderMetal` runtime + `xrRenderPC_Metal` renderer backend),
-driving the shared R2 deferred renderer (`src/LayersOGL/xrRender_R2`, compiled into the Metal target).
+- Engine binary: `build-gl/bin/xr_3da`
+- Metal layer: `src/LayersMetal/` (`xrRenderMetal` runtime, `xrRenderPC_Metal` backend)
+- Shared deferred renderer: `src/LayersOGL/xrRender_R2`, `src/LayersOGL/xrRender`
 
----
+## Build and run
 
-## What works (verified in-game via MCP harness)
+```sh
+cmake -S . -B build-gl -DCMAKE_BUILD_TYPE=Release \
+      -DXRAY_RENDERER_METAL=ON -DXRAY_RENDERER_GL=ON
+cmake --build build-gl -j 12
 
-- **The world renders.** Verified in-game runs (fps 40–70, level `k00_marsh`, live camera) produce
-  correctly painted, lit, full-frame screenshots — geometry, textures, rain, HUD/UI, postprocess chain.
-- **Full deferred pass chain** runs: smap → position gbuffer (MRT) → sun/accum → combine → bloom →
-  postprocess → UI, matching the GL reference pass list.
-- **Metal device layer**: HiDPI CAMetalLayer swapchain, state cache (PSO/DSS), DX9→Metal shader
-  pipeline (HLSL→SPIR-V→MSL via DXC + SPIRV-Cross path), sampler/texture map, BCn handling,
-  readback with depth/BC-correct blit options, framebuffer feedback guard (same-target RT remap —
-  this was the original black-frame root cause and it is fixed).
-- **MCP test server** (`-nointro -mcp`, port 27846): `state`, `exec`, `key`, `mouse_move`,
-  `screenshot` — headless-ish automated testing with autosave load.
-- **Input**: keyboard/mouse reach the game (camera control proven via yaw/pitch deltas).
+data/deploy_gamedata.sh ../Anomaly      # shader + options-menu overlays
+scripts/run_metal.sh                    # launches with -renderer metal
+```
 
-## Fixed: the right-edge black band (user priority #2)
+`-renderer metal` matters: without it the engine loads the GL renderer, and if
+the Metal library fails to load it falls back to GL with only a log line
+(`! renderer: xrRender_METAL.dylib failed to load ... falling back to GL`).
+Check the log when something looks off.
 
-**Status: fixed.** The band was a symptom of the transposed-`Fmatrix` constants bug fixed in
-`cb8a64c` (Nov 4): every matrix constant was uploaded row-major while GL uploads the transpose,
-so geometry collapsed toward the camera origin and the right side of the g-buffer never received
-fragments. Verified on a fresh in-game run (Nov 12, `k00_marsh`, 55 fps, no camera nudges):
-`harness/bandedge.py` reports `BAND@1.000` (top/mid/bot = 3023) — full-width frame, no band.
-The forensics below predate that fix and are retained only as history.
+The first launch compiles every shader and is slow; later launches load from
+`appdata/shaders_cache_metal/`.
 
-A vertical black band on the right edge of the screen (~24% of width at the widest), edge tilted
-~1°. Extensive forensics had localized it precisely:
+## What works
 
-### Established facts (verified-in-game or raw-RT evidence only)
+Verified in-game on `k00_marsh` (day, night and storm weather):
 
-| Fact | Evidence |
-|---|---|
-| The band is a **coverage hole in the geometry passes**, not a compositing bug | `XR_METAL_FILLRT=position` fills the gbuffer last-op; the fill **paints the band region full-width** and survives to the final screenshot (red reaches x=3023) — composite is innocent |
-| Position/normal/albedo gbuffer RTs are **raw-data empty** right of the line | raw RT dumps: `position` midrow lastlit=2299, blacktail=724; edge per row: x=2313@y0 → 2287@y1560 (**straight, tilted ≈ −0.96°**) |
-| The hole edge is **screen-fixed** — it survives a ≥66° camera orbit pixel-identical | render-matrix sweep probes |
-| **Not** viewport/scissor: full rects on all geometry passes, including the direct `SetViewport/SetScissor` bypass paths | `rectdbg` + `rectbp` probes |
-| **Not** attachment dimensions: all position-pass attachments 3024×1680 | `rtatt` probe |
-| **Not** HOM occlusion culling: band pixel-identical with HOM disabled (`XR_METAL_NOHOM=1`) | wvp11 |
-| **Not** texture views (none exist in the port) | static audit |
-| Engine geometry **does** project into the band per CPU simulation | replay probe: largest in-game draw (70 272 tris, 9 994 front-facing) CPU bbox spans px 4..2992 — yet the gbuffer stays empty right of the line |
-| A fixed-NDC fill (no vertex transform at all) rasterizes fine in the band, in the same encoder | wvp10 fill |
-| **Independently re-confirmed on a verified-healthy Metal run** (in-game k00_marsh, 53 fps, no key presses): final-frame content stops at x=2318@y0 → 2287@y1600, i.e. a straight ≈0.93° tilt and a 711–737 px black right band | screenshot column scan, 2026-10-23 |
-| Every screen pass uses `vp=(0,0,3024x1688)` on `rtWH=3024x1688` — no narrower viewport exists anywhere in the frame, so the ~2290 edge is **not** a viewport width | log scan of all `rtWH=`/`vp=` pairs |
-| Screenshots come out **3024×1688** (RT size), while earlier notes assumed 3024×1680 — the 1680/1688/1690 mismatch across notes is real and unresolved | screenshot vs `rtWH` vs `rtatt` |
-| A second seam sits near **y≈1456**: below it the frame shows different content (HUD strip + smeared ground), so the defect is not purely one vertical edge | screenshot row scan + visual |
-| Verified-healthy in-game frame also shows **radial streaking** out of a central vanishing point with a stationary camera, and a very dark scene (mean lum 7.7/255, 7% non-black) — separate defects from the band | screenshot, 2026-10-23 |
+- World geometry, terrain texturing, grass, water, sky, fog, sun and sun shafts
+- Auto-exposure and bloom, stable while the camera moves
+- Dynamic objects: NPCs, mutants, items, physics props, attached weapons
+- First-person hands and weapons, aiming, tracers and hit sparks
+- Local lights with shadows: flashlight, lamps, omni lights
+- Rain, and other world-space fixed-function effects
+- 2D UI, the scripted inventory (item icons), 2D PDA and the 3D in-hand PDA
+- MetalFX spatial upscaling (`r_metalfx_scale`, video options → MetalFX upscaling)
 
-### Suspect ledger (status after wvp27)
+## Known gaps
 
-**Ruled out** (each by raw RT bytes, in-game probes, or state-bisect runs):
-composite; viewport/scissor incl. bypass paths; attachment dims; texture views;
-HOM occlusion culling (wvp11); **culling frustum** — `OnCameraUpdated` is LIVE
-(frusprobe stamp advances), planes verified by hand as the correct 108° wedge
-of a healthy `mFullTransform` (wvp19); **stencil** — `XR_P5_NOSTENCIL=1` band
-pixel-identical (wvp26); **depth test** — `XR_METAL_NODEPTH=1` band unchanged
-(wvp27).
+- **Anomaly-specific post-processing is not ported**: SMAA, SSDO, depth of
+  field, LUT colour grading, night vision and gas-mask overlays. The renderer
+  runs the base r2 shader tree; Anomaly-only shaders that the engine can drive
+  as-is (3D PDA screen, scope lens, red-dot sights) are extracted from
+  `db/shaders.db0` at startup. Scope lens and red-dot shaders are present but
+  have not been checked in-game.
+- **MetalFX is spatial only.** The HUD is upscaled with the scene. Temporal
+  upscaling needs motion vectors and jitter, which the pipeline does not produce.
+- **Occlusion queries are stubbed** (everything reports visible), so lights and
+  shadow casters are not occlusion-culled.
+- The sun flare still draws with a placeholder pixel shader.
+- Lightning, particles, wallmarks and thermal/scope second-viewport effects have
+  not been individually verified.
 
-**Replay probe RETIRED as oracle** (wvp18–wvp24): engine terrain MSL confirmed
-as `POSITION * m_WVP` (row-vector, `XR_METAL_MSFDUMP` dumps in /tmp/msl/);
-mode-0 replay performs the identical op on identical bytes yet rasterizes
-nothing — its raw vertex fetch does not reproduce the engine's attributed read.
-Earlier "red stops/never crosses" readings were additionally corrupted by
-single-row scans and tail-truncated logs.
+## Settings
 
-**Facts still load-bearing:** band edge = NDC x ≈ 0.52, straight, tilted ≈0.9°,
-**conclusively screen-fixed** — wvp29 orbited the live camera 132° (yaw
-94→50→6→−38) and the edge stayed at top=2311/mid=2297/bot=2287, tilt 0.91°,
-BAND@0.760 in every shot. This rules out world-fixed geometry: missing terrain
-sectors, world-space geometry gaps, and camera-locked culling (all rotate with
-the camera). Fixed-NDC fill reaches x=2645 through the same PSO path (wvp21,
-1.27M red px in position RT + screenshot); staged m_WVP projects to
-maxNdcX=2.4 (NOT x-compressed) under the engine's own convention.
+| Console variable | Meaning |
+| --- | --- |
+| `r_metalfx_scale` (0.5–1.0) | Internal render scale; below 1 the scene is upscaled with MetalFX. Applied at launch. |
+| `g_3d_pda` | 3D in-hand PDA (Anomaly default: on). |
+| `xr_show_stats` (0–2) | FPS / frame-time / memory overlay. |
 
-**wvp31–wvp37 additions (all verified in-game, current build):**
+`XR_METAL_SCALE=<f>` overrides `r_metalfx_scale` for a single run.
 
-- **Full-RT coverage map** (`XR_METAL_RTDUMP='$user$'`, wvp32): `_user_albedo`
-  and `_user_normal` are full-left but end at the *same tilted edge* as the
-  screen band (2313@y33 → 2286@y1650); `base_0/1/2` (HUD) reach x=3023;
-  `generic1` 100%; `generic0`/`accum` empty at dump time; `_user_position` is
-  a separate anomaly (content only in strip x∈[1500..2312], tilted both edges).
-  ⇒ the band is a **geometry-pass coverage hole**, and the visible color source
-  is albedo/normal, not position.
-- **Viewport/scissor on EVERY screen-sized pass** (`XR_METAL_POSVP=1` widened
-  to all passes, wvp33): all vp=(0,0,3024x1684); scissor only small HUD rects
-  on `base_*`. Viewport theory dead on the current build.
-- **CPU submission culling double-exonerated** (`XR_METAL_CULLWIDE=1.0`):
-  widening applied BOTH at r2 `OnCameraUpdated` ViewBase (wvp34) AND at the
-  `r__dsgraph_render_subspace` temp frustum that world geometry actually uses
-  (wvp35) — band unchanged. Frustum extraction (`CreateFromMatrix`) audited
-  element-by-element against the dumped planes: textbook-correct.
-- **Matrix bytes on GPU == `mFullTransform`** at the VS-read offset 272
-  (`XR_METAL_WVPCMP=1`, wvp33); all 80 dumped VS transforms orthodox
-  `POSITION * matrix`.
-- **Rain shares the clip**: bright rain-streak pixels end at x≈2300–2309,
-  nothing past 2325 (screenshot scan) — terrain and rain (both drawn in the
-  position pass) are cut by the same camera-fixed line.
-- **PPLIST probe fixed** (wvp37): the old flush waited for 400 draws, but the
-  position pass submits far fewer per frame (terrain is batched) so it never
-  fired. Now flushes at window end and logs head+tail draw order — used to
-  identify a late zero-painting draw.
-- **wvp37 (fresh dumps, RT 3024×1676 — the drawable height varies per run)**:
-  the position-pass draw order is terrain/tree/lmh materials
-  (`deffer_tree_bump-hq`, `deffer_base_lmh_bump_d-hq`, `deffer_base_bump_d-hq`,
-  `deffer_base_lmh_bump-hq`, …) — **no sky/null "zero-painter" draw** in the
-  tail. Geometry coverage is a quadrilateral: left edge = terrain silhouette
-  (1053→1355, steep) and right edge = the band (2313→2286, ~0.93° tilt).
-  `base_0/1/2` are the **back buffers** (`rt_Base`) and share the exact same
-  right edge — the band survives into the final screen target. `accum` ends at
-  2292 (same edge). `normal` reads full-left only because its clear value is
-  non-zero (not geometry coverage).
-- **DRAWBBOX/CLIPSTAT probes exist** (`XR_METAL_DRAWBBOX`, `XR_METAL_CLIPSTAT`):
-  they compute the full-vertex NDC-x bbox of gbuffer draws from the exact
-  staging bytes. Draws whose bbox reaches the band yet store nothing prove a
-  per-fragment kill; no such draws prove the CPU culling boundary itself is
-  the tilted line. Terrain VB is `float4 POSITION` at offset 0, so the raw
-  fetch is valid for this probe.
-- **wvp39 — DECISIVE: the band is a per-fragment kill.** DRAWBBOX logs terrain
-  draws whose vertex bbox reaches into and beyond the band
-  (`deffer_base_bump-hq prim=2139 ndc=[0.92..1.02] px[2901..3050]`,
-  `prim=660 ndc=[-0.34..0.87]`, `deffer_impl_flat_d ndc=[0.96..1.51]`), and
-  CLIPSTAT confirms `band=1722 out=1285 maxndc=3.624`. So geometry IS
-  submitted and its vertices project into the band, yet the gbuffer stores
-  nothing there ⇒ fragments are killed, not CPU-culled.
-- **wvp40 — depth and stencil re-exonerated on the CURRENT build**:
-  `XR_METAL_NODEPTH=1 XR_P5_NOSTENCIL=1` leaves the band pixel-identical
-  (2312/2296/2286, tilt 0.92°). Depth buffer is cleared to 1.0 (far) each
-  frame, so fragments beyond the band pass a LessEqual test anyway. Terrain
-  VB is `float3 POSITION` at offset 0 (posclip decl[0] type=2 off=0),
-  confirming the DRAWBBOX raw fetch is valid.
-- **Remaining per-fragment suspects** (after depth/stencil/scissor/viewport/
-  blend/write-mask/PS-discard are all exonerated): the engine PSO vs the fill
-  probe's own PSO, and the engine's per-draw depth bias (the fill resets bias
-  to 0). wvp41 re-runs the fill probe on the current build with RECTBYPASS to
-  confirm the RT accepts fragments beyond the band and log direct scissor
-  calls.
-- **wvp41 — BREAKTHROUGH: the fill paints the FULL RT and the band vanishes.**
-  `XR_METAL_FILLRT=position` (own PSO, full viewport/scissor, depth Always,
-  cull None, bias 0) covers x=0..3023 (`band%=100 left%=100`), and the
-  screenshot reads `BAND@1.000` (top/mid/bot=3023) — **no band**. So the RT,
-  composite and present all accept the full width; the band is caused by
-  engine per-draw state that the fill resets. Engine never sets a depth bias
-  (only the fill does), so bias is innocent.
-- **wvp42 — cull mode innocent**: `XR_METAL_NOCULL=1` leaves the band
-  pixel-identical (2313/2297/2286, tilt 0.96°).
-- **wvp44 — blend/write-mask innocent**: `blenddbg` shows the terrain PSOs
-  have `blendEn=0`, `mask=15` (all channels), `depthEn=0`, `depthWrite=0`,
-  `blendAlpha=0`. So of the state the fill resets (viewport/scissor/DSS/cull/
-  fill-mode/bias/blend/PSO), **only the engine PSO's VS/PS + vertex descriptor
-  remains** as the difference vs the fill's hardcoded VS/PS.
-- **Next discriminator**: draw the engine geometry with the engine VS + the
-  fill PS (red). If it paints the band, the VS is fine and the PS kills; if
-  not, the VS kills.
+## How the port differs from D3D9
 
-**Active theory (post-wvp37):** the tilt kills every framebuffer-space
-mechanism (viewport/scissor/attachments cannot tilt) — only clip-space, a
-camera-locked plane, or a late in-pass draw painting zeros can. Matrix path is
-closed (wvpcmp). Next discriminator: ordered draw list of the position pass
-(`XR_METAL_PPLIST=1`) to find the last-drawn pair(s) covering x>2297.
+These are the conventions that caused most bugs; keep them in mind when
+touching the backend.
 
-**Secondary bug found:** `mtl_R_sun.cpp` passes `Device.fASPECT` (=height/width
-in Monolith convention, 0.5582) straight into `glm::perspective`, which expects
-width/height — sun/shadow projections are wrong by (h/w)². Not the band
-(position pass is clean of it) but queued after.
+- **Screen space is D3D-style** (v down). `u_compute_texgen_screen` uses the D3D
+  offsets under `USE_METAL`.
+- **Hardware shadow compare is explicit.** D3D9 compared implicitly when a depth
+  texture was sampled; the MSL is patched to `depth2d` + `sample_compare`
+  (`MtlPatchShadowDref` in `mtlShaderCompile.mm`).
+- **Vertex inputs are typed.** SM3 treated every input as float. Integer inputs
+  fed from normalized formats are rewritten to float in the translator; raw
+  `SHORT`/`UBYTE` formats arrive unscaled, exactly as on D3D9.
+- **Fixed-function passes** (`"null"` vertex shader) use
+  `stub_notransform_t.vs`, which picks pixel-space or `m_WVP` per draw from the
+  bound vertex declaration.
+- **Array constants** record their full extent (`R_constant_load::extent`);
+  only the first element used to be uploaded.
+- **Script numbers → unsigned** go through `int64` in luabind so negative
+  colours wrap as on x86 instead of saturating to 0 on ARM64.
 
-## Fixed: radial streaks from the screen centre
+## Testing
 
-A fan of thin green/brown lines radiated from the screen centre (x≈1512) across
-the right half, in both the final frame and the raw `$user$albedo` RT. It was
-screen-fixed and survived camera motion. The fan converged at the camera origin,
-so the geometry had vertices collapsing to the eye point.
+The engine has a small command server for automated runs: launch with
+`-nointro -renderer metal -mcp` and connect to `127.0.0.1:27846` (one client at
+a time; read up to the first newline).
 
-**Root cause (fixed):** the Metal constants cache wrote the engine `Fmatrix`
-**row-major**, while the GL backend uploads its **transpose**
-(`glr_constants_cache.h`: `it[0].set(_11,_21,_31,_41)…`). The MSL
-`float4x4`/`float3x4` constants are column-major, so writing the row-major
-Fmatrix made every matrix transposed: the terrain WVP lost its translation and
-geometry collapsed to a fan from the camera origin. `XR_METAL_REPLAY` proved it
-— replaying the captured terrain draw with the engine VB/WVP bytes rasterized
-to a 5-pixel bbox at screen centre (`px=[1498..1528] py=[843..844]`). The fix
-transposes the Fmatrix rows in `mtl_constants_cache.h` to match GL; verified
-in-game screenshots now render coherent grass/terrain/HUD with no streaks.
+| Command | Effect |
+| --- | --- |
+| `state` | frame, fps, in-game flag, level |
+| `exec <console command>` | run a console command |
+| `lua <chunk>` | run Lua in the game's script VM and return the results |
+| `key <name>` / `hold <name> <sec>` | key tap / hold (`337`/`338` = left/right mouse) |
+| `mouse_move <dx> <dy>` | relative mouse motion |
+| `screenshot <name>` | write `appdata/screenshots/<name>.jpg` |
+| `quit` | exit |
 
-**Exonerated by verified in-game bisect runs** (each knob left the streaks
-pixel-identical):
+Load a save with
+`exec start server(<save name>/single/alife/load) client(localhost)`.
+Mute with `exec snd_volume_eff 0` and `exec snd_volume_music 0` (do not use
+`-nosound`).
 
-| Knob | Pass skipped |
-|---|---|
-| `XR_P5_NORAIN=1` | visible rain layer |
-| `XR_P5_NORAIN=2` | rain layer **and** rain normal pass (`draw_rain` → rt_Position) |
-| `XR_P5_NOSKY=1/2` | skybox (+ lens flare) |
-| `XR_P5_NOFLARE=1` | combine-pass lens flare (`RenderFlares`) |
-| `XR_P5_NOSKY=2 + NOFLARE=1` | **both** flare copies |
-| `XR_P5_NODETAIL=1` | grass/detail manager (split + non-split branches) |
-| `XR_P5_NOLOD=1` | FLOD imposter billboards (`render_lods`) |
-| `XR_P5_NOPART=1` | particle sprites (`CParticleEffect::Render`) |
-| `XR_P5_NOIMPLD=1` | implicit-detail terrain (`deffer_impl_flat_d`) |
-| `XR_P5_NOWATER=1` | water surface draws |
-| `XR_P5_NOTREE=1` | tree geometry (left half goes black; streaks persist) |
-| `XR_P5_NOBASE=1` | base terrain/building draws (scene mostly black; streaks persist) |
-| `XR_P5_NOWMARK=1` | wallmark decals |
-| `XR_P5_NOBLOOM=1` | bloom chain |
-| `XR_P5_NOPP=1` | postprocess chain |
-| `XR_P5_NOSHAFTS=1` | volumetric sun shafts |
-| `r3_water_refl 0` / `r2_soft_water off` | water SSR |
+When the window is hidden or the screen is locked, frames are rendered but not
+presented and the loop sleeps 10 ms per frame, so fps numbers from background
+runs are not representative.
 
-**Note on the old FILLRT evidence:** `XR_METAL_FILLRT=accum` appeared to remove
-the streaks, but the fill probe fires at the scene encoder's close (3
-attachments), so it overwrote the g-buffer RTs — a probe artifact. Direct
-`XR_P5_NOACCUM=1` (combine accum sample → 0) left the streaks intact, and the
-postaccum readback showed the accum RT empty. The streaks were always the
-transposed-WVP geometry, not the accum RT.
+### Debug switches
 
-The `XR_METAL_RTDUMP='$user$'` dump pins `_user_position` to a parallelogram
-strip (x≈1505→2312 top, 1447→2286 bottom) while `_user_albedo`/`base_*` are
-full-left — the position RT strip was the same transposed-WVP collapse and is
-gone with the fix.
+All are environment variables and off by default.
 
-## Open bug: empty shadow map / dark direct sun
+| Variable | Purpose |
+| --- | --- |
+| `XR_METAL_RTSTATS=<rt substr>` (+ `_PERIOD`) | Log min/mean/max of matching render targets. |
+| `XR_METAL_RTDUMP=<dir>` | With `RTSTATS`, also write each target as a PPM. |
+| `XR_METAL_RTTRACE=<rt substr>` | Log which shader pairs draw into matching targets. |
+| `XR_METAL_VLDUMP=<pair substr>` | Dump the vertex layout built for a shader pair. |
+| `XR_METAL_CBDUMP=<pair substr>` | Dump the constant values uploaded for a shader pair. |
+| `XR_METAL_DRAWDIAG=1` | Enable the per-draw histogram/state probes. |
+| `XR_P5_CONSTPS=<ps substr>` | Replace a pixel shader's output with solid red. |
+| `XR_P5_SHADOW1`, `XR_P5_MAT1`, `XR_P5_LMAP1` | Neutralise the shadow / material / light-map term in light shaders. |
+| `XR_METAL_RAWX2=1` | Re-enable the old (incorrect) ×2 scaling of raw integer vertex attributes. |
 
-**Progress (Nov 12–13): three concrete bugs fixed; the shadow map now rasterizes
-real depths and the accum-sun PS receives its constants and textures.**
-
-1. **Sampler compare guard** (`mtl_device.mm`): `SamplerFull` accepted only
-   `MTLCompareFunctionNever` (`<= 0`), so every depth-compare sampler (`s_smap`,
-   mapped to LessEqual=3) was rejected with `bad compareFunc 3 ignored`.
-   On-device verification confirmed Metal's `sample_compare` LessEqual semantics
-   (`dref <= texel` = lit, the shadow convention). The guard now accepts 0..7.
-2. **Shadow VS clip convention** (`mtlShaderCompile.mm`): `shadow_direct_*.vs`
-   reads a FLOAT3 POSITION as float4; Metal fills the missing `.w` with 0
-   (verified on-device), so `POSITION * m_WVP` dropped the translation and
-   collapsed shadow casters. The cascade ortho also emits GL-style clip z in
-   [-1,1] while Metal's clip/depth space is [0,1]. `MtlPatchShadowClip` now
-   forces `w=1` and remaps `z -> 0.5z + 0.5w` for shadow VS only.
-3. **Pass constant table** (`Blender_Recorder_Metal.cpp`): the Metal `r_Pass`
-   mirror omitted `dest.constants = _CreateConstantTable(ctable)` (GL/DX9
-   `PassEnd` has it), so every pass's constant table was empty and `psSize`
-   collapsed to 0 — the accum-sun PS read stale ring bytes
-   (`Ldynamic_color=0`, sun output 0). Added the assignment.
-
-Verified after these fixes: `smaprb` shows real depths (`dmin≈0.2`, `dmax=1`),
-`postsmap` `fmin≈0.91–0.96`, and the accum RT reaches ~47% coverage with shadow
-taps neutralized. The accum-sun PS now binds the correct textures (`position`,
-`normal`, material volume, `smap_depth`) and stages `psCb=1040 psU=31`.
-
-**Remaining:** with `XR_P5_FORCE_SUN=1` the accum RT still has RGB=0 /
-alpha=3.27 (the mask), so the sun PS RGB product is zero. The material volume is
-alive (`mattex` non-zero) and the constants/textures are correct; the zero source
-is the material volume sample or the shadow term. `XR_P5_NOLIGHT` /
-`XR_P5_NOSHADOW` / `XR_P5_MATCONST` isolation patches currently collapse the PS
-reflection to empty (`psCb=0`), so they are not usable as oracles yet. Next: dump
-the material volume slice 1 with the correct 2-byte stride and trace the sampled
-value in the accum PS.
-
-The scene renders coherently but is very dark: the sun accum pass writes
-nothing. Verified with `XR_P5_POSTACC=2`:
-
-- `XR_P5_NOACCOUT=1` (PS output forced to `float4(1.0)`) makes the accum RT
-  **51.5% non-zero** — the cuboid VS, stencil, depth and blend all rasterize.
-- The real PS (and `XR_P5_NOSHADOW=1` / `XR_P5_NOLIGHT=1`) leaves the accum RT
-  empty, so the PS light/shadow product is zero.
-- `postsmap`/`smaprb` show `$user$smap_depth` is **all depth=1** (empty shadow
-  map), so every `sample_compare` fails and `s`=0.
-
-Shadow-map frustum fixes applied in `mtl_R_sun.cpp` (both `render_sun` and
-`render_sun_near`): the `glm::perspective` aspect (`1/fASPECT`), the D3D
-zero-to-one depth (`perspectiveRH_ZO` instead of GL `perspective`), and
-`glm::lookAt(L_pos, L_pos + L_dir, up)` (a target point, not a direction).
-The shadow map is still empty; the new cascade renderer
-(`render_phase_sun.cpp`) uses `XRMatrixOrthoOffCenterLH` + `build_camera_dir`
-and the cascade `lightXZshift` centering is the remaining suspect.
-
-## Known issues / queue
-
-- **Daytime verification** (user priority #3) pending — the band is fixed; the sun accum PS
-  still writes RGB=0 under `XR_P5_FORCE_SUN`, so daytime lighting is not yet verified.
-- **Sky is an invisible stub** → void areas read black (planned in t5: sky/sun/accum_sun GL-parity).
-  Sky textures now upload (cube arrays, `XR_P5_SKYDUMP` shows non-zero faces); the
-  sky tint is bright (0.85) but the sky still reads dark — the sky PS/tonemap path
-  is the remaining suspect.
-- **Pause-menu selector misalignment** — wide-screen ratio branch fires at 1.8:1 + RT height 1684
-  vs window 1680 discrepancy (`layer.drawableSize` vs `Device.dwHeight`).
-- **Texture-retention stall**: RSS grows to ~10 GB and the game freezes after ~4–5 min in-game.
-  Real bug, independent of probes.
-- **t4**: MetalFX upscaling runtime verification.
-- **t6**: strip all diagnostic probes (list below), re-run `metal_devicetest` + shader-batch regressions.
-- **p6**: `.app` packaging, stability pass, docs.
-
-## Probe knobs (all env-gated, stripped in t6)
-
-| Knob | Purpose |
-|---|---|
-| `XR_METAL_FILLRT=<substr>` | last-op red fill in passes matching substr — coverage oracle |
-| `XR_METAL_REPLAY=1` | replay biggest position-pass draw (engine VB/WVP bytes) through neutralized pipeline into position + final target; CPU clip-sim logs expected px bbox |
-| `XR_METAL_RTDUMP=<substr>` | raw RT byte dumps to `/tmp/rtdump/` (once per RT after verified in-game gate); forces ShaderRead usage |
-| `XR_METAL_RECTDBG2=<substr>` | per-pass attachment dims |
-| `XR_METAL_RECTBYPASS=1` | logs viewport/scissor applied via the direct (bypass) path |
-| `XR_METAL_FRUSPROBE=1` | culling frustum planes + `mFullTransform` dump in-game |
-| `XR_METAL_NOHOM=1` | disable HOM occlusion culling |
-| `XR_P5_NOSTENCIL=1` | neutralize stencil tests globally |
-| `XR_P5_NOSCISSOR=1` | ignore engine scissor rects |
-| `XR_METAL_NOCULL=1`, `XR_METAL_FRONT=1`, `XR_METAL_NODEPTH=1` | state overrides for state-theory bisection |
-| `XR_P5_NORAIN=1/2` | skip visible rain layer / also the rain normal pass |
-| `XR_P5_NOSKY=1/2` | skip skybox / also the RenderSky lens flare |
-| `XR_P5_NOFLARE=1` | skip the combine-pass lens flare (`RenderFlares`) |
-| `XR_P5_NODETAIL=1` | skip grass/detail manager |
-| `XR_P5_NOLOD=1` | skip FLOD imposter billboards |
-| `XR_P5_NOPART=1` | skip particle sprites |
-| `XR_P5_NOIMPLD=1` | skip implicit-detail terrain draws (`deffer_impl_flat_d`) |
-| `XR_P5_NOWATER=1` | skip water surface draws |
-| `XR_P5_NOTREE=1` | skip tree geometry draws |
-| `XR_P5_NOBASE=1` | skip base terrain/building draws |
-| `XR_P5_NOWMARK=1` | skip wallmark decals |
-| `XR_P5_NOBLOOM=1` | skip bloom chain |
-| `XR_P5_NOPP=1` | skip postprocess chain |
-| `XR_METAL_REFLDBG=<substr>` | dump uniform offset/size/stride/elements for matching shaders |
-
-## Testing workflow
-
-### `-renderer metal` is mandatory
-
-Launch flags are `-nointro -renderer metal -mcp`. `EngineAPI.cpp` picks the renderer module
-from `-renderer metal|gl`, then `$XR_RENDERER`, and **defaults to `gl`** — Apple's OpenGL
-translayer. It then `dlopen`s the chosen dylib and, if the Metal one fails, prints
-`! renderer: xrRender_METAL.dylib failed to load ... - falling back to GL` and silently
-continues on GL. Launch without the flag and you are screenshotting, profiling and
-"debugging" the translayer while believing it is Metal (a black window plus `fps=0.0` in
-the menu is the classic symptom). Verify which renderer is live before trusting any
-observation, e.g. `sample <pid>` and check for `render_metal` vs `render_gl::CHW::Present`,
-or grep the log for `xrRenderMetal` lines.
-
-### Logging goes to stdout, not the .log file
-
-`Msg()` output lands on **stdout**; `appdata/logs/xray_jdella.log` is not written by current
-runs. Redirect stdout when launching or you have no log at all.
-
-### MCP notes
-
-MCP listens on `127.0.0.1:27846` and serves **one client at a time**. A second client
-blocks until the first closes, which looks exactly like an engine hang — never run the
-driver script and a manual client together. Commands execute on the main thread, so replies
-lag while the frame loop is busy. The server keeps the socket open, so read **up to the
-first newline** and stop; reading until the connection closes just burns your whole timeout.
-
-Load with `exec start server(player - autosave/single/alife/load) client(localhost)`.
-
-### Audio
-
-Silence runs with `exec snd_volume_eff 0` + `exec snd_volume_music 0`. Those two cover both
-branches of the only volume formula (`SoundRender_Emitter_FSM`:
-`st_Effect ? psSoundVEffects*psSoundVFactor : psSoundVMusic`), so they mute everything.
-**Do not use `-nosound`** — it stalls startup before the log and MCP come up.
-
-**Evidence standard**: only *verified in-game* samples count — the load screen fakes a lot
-(it orbits its own camera; `frame`/`yaw` can look alive). `fps=0.0` means
-`Device.fTimeDelta <= 1e-6`, which is normal *during* loading — it is **not** a pause or a
-key-gate, and no key press is needed: the same session reaches ~50 fps on its own once the
-load finishes. Acceptance requires `in_game=1 && level=k00_marsh && frame>9000 && fps>5`
-**and** a stable `yaw` across two polls with **no mouse nudges** (nudges rotate the player
-camera and fake orbit). Screenshots land in `Anomaly/appdata/screenshots/`.
-
-`harness/probe_run.sh <tag> [ENV=VAL ...]` automates launch → mute → load → verified-in-game
-poll → screenshot → quit.
+`mtlRuntime.mm` and `mtlShaderCompile.mm` still contain many older one-off
+probes from the bring-up (`XR_P5_*`, `p5`/`p6` log lines); they are inert unless
+their variable is set, and are due for removal.
 
 ## Key files
 
-- `src/LayersMetal/xrRenderMetal/mtlRuntime.mm` — pass manager, encoders, probes, builtin blit/fill/replay MSL
-- `src/LayersMetal/mtl_device.mm` — device/layer/texture/readback
-- `src/LayersMetal/mtl_state.mm` — pipeline + depth/stencil state cache
-- `src/LayersMetal/xrRenderPC_Metal/` — renderer backend (phases, sun, targets)
-- `src/LayersOGL/xrRender_R2/` — shared R2 renderer compiled into the Metal target
-- `src/xrEngine/xr_mcp.cpp` — MCP console server
-- `src/Layers/xrRender/HOM.cpp` — HOM occlusion (with `XR_METAL_NOHOM` switch)
+- `src/LayersMetal/xrRenderMetal/mtlRuntime.mm` — pass manager, encoders, draw path
+- `src/LayersMetal/xrRenderMetal/mtlShaderCompile.mm` — MSL patches, stage alignment
+- `src/LayersMetal/mtl_dx9_translate.cpp` — DX9 HLSL → SM6 HLSL rewrites
+- `src/LayersMetal/mtl_device.mm`, `mtl_state.mm` — device, textures, state cache
+- `src/LayersMetal/xrRenderPC_Metal/` — renderer backend (targets, sun, shader loading)
+- `src/LayersOGL/xrRender_R2/`, `src/LayersOGL/xrRender/` — shared deferred renderer
+- `data/shader-overlay/r2-extra/` — port-side shaders layered over the r2 tree
+- `src/xrEngine/xr_mcp.cpp` — test command server

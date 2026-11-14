@@ -1,7 +1,7 @@
 ## X-Ray Monolith Edition for S.T.A.L.K.E.R. Anomaly
 ----
 
-> **Metal renderer port status:** see [README-METAL.md](README-METAL.md) (macOS/ARM64 native Metal renderer — current state, open black-band investigation, probe knobs, testing workflow).
+> **macOS / Apple Silicon:** this fork adds a native Metal renderer. See [README-METAL.md](README-METAL.md) for build, run, status and testing.
 
 * based on Open X-Ray Call of Chernobyl Edition
 * based on X-Ray 1.6 Engine
@@ -10,4 +10,4 @@ This repository contains XRAY Engine sources based on version 1.6.02 and the Cal
 The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by GSC Game World and any changes to this engine are allowed for ***non-commercial*** use only.
 
 This code repository contain the code for the `X-Ray Monolith Edition` that is used in `S.T.A.L.K.E.R. Anomaly version 1.5.2`.
-To compile the engine open the solution in VS2015, select all projects and configurations in *Batch build* and start a build.
+To build on macOS: `cmake -S . -B build-gl -DCMAKE_BUILD_TYPE=Release && cmake --build build-gl -j 12` (see README-METAL.md).

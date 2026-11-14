@@ -5984,6 +5984,22 @@ namespace
 						if (s_ct++ < 2)
 							Log("* p5 cbrTest: forced (0.25,0,0,1) at off=%u", u.offset);
 					}
+			// Fixed-function emulation: tell the FFP stub VS whether this
+			// draw's positions are pre-transformed pixels (POSITIONT, usage 9)
+			// or untransformed model/world space (POSITION) -> m_WVP.
+			if (vsR && !vsR->uniforms.empty() && pm.vsSize)
+				for (const auto& u : vsR->uniforms)
+					if (u.name == "xr_ffp_mode" && u.offset + 16 <= pm.vsSize)
+					{
+						bool hasPosT = false, hasPos = false;
+						for (uint32_t d = 0; d < pm.declCount && pm.declElems; d++)
+						{
+							hasPosT |= pm.declElems[d].Usage == 9;
+							hasPos |= pm.declElems[d].Usage == 0 && pm.declElems[d].UsageIndex == 0;
+						}
+						const float mode[4] = { (hasPos && !hasPosT) ? 1.f : 0.f, 0.f, 0.f, 0.f };
+						std::memcpy(dst + u.offset, mode, 16);
+					}
 			// p5 launch196: pixel-space quad VSes (postprocess stub) declare
 			// screen_res but the pass ctable never supplies it (read as junk
 			// at offset 0 → projection to a degenerate point → every PP/bloom

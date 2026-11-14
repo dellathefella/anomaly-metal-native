@@ -4,6 +4,12 @@
 #include "common.h"
 
 float4	screen_res;							// Screen resolution (x-Width,y-Height, zw - 1/resolution)
+// Set per draw by the Metal backend from the bound vertex declaration:
+// x = 1 when the position is untransformed (D3DFVF_XYZ / POSITION), 0 when it
+// is pre-transformed screen pixels (D3DFVF_XYZRHW / POSITIONT). DX9's fixed-
+// function pipeline made exactly this distinction; treating world-space
+// vertices (rain, flares, lightning, tracers, moon) as pixels hid them all.
+float4	xr_ffp_mode;
 
 struct	v_TL
 {
@@ -24,6 +30,14 @@ struct	v2p_TL
 v2p_TL main ( v_TL I )
 {
 	v2p_TL O;
+
+	if (xr_ffp_mode.x > 0.5)
+	{
+		O.P     = mul(m_WVP, float4(I.P.xyz, 1.0));
+		O.Tex0  = I.Tex0;
+		O.Color = I.Color;
+		return O;
+	}
 
 	I.P.xy += 0.5;
 	O.P.x = I.P.x * screen_res.z * 2.0 - 1.0;

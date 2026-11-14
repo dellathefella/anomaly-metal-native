@@ -465,6 +465,13 @@ void CRender::Render()
     }
 
     VERIFY(dsgraph.mapDistort.empty());
+
+    // Engine-side drawing continues after the scene (bullet tracers, game
+    // debug/3D UI in CLevel::OnRender): leave the camera transforms set, as
+    // the monolith does, not whatever the last light/shadow pass used.
+    dsgraph.cmd_list.set_xform_world(Fidentity);
+    dsgraph.cmd_list.set_xform_view(Device.mView);
+    dsgraph.cmd_list.set_xform_project(Device.mProject);
 }
 
 void CRender::render_forward()

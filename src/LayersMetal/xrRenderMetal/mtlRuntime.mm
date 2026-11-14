@@ -7626,10 +7626,11 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 			// launch125: capture a REAL DEFER pair only (launch124 captured a rain
 			// shader whose PS has no TEXCOORD1 => passthru fell back to magenta yet
 			// readback was zero — rain geometry may not cover; verdict unreliable).
-			const bool defferI = psR->name.find("deffer") != std::string::npos &&
+			const bool pgWinI = (g_pgGate + 1) % 240 == 5 || (g_pgGate + 1) % 240 == 6;
+			const bool defferI = pgWinI && psR->name.find("deffer") != std::string::npos &&
 			                     psR->msl.find("in_var_TEXCOORD1") != std::string::npos &&
 			                     vsR->msl.find("m_WVP") != std::string::npos;
-			if (!defferI && ((g_pgGate + 1) % 240 == 5 || (g_pgGate + 1) % 240 == 6) && rtNcI &&
+			if (!defferI && pgWinI && rtNcI &&
 			    strstr(rtNcI, "position"))
 			{
 				static int s_skipI = 0;
@@ -8394,6 +8395,8 @@ fragment S14Out xrprobe_ps(float4 pos [[stage_in]],
 		// p5 diag: per-pair histogram + full encoder state for the first draws
 		// landing on NAMED scene RTs ($user$position etc.): mask/blend/depth at
 		// the exact draw that should paint the g-buffer.
+		static const bool s_drawDiag = getenv("XR_METAL_DRAWDIAG") || getenv("XR_METAL_CBDUMP");
+		if (s_drawDiag) // per-draw string maps/probes: ~10% of CPU frame time when always on
 		{
 			const char* pn = pair ? pair->name.c_str() : "stage";
 			g_mtlPairDraws[pn]++;

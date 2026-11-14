@@ -62,6 +62,11 @@ private:
     ref_texture tsky0, tsky1;
     ref_texture t_envmap_0, t_envmap_1;
 
+#if defined(USE_METAL)
+    void MtlSyncEnvTextures(CEnvironment& env);
+    u32 m_mtl_synced_frame{ u32(-1) };
+#endif
+
     ref_texture tonemap;
     u32 tonemap_tstage_2sky{ u32(-1) };
     u32 tonemap_tstage_clouds{ u32(-1) };

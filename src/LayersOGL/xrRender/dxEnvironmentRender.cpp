@@ -234,6 +234,26 @@ void dxEnvironmentRender::lerp(CEnvDescriptorMixer& currentEnv, IEnvDescriptorRe
 #endif
 }
 
+#if defined(USE_METAL)
+// The engine's CEnvDescriptorMixer::lerp drives m_pDescriptorMixer->lerp, but
+// the Metal factory's mixer is a null object (the monolith keeps sky/clouds
+// texture lists in a renderer-side mixer this staged renderer doesn't have).
+// So this renderer's own lerp() — which binds the sky/clouds/env cube lists,
+// the tonemap stages and $user$env_s0/1 for combine_1 — never ran. Drive it
+// from the current env pair once per frame instead.
+void dxEnvironmentRender::MtlSyncEnvTextures(CEnvironment& env)
+{
+    if (m_mtl_synced_frame == Device.dwFrame)
+        return;
+    auto* pA = static_cast<dxEnvDescriptorRender*>(&*env.Current[0]->m_pDescriptor);
+    auto* pB = static_cast<dxEnvDescriptorRender*>(&*env.Current[1]->m_pDescriptor);
+    if (!pA || !pB || !pA->sky_texture || !pB->sky_texture || !pA->sky_texture_env || !pB->sky_texture_env)
+        return;
+    lerp(*env.CurrentEnv, pA, pB);
+    m_mtl_synced_frame = Device.dwFrame;
+}
+#endif
+
 void dxEnvironmentRender::RenderSky(CEnvironment& env)
 {
     // p5 launch275: XR_P5_NOSKY=1 skips skybox, =2 also skips the sun lens
@@ -288,43 +308,9 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_xform_world(mSky);
     RCache.set_Geometry(sh_2geom);
     RCache.set_Shader(sh_2sky);
-    // p6 sky fix: the Metal factory's env mixer lerp is a no-op, so
-    // sky_r_textures stays the 1x1 defaults and every sky draw samples black.
-    // Rebuild it from the descriptor render's created textures (cube maps
-    // after the TARGET_CUBE_ARRAY fix).
-    {
-        dxEnvDescriptorRender* pA = (dxEnvDescriptorRender*)&*env.Current[0]->m_pDescriptor;
-        dxEnvDescriptorRender* pB = (dxEnvDescriptorRender*)&*env.Current[1]->m_pDescriptor;
-        fprintf(stderr, "- p6 skyfallback: pA=%p texA=%p pB=%p texB=%p\n", (void*)pA,
-                pA ? (void*)pA->sky_texture._get() : nullptr, (void*)pB,
-                pB ? (void*)pB->sky_texture._get() : nullptr);
-        if (pA && pA->sky_texture._get() && pB && pB->sky_texture._get())
-        {
-            sky_r_textures.clear();
-            sky_r_textures.emplace_back(tsky0_tstage, pA->sky_texture);
-            sky_r_textures.emplace_back(tsky1_tstage, pB->sky_texture);
-            auto e0 = sky_r_textures[0].second->surface_get();
-            auto e1 = sky_r_textures[1].second->surface_get();
 #if defined(USE_METAL)
-            tsky0->surface_set(e0);
-            tsky1->surface_set(e1);
-            // lerp() — the only other place that binds the ambient env cubemaps
-            // ($user$env_s0/1, sampled by combine_1) — is a no-op on this engine,
-            // so without this combine_1's env slots were unbound (ambient = 0).
-            if (!g_pGamePersistent->OnRenderPPUI_query())
-            {
-                auto* ea = pA->sky_texture_env._get();
-                auto* eb = pB->sky_texture_env._get();
-                t_envmap_0->surface_set(ea ? ea->surface_get() : nullptr);
-                t_envmap_1->surface_set(eb ? eb->surface_get() : nullptr);
-            }
-#elif defined(USE_OGL)
-            tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
-            tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
+    MtlSyncEnvTextures(env);
 #endif
-            fprintf(stderr, "- p6 skyfallback: tex0=%p tex1=%p\n", (void*)e0, (void*)e1);
-        }
-    }
 #if defined(USE_DX11) || defined(USE_METAL)
     RCache.set_Textures(&sky_r_textures);
 #elif defined(USE_OGL)
@@ -373,6 +359,9 @@ void dxEnvironmentRender::RenderClouds(CEnvironment& env)
     if (!clouds_sh)
         return;
 
+#if defined(USE_METAL)
+    MtlSyncEnvTextures(env);
+#endif
     RImplementation.rmFar(RCache);
 
     Fmatrix mXFORM, mScale;

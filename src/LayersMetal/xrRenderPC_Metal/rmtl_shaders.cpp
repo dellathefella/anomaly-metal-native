@@ -379,7 +379,10 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                     // cache hits never happened — and the payload CRC was
                     // computed over the header bytes instead of the payload.
                     std::string mslText, blobText;
-                    const u32 remaining = file->length() - file->elapsed();
+                    // IReader::elapsed() is the bytes LEFT (Size - Pos), not consumed.
+                    // The old `length() - elapsed()` yielded the header size, so every
+                    // entry was rejected and every shader recompiled on every launch.
+                    const u32 remaining = file->elapsed();
                     u32 mslLen = 0, blobLen = 0;
                     if (remaining > 8)
                     {
@@ -389,7 +392,7 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                             mslText.resize(mslLen);
                             file->r(mslText.data(), mslLen);
                             blobLen = file->r_u32();
-                            if (blobLen && blobLen <= file->length() - file->elapsed())
+                            if (blobLen && blobLen <= (u32)file->elapsed())
                             {
                                 blobText.resize(blobLen);
                                 file->r(blobText.data(), blobLen);
@@ -417,7 +420,8 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
                     }
                     else
                     {
-                        Msg("! Metal shader cache load failed for %s: %s", filename, error.c_str());
+                        Msg("! Metal shader cache load failed for %s: %s [msl=%u blob=%u crc=%d remaining=%u]", filename,
+                            error.c_str(), mslLen, blobLen, int(payloadCrc == savedBytecodeCrc), remaining);
                         refl = MtlStageRefl{};
                     }
                 }

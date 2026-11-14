@@ -290,6 +290,7 @@ void CHW::EndScene()
 
 // Deferred screenshot capture hook (mtlScreenshot.cpp), same contract as GL.
 void p4_present_screenshot_mtl();
+bool p4_screenshot_pending_mtl();
 
 void CHW::Present()
 {
@@ -558,9 +559,14 @@ void CHW::Present()
     // command buffer is only enqueued by Present() above, and ReadbackSlice
     // runs on its own command buffer (GL readback implicitly synced; Metal
     // does not). rt[0] still holds this frame's final PP target.
-    MtlWaitCurrentCB();
-    if (!svpSkip) // SVP frames hold no main-scene image
+    // Only sync when a capture is pending: an unconditional wait here
+    // serialized CPU and GPU every frame (dynamic streams are ring-fenced and
+    // present() bounds the in-flight CBs, so nothing else needs it).
+    if (!svpSkip && p4_screenshot_pending_mtl()) // SVP frames hold no main-scene image
+    {
+        MtlWaitCurrentCB();
         p4_present_screenshot_mtl();
+    }
 
     CurrentBackBuffer = (CurrentBackBuffer + 1) % BackBufferCount;
 }

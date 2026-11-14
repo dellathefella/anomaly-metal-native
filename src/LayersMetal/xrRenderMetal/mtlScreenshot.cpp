@@ -94,6 +94,11 @@ void p4_gl_fence(pcstr stage)
     (void)stage;
 }
 
+bool p4_screenshot_pending_mtl()
+{
+    return g_p4_ss_pending;
+}
+
 void p4_present_screenshot_mtl()
 {
     if (!g_p4_ss_pending)

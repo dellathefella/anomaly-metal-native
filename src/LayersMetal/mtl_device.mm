@@ -262,6 +262,7 @@ namespace xray::metal
 		return name.c_str();
 	}
 
+	static uint64_t g_mtlSkipOcc = 0, g_mtlSkipInflight = 0;
 	bool MetalDevice::NextDrawable(void** colorTexture, std::string& error)
 	{
 		*colorTexture = nullptr;
@@ -271,9 +272,15 @@ namespace xray::metal
 			return false;
 		}
 		if (!CanPresent())
+		{
+			g_mtlSkipOcc++;
 			return false; // frame must be skipped entirely (nextDrawable would block)
+		}
 		if (m_impl->inFlight->load(std::memory_order_relaxed) >= (int)m_impl->layer.maximumDrawableCount)
+		{
+			g_mtlSkipInflight++;
 			return false; // all drawables in flight; skip rather than block
+		}
 		id<CAMetalDrawable> d = m_impl->layer.nextDrawable;
 		if (!d)
 			return false;
@@ -307,6 +314,8 @@ namespace xray::metal
 				else if ([o respondsToSelector:@selector(length)])
 					bufMB += [(id<MTLBuffer>)o length];
 			}
+			fprintf(stderr, "- p5 skipbeat: present=%llu skipOcc=%llu skipInflight=%llu\n", (unsigned long long)s_presentN,
+			        (unsigned long long)g_mtlSkipOcc, (unsigned long long)g_mtlSkipInflight);
 			fprintf(stderr, "- p5 leakbeat: present=%llu rss=%lluMB tex=%llu buf=%llu rel=%llu liveBufMB=%llu liveTexMB~=%llu pooledMB=%llu retireQ=%llu\n",
 			        (unsigned long long)s_presentN,
 			        (unsigned long long)(MtlCurRSSBytes() >> 20),

@@ -288,6 +288,12 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     string_path shadersFolder;
     FS.update_path(shadersFolder, "$game_shaders$", RImplementation.getShaderPath());
     getFileCrc32(fs, shadersFolder, fileCrc);
+    // Translator/patch revision: the CRC above only covers the top-level
+    // source file, so DX9-translator rewrites never invalidated cached MSL.
+    {
+        const u32 kMtlTranslatorRev = 2; // 2: SM3 float NORMAL for skinning_1
+        fileCrc = crc32(&kMtlTranslatorRev, sizeof(kMtlTranslatorRev), fileCrc);
+    }
     fs->seek(0);
 
     MtlStageRefl refl;

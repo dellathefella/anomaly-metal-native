@@ -325,6 +325,14 @@ namespace xray::metal
 			body = std::regex_replace(body, texCallRe, "$1$2, $2_smplr$3");
 		}
 
+		// SM3 vertex inputs are always float: skin.h's 1-bone layout declares
+		// `int4 N : NORMAL` over a D3DCOLOR, then indexes with N.w*255 (the
+		// float 0..1 encoding; SM3 mova rounds). Under SM6 that is a true int
+		// input, which Metal cannot even feed from a normalized format. Keep
+		// it float and round the bone index like skinning_3 already does.
+		body = std::regex_replace(body, std::regex(R"(\bint4(\s+N\s*:\s*NORMAL\s*;))"), "float4$1");
+		body = std::regex_replace(body, std::regex(R"(v\.N\.w\s*\*\s*\(int\)255)"), "(v.N.w*255+0.3)");
+
 		// DXC reserves 'point' (point-sampling operator); the corpus uses it
 		// as a plain parameter name.
 		ReplaceWord(body, "point", "xr_point");

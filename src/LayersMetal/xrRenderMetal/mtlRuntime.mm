@@ -3486,8 +3486,14 @@ id<MTLCommandQueue> q = (__bridge id<MTLCommandQueue>)dev->Queue();
 		}
 	};
 
-	bool ParseSemantic(const std::string& sem, uint32_t& usage, uint32_t& index)
+	bool ParseSemantic(const std::string& semIn, uint32_t& usage, uint32_t& index)
 	{
+		// Reflection falls back to the SPIR-V variable name when the HLSL
+		// semantic table misses an input; DXC names it in.var.<SEMANTIC>
+		// (spirv-cross: in_var_<SEMANTIC>). Unstripped, TEXCOORD1 parsed as an
+		// unknown usage and bound to the wrong decl element — the 4-bone
+		// skinned VS read its bone indices from the POSITION bytes.
+		const std::string sem = semIn.compare(0, 7, "in_var_") == 0 ? semIn.substr(7) : semIn;
 		index = 0;
 		size_t digitsPos = sem.size();
 		while (digitsPos > 0 && std::isdigit((unsigned char)sem[digitsPos - 1]))
@@ -5201,8 +5207,8 @@ namespace
 		static const char* s_vld = getenv("XR_METAL_VLDUMP");
 		if (pairName && strstr(pairName->name.c_str(), s_vld ? s_vld : "postprocess"))
 		{
-			static int s_vlN = 0;
-			if (s_vlN++ < 3)
+			static std::set<std::string> s_vlSeen;
+			if (s_vlSeen.size() < 64 && s_vlSeen.insert(pairName->name).second)
 			{
 				std::string vsi, dl, at;
 				for (const auto& in : vsRefl.inputs)
@@ -5220,18 +5226,20 @@ namespace
 			}
 		}
 
-		// launch129: GL-parity — raw-int packed attrs (SHORT2/SHORT4/UBYTE4)
-		// deliver raw*0.5 to float VS inputs on Metal but RAW on GL/D3D9
-		// (vfprobe.m + glBufferUtils GL_SHORT/GL_FALSE). Resolve to a compiled
-		// VS variant whose affected inputs are x2-corrected (mask preserves
-		// D3D9 pad defaults). Compiled once per (VS, attr-formats) signature.
+		// launch129 raw-int "x2" VS variants — DISABLED by default. The premise
+		// (Metal delivers raw*0.5 for SHORT2/SHORT4/UBYTE4) is wrong: measured
+		// on Apple GPUs, Short4 arrives raw in both int4 and float4 attributes
+		// (100,201,-3,7 -> 100,201,-3,7). The x2 doubled every static UV/lmap
+		// coordinate (wrong terrain mask + detail atlas) and every skinned
+		// position / bone index (exploded NPCs). XR_METAL_RAWX2=1 restores it.
 		{
 			static std::map<std::string, id<MTLFunction>> s_rix;
+			static const bool s_rawX2 = !!getenv("XR_METAL_RAWX2");
 			bool anyRaw = false;
 			for (const auto& a : pd.attrs)
 				if (MtlFmtRawInt(a.format))
 					anyRaw = true;
-			if (anyRaw && vsRefl.function && !vsRefl.msl.empty())
+			if (s_rawX2 && anyRaw && vsRefl.function && !vsRefl.msl.empty())
 			{
 				std::string key = vsRefl.name;
 				for (const auto& a : pd.attrs)

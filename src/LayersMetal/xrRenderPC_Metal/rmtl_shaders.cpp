@@ -340,7 +340,7 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
     // Translator/patch revision: the CRC above only covers the top-level
     // source file, so DX9-translator rewrites never invalidated cached MSL.
     {
-        const u32 kMtlTranslatorRev = 3; // 2: SM3 float NORMAL for skinning_1; 3: Anomaly archive r2 sources
+        const u32 kMtlTranslatorRev = 4; // 2: SM3 float NORMAL for skinning_1; 3: Anomaly archive r2 sources; 4: VS return-semantic POSITION
         fileCrc = crc32(&kMtlTranslatorRev, sizeof(kMtlTranslatorRev), fileCrc);
     }
     fs->seek(0);

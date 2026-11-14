@@ -589,6 +589,18 @@ namespace xray::metal
 			}
 		}
 
+		if (stage == ShaderStage::Vertex)
+		{
+			// Entry functions that return the position directly:
+			//   float4 main(float4 P : POSITION) : POSITION
+			// (accum_mask.vs). The return semantic is the clip-space position
+			// too; left as POSITION, DXC emitted an ordinary varying and
+			// gl_Position stayed zero, so light-volume stencil masks never
+			// rasterised and no spot/point light passed its stencil test.
+			static const std::regex retPosRe(R"((\bmain[A-Za-z0-9_]*\s*\([^)]*\)\s*):\s*POSITION\b)");
+			body = std::regex_replace(body, retPosRe, "$1: SV_POSITION");
+		}
+
 		std::ostringstream out;
 		out << kPrelude << "\n#line 1 \"" << NormSlashes(sourcePath) << "\"\n" << body;
 		res.hlsl = out.str();

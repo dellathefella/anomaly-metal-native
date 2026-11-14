@@ -537,6 +537,27 @@ static std::string MtlPatchShadowDref(const std::string& msl, const char* name)
 			out.insert(f, "constexpr sampler xr_smap_cmp(compare_func::less_equal, filter::linear, address::clamp_to_edge);\n");
 		return out;
 	}
+	// Spot / omni lights (accum_spot_*, accum_omni_*): same HW-PCF lowering as
+	// the sun (`s_smap.sample(S, (X.xy / X.w)).x`, reference depth dropped).
+	// Their blender binds a plain sampler, so sampling the depth map returned
+	// nothing useful and every shadow-casting light (torch, lamps) added no
+	// light. Compare explicitly with a constexpr compare sampler.
+	if (name && (strstr(name, "accum_spot") || strstr(name, "accum_omni") || strstr(name, "accum_point")) &&
+	    msl.find("s_smap") != std::string::npos && msl.find("xr_smap_cmp") == std::string::npos)
+	{
+		static const std::regex spotRe(
+		    R"(s_smap\.sample\((\w+), \((\w+)\.xy / float2\(\2\.w\)\)\)\.x)");
+		if (!std::regex_search(msl, spotRe))
+			return msl;
+		std::string out = std::regex_replace(msl, spotRe,
+		    "s_smap.sample_compare(xr_smap_cmp, $2.xy / float2($2.w), $2.z / $2.w)");
+		static const std::regex declRe(R"(texture2d<float> s_smap(?=[ \t]*\[\[texture\())");
+		out = std::regex_replace(out, declRe, "depth2d<float> s_smap");
+		const size_t f = out.find("fragment ");
+		if (f != std::string::npos)
+			out.insert(f, "constexpr sampler xr_smap_cmp(compare_func::less_equal, filter::linear, address::clamp_to_edge);\n");
+		return out;
+	}
 	if (!name || !strstr(name, "accum_sun"))
 		return msl; // dref semantics only apply to the sun shadow map
 	if (msl.find("s_smap") == std::string::npos)
@@ -690,9 +711,27 @@ static std::string MtlReplaceCalls(const std::string& msl, const char* prefix, c
 
 static std::string MtlPatchLightOracles(const std::string& msl, const char* name)
 {
-	if (!name || !strstr(name, "accum_sun"))
+	if (!name || !(strstr(name, "accum_sun") || strstr(name, "accum_spot") || strstr(name, "accum_omni")))
 		return msl;
 	std::string s = msl;
+	if (getenv("XR_P5_LMAP1"))
+		s = MtlReplaceCalls(s, "s_lmap.sample(", "float4(1.0)");
+	// XR_P5_SPOTDBG=1: spot PS writes (stored smap depth, reference depth,
+	// smap uv.x, uv.y) for the first PCF tap instead of the lighting.
+	if (getenv("XR_P5_SPOTDBG") && strstr(name, "accum_spot"))
+	{
+		std::smatch m;
+		static const std::regex tap(R"(s_smap\.sample_compare\(xr_smap_cmp, (\w+)\.xy / float2\(\1\.w\))");
+		if (std::regex_search(s, m, tap))
+		{
+			const std::string X = m[1].str();
+			static const std::regex outRe(R"(out\.out_var_SV_TARGET = [^;]*;)");
+			s = std::regex_replace(s, outRe, "out.out_var_SV_TARGET = float4(s_smap.sample(xr_smap_dbg, " + X + ".xy / float2(" + X + ".w)), " + X + ".z / " + X + ".w, (" + X + ".xy / float2(" + X + ".w)).x, (" + X + ".xy / float2(" + X + ".w)).y);");
+			const size_t f = s.find("fragment ");
+			if (f != std::string::npos)
+				s.insert(f, "constexpr sampler xr_smap_dbg(filter::nearest, address::clamp_to_edge);\n");
+		}
+	}
 	if (getenv("XR_P5_SHADOW1"))
 		s = MtlReplaceCalls(s, "s_smap.sample_compare(", "1.0");
 	if (getenv("XR_P5_MAT1"))

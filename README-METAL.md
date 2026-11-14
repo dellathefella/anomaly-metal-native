@@ -16,13 +16,15 @@ cmake -S . -B build-gl -DCMAKE_BUILD_TYPE=Release \
 cmake --build build-gl -j 12
 
 data/deploy_gamedata.sh ../Anomaly      # shader + options-menu overlays
-scripts/run_metal.sh                    # launches with -renderer metal
+scripts/run_metal.sh                    # runs xr_3da from the Anomaly folder
 ```
 
-`-renderer metal` matters: without it the engine loads the GL renderer, and if
-the Metal library fails to load it falls back to GL with only a log line
-(`! renderer: xrRender_METAL.dylib failed to load ... falling back to GL`).
-Check the log when something looks off.
+Metal is the default renderer. `-renderer gl` (or `XR_RENDERER=gl`) selects the
+GL renderer instead. If the Metal library fails to load, the engine falls back
+to GL with only a log line
+(`! renderer: xrRender_METAL.dylib failed to load ... falling back to GL`), so
+check the log when something looks off; `* renderer module: metal` confirms
+which one is live.
 
 The first launch compiles every shader and is slow; later launches load from
 `appdata/shaders_cache_metal/`.

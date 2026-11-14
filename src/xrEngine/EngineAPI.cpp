@@ -144,7 +144,7 @@ extern BOOL DllMainXrRenderR4(HANDLE hModule, DWORD ul_reason_for_call, LPVOID l
 // dlopen'd into the flat namespace before the first renderer entry call
 // (DllMainXrRenderR2/SupportsAdvancedRendering bind via dynamic_lookup).
 // Selection: "-renderer metal|gl" on the command line, then $XR_RENDERER,
-// default gl. RTLD_NOW surfaces any unresolved renderer-side symbol at load.
+// default metal. RTLD_NOW surfaces any unresolved renderer-side symbol at load.
 static void xr_load_renderer_module()
 {
     static void* s_module = nullptr;
@@ -163,7 +163,8 @@ static void xr_load_renderer_module()
     }
     if (!sel)
         sel = getenv("XR_RENDERER");
-    const bool metal = sel && 0 == xr_stricmp(sel, "metal");
+    // Metal is the default; GL only when asked for explicitly.
+    const bool metal = !(sel && 0 == xr_stricmp(sel, "gl"));
 
     // RTLD_LAZY (like the win_compat LoadLibrary shim): the renderer dlopen
     // happens before xrGame is loaded, so its xrGame function refs (e.g.
